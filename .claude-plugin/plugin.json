@@ -1,0 +1,23 @@
+{
+  "name": "gabe-lens",
+  "version": "1.0.0",
+  "description": "Cognitive translation skill that transforms technical concepts into physical-system analogies, spatial maps, constraint boxes, and one-line handles — tailored for visual-spatial, conceptual-analogical thinkers.",
+  "author": {
+    "name": "Gabe (Brownbull)",
+    "url": "https://github.com/Brownbull"
+  },
+  "homepage": "https://github.com/Brownbull/gabe_lens",
+  "repository": "https://github.com/Brownbull/gabe_lens",
+  "license": "MIT",
+  "skills": ["./skills/gabe-lens"],
+  "commands": ["./commands/"],
+  "keywords": [
+    "learning",
+    "cognitive",
+    "analogies",
+    "visual-spatial",
+    "explanation",
+    "accessibility",
+    "education"
+  ]
+}
