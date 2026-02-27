@@ -1,7 +1,8 @@
 ---
 name: gabe-lens
 description: Cognitive translation skill that transforms technical concepts into physical-system analogies, spatial maps, constraint boxes, and one-line handles — tailored for visual-spatial, conceptual-analogical thinkers.
-version: 1.0.0
+metadata:
+  version: 2.0.0
 ---
 
 # Gabe Lens — Cognitive Translation Skill
@@ -44,8 +45,89 @@ This skill teaches any agent HOW to explain things so the user absorbs and retai
 
 ### The Overthinking Trap
 When the learner arrives at a simple answer quickly, the mind says "this can't be right — too easy." They search for hidden complexity, don't find it, lose energy.
-- Signal "Quick check" for simple concepts (trust first instinct)
-- Signal "Deeper question" when there are real layers to explore
+- Signal **Quick check ✓** for simple concepts (trust first instinct)
+- Signal **Deeper question ◆** when there are real layers to explore
+
+---
+
+## Compression Modes
+
+Gabe Blocks are token-expensive. A full block costs ~200-350 tokens. In agent frameworks with limited context windows, this matters. Every block can be expressed at three fidelity levels. Use the leanest mode that serves the current need.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                 COMPRESSION MODES                            │
+│                                                             │
+│  FULL BLOCK (~200-350 tokens)                               │
+│  All components present. Used when:                         │
+│  - Introducing a concept for the first time                 │
+│  - Writing documentation or handoff notes                   │
+│  - Teaching or explaining                                    │
+│                                                             │
+│  BRIEF (~40-80 tokens)                                      │
+│  One-line handle + constraint box only. Used when:          │
+│  - Referencing a previously introduced concept              │
+│  - Loading into warm context for active tasks               │
+│  - Summaries where space is tight                           │
+│                                                             │
+│  ONELINER (~5-15 tokens)                                    │
+│  One-line handle only. Used when:                           │
+│  - Compaction handoff notes                                 │
+│  - Session start re-anchoring                               │
+│  - Any context where every token counts                     │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### When to Compress
+
+| Context                                                   | Mode        | Rationale                                            |
+| --------------------------------------------------------- | ----------- | ---------------------------------------------------- |
+| First time explaining a concept                           | Full        | Needs full grounding                                 |
+| Referencing a previously explained concept                | Brief       | Needs constraint box for decisions, not full analogy |
+| Compaction handoff note                                   | Oneliner    | Must survive compression                             |
+| Session start re-anchoring                                | Oneliner    | Already grounded, just re-anchor                     |
+| Writing documentation for humans                          | Full        | Humans benefit from full format                      |
+| Quick status or summary                                   | Oneliner    | Minimum footprint                                    |
+
+### Compression Examples
+
+**Full Block:**
+```
+┌─── GABE BLOCK: Enforcement Tiers ────────────────────┐
+│  THE PROBLEM                                          │
+│  Rules in docs get ignored under fatigue...           │
+│  THE ANALOGY                                          │
+│  Gravity vs. posted speed limits...                   │
+│  ANALOGY LIMITS                                       │
+│  When reasoning about hook maintenance, gravity       │
+│  has no cost, but hooks do...                          │
+│  THE MAP                                              │
+│  Tier 1: GRAVITY ══════► Always works                 │
+│  ...                                                   │
+│  CONSTRAINT BOX                                       │
+│    IS: A reliability classification for rules         │
+│    IS NOT: A quality judgment                         │
+│    DECIDES: Where to invest enforcement effort        │
+│  ONE-LINE HANDLE                                      │
+│  "Hooks are gravity — docs are speed limit signs"     │
+│  SIGNAL: Quick check ✓                                │
+└───────────────────────────────────────────────────────┘
+```
+
+**Brief:**
+```
+ENFORCEMENT TIERS
+  IS: A reliability classification for rules
+  IS NOT: A quality judgment
+  DECIDES: Where to invest enforcement effort
+  HANDLE: "Hooks are gravity — docs are speed limit signs"
+```
+
+**Oneliner:**
+```
+"Hooks are gravity — docs are speed limit signs"
+```
 
 ---
 
@@ -62,15 +144,20 @@ When a concept is complex or critical, produce a **Gabe Block**:
 │                                                        │
 │  THE ANALOGY                                           │
 │  [Physical system mapping. Choose from: mechanical,    │
-│   chemical, electromagnetic, fluid dynamics, optical,  │
+│   fluid dynamics, optical, chemical, electromagnetic,  │
 │   thermodynamic, biological. Must be a system the      │
 │   user can visualize spatially — not an abstract       │
-│   metaphor.]                                           │
+│   metaphor. Must capture the KEY TRADE-OFF.]           │
+│                                                        │
+│  ANALOGY LIMITS                                        │
+│  [1-3 sentences. Lead with the CASE: when does this    │
+│   analogy stop working? Then explain why it breaks.    │
+│   Case first, explanation second.]                     │
 │                                                        │
 │  THE MAP                                               │
 │  [ASCII spatial diagram showing relationships, flow,   │
 │   states, or architecture. Use boxes, arrows, layers.  │
-│   This is the visual anchor — make it scannable.]      │
+│   Max 15 lines. This is the visual anchor.]            │
 │                                                        │
 │  CONSTRAINT BOX                                        │
 │    IS:      [what this concept/thing IS]               │
@@ -79,7 +166,7 @@ When a concept is complex or critical, produce a **Gabe Block**:
 │                                                        │
 │  ONE-LINE HANDLE                                       │
 │  [A memorable phrase — 5-10 words — that captures the  │
-│   essence. This must survive compaction, fatigue, and   │
+│   essence. Must survive compaction, fatigue, and        │
 │   context loss. Think bumper sticker, not abstract.]   │
 │                                                        │
 │  SIGNAL: Quick check ✓ | Deeper question ◆            │
@@ -107,6 +194,12 @@ When a concept is complex or critical, produce a **Gabe Block**:
 - Good: "It's like a pressure relief valve — flow is unrestricted until pressure hits the threshold, then the valve diverts excess to a holding tank. The threshold is your 500-operation batch limit. The holding tank is the retry queue."
 - If no good physical analogy exists, say so explicitly: "No clean physical analogy — here's how the mechanism works directly."
 
+### ANALOGY LIMITS
+- Lead with the CASE: when does this analogy stop working? What scenario breaks it?
+- Then explain WHY it breaks in that case
+- 1-3 sentences. Case first, explanation second.
+- Example: "When reasoning about retry priority, a real valve doesn't queue overflow by arrival time, but the retry queue does."
+
 ### THE MAP
 - ASCII art with boxes, arrows, and labels
 - Maximum 15 lines (scannable, not overwhelming)
@@ -124,6 +217,7 @@ When a concept is complex or critical, produce a **Gabe Block**:
 - Must be concrete, not abstract
 - Must be memorable under fatigue
 - Test: "Would this phrase mean something at 11pm after 3 compactions?"
+- Test: "If this is the ONLY thing that survives context compression, does it re-anchor the concept?"
 - Examples:
   - "Hooks are laws, docs are suggestions"
   - "The autopilot resets every 27 minutes"
@@ -133,6 +227,28 @@ When a concept is complex or critical, produce a **Gabe Block**:
 ### SIGNAL
 - **Quick check ✓** — The concept is straightforward. First instinct is probably right. Don't overthink.
 - **Deeper question ◆** — There are real layers here. The surface answer isn't enough. Sit with it.
+
+---
+
+## Analogy Hygiene
+
+Analogies are powerful but they have a failure mode: **analogy rot.** An analogy that fits perfectly today can become misleading as the underlying system evolves.
+
+### Prevention
+Every block includes an ANALOGY LIMITS field that documents where the analogy breaks NOW, so readers know the boundaries upfront.
+
+### Detection
+When revisiting a concept or updating documentation, check:
+1. Read the ANALOGY LIMITS field
+2. Ask: "Has the system evolved past any of these limits?"
+3. If yes: update the analogy or replace it
+4. If approaching: flag for next review
+
+### Repair
+When an analogy no longer fits:
+1. **Don't patch — replace.** A patched analogy is worse than a fresh one.
+2. **Keep the one-line handle if it still works.** Handles often outlive their analogies.
+3. If the handle also breaks, the concept may have fundamentally changed — reconsider the full block.
 
 ---
 
@@ -151,7 +267,7 @@ When a concept is complex or critical, produce a **Gabe Block**:
 - Code that speaks for itself (a 3-line function doesn't need an analogy)
 - Concepts the user has already demonstrated understanding of (avoid condescension)
 
-**APPLY LIGHTLY (one-line handle + signal only) for:**
+**APPLY LIGHTLY (brief or oneliner) for:**
 - Reinforcement of previously explained concepts
 - Context reminders at session start or compaction
 - Quick status summaries
@@ -197,6 +313,12 @@ When invoked as `/gabe-lens annotate [file]`, read the target document, identify
 │  the sign AND chooses to comply. Tier 2 (workflows)    │
 │  is like a speed bump — it slows you down IF you       │
 │  drive over it, but you can take a different road.     │
+│                                                        │
+│  ANALOGY LIMITS                                        │
+│  When reasoning about hook maintenance burden, gravity   │
+│  has no cost and is uniform, but real hooks can be       │
+│  misconfigured, disabled, or have false positives with   │
+│  execution overhead.                                     │
 │                                                        │
 │  THE MAP                                               │
 │                                                        │
@@ -249,6 +371,13 @@ When invoked as `/gabe-lens annotate [file]`, read the target document, identify
 │  open the door 6x per day, the compressor runs         │
 │  constantly. If you open it once, the food (context)   │
 │  stays cold (fresh) and the compressor barely runs.    │
+│                                                        │
+│  ANALOGY LIMITS                                        │
+│  When deciding what to KEEP vs. DISCARD during          │
+│  compaction, opening a fridge doesn't lose food, just   │
+│  warms it, but compaction actually deletes detail.       │
+│  Also re-reading is not uniform like cooling; some       │
+│  files get re-read far more than others.                │
 │                                                        │
 │  THE MAP                                               │
 │                                                        │
