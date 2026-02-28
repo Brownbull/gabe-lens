@@ -4,6 +4,28 @@ Cognitive translation plugin for Claude Code. Transforms complex technical conce
 
 Built for **visual-spatial, conceptual-analogical, top-down constraint-driven** thinkers who learn best through the sequence: **Problem → Analogy → Code**.
 
+## Why This Exists
+
+gabe-lens started as a personal experiment: **what happens when you use AI to reverse-engineer how your own brain learns?**
+
+I sat down with Claude and deliberately tried to learn a complex topic — attention mechanisms in neural networks. But the real goal wasn't understanding attention. It was watching *how my mind processed* the explanation, in real time, and having Claude observe and document the patterns.
+
+What we discovered:
+
+- **I don't reach for equations — I reach for metaphors.** When learning how Query/Key/Value works in transformers, I spontaneously generated analogies: spheres reflecting light onto each other, chemical reactions with temperature and state, Schrödinger's cat for "Value is what you get when you open the box." These weren't decorations — they were my primary reasoning substrate.
+
+- **I reason top-down, not bottom-up.** My mind asks "why does this exist?" before "how does it work?" Purpose first, constraints second, mechanism last.
+
+- **I learn in spirals.** When I built a neural network from scratch, I went: constrained prototype → generalize → formalize with math → refine. I don't need complete understanding to start.
+
+- **I have an overthinking trap.** When a correct answer comes fast, an internal voice says "this can't be right — too easy," and I spiral searching for hidden complexity that isn't there. The IS NOT field in constraint boxes was designed specifically to short-circuit this.
+
+These weren't abstract theories — they were patterns observed during actual learning exercises, documented in real time. Once we had the cognitive profile, the next question was obvious: can we turn this into a reusable format that any AI session can apply?
+
+That's gabe-lens. The learning profile became the SKILL.md. The explanation sequence that worked (Problem → Analogy → Code) became the Gabe Block. The overthinking trap mitigation became the constraint box. The one-liners I remembered days later became the one-line handles.
+
+**It's not a prompt template.** It's a cognitive translation layer built from empirical self-observation.
+
 ## What It Does
 
 When you encounter a complex concept, `/gabe-lens` produces a **Gabe Block** — a structured explanation format:
@@ -28,22 +50,23 @@ When you encounter a complex concept, `/gabe-lens` produces a **Gabe Block** —
 
 ## Installation
 
-### From GitHub (recommended)
+### From Claude Code (recommended)
 
-```bash
-claude plugin add Brownbull/gabe_lens
+Inside a Claude Code session, add the marketplace and install the plugin:
+
+```
+/plugin marketplace add Brownbull/gabe_lens
+/plugin install gabe-lens@Brownbull-gabe_lens
 ```
 
-### Manual installation
+### Local testing
 
-Add to your `~/.claude/settings.json`:
+Clone and load directly:
 
-```json
-{
-  "enabledPlugins": {
-    "gabe-lens@Brownbull/gabe_lens": true
-  }
-}
+```bash
+git clone https://github.com/Brownbull/gabe_lens.git
+claude --plugin-dir ./gabe_lens
+
 ```
 
 ## Usage
