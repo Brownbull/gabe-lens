@@ -32,20 +32,20 @@ When you encounter a complex concept, `/gabe-lens` produces a **Gabe Block** —
 
 ```
 ┌─── GABE BLOCK: [Concept] ────────────────────────────┐
-│                                                        │
-│  THE PROBLEM   — Why this exists (purpose-first)       │
-│  THE ANALOGY   — Physical system you can visualize     │
-│  ANALOGY LIMITS — Where the analogy breaks             │
-│  THE MAP       — ASCII spatial diagram                 │
-│  CONSTRAINT BOX                                        │
-│    IS:      what it is                                 │
-│    IS NOT:  what it isn't (prevents overthinking)      │
-│    DECIDES: what trade-off it resolves                 │
-│  ONE-LINE HANDLE — memorable phrase that survives       │
-│                    fatigue and context loss             │
-│  SIGNAL — Quick check ✓ or Deeper question ◆           │
-│                                                        │
-└────────────────────────────────────────────────────────┘
+│                                                      │
+│  THE PROBLEM   — Why this exists (purpose-first)     │
+│  THE ANALOGY   — Physical system you can visualize   │
+│  ANALOGY LIMITS — Where the analogy breaks           │
+│  THE MAP       — ASCII spatial diagram               │
+│  CONSTRAINT BOX                                      │
+│    IS:      what it is                               │
+│    IS NOT:  what it isn't (prevents overthinking)    │
+│    DECIDES: what trade-off it resolves               │
+│  ONE-LINE HANDLE — memorable phrase that survives    │
+│                    fatigue and context loss          │
+│  SIGNAL — Quick check ✓ or Deeper question ◆        │
+│                                                      │
+└──────────────────────────────────────────────────────┘
 ```
 
 ## Installation
