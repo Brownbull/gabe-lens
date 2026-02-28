@@ -3,11 +3,11 @@
   "version": "2.0.0",
   "description": "Cognitive translation skill that transforms technical concepts into physical-system analogies, spatial maps, constraint boxes, and one-line handles — with compression modes and analogy hygiene. Tailored for visual-spatial, conceptual-analogical thinkers.",
   "author": {
-    "name": "Gabe (Brownbull)",
-    "url": "https://github.com/Brownbull"
+    "name": "Gabe (khujta)",
+    "url": "https://github.com/khujta"
   },
-  "homepage": "https://github.com/Brownbull/gabe_lens",
-  "repository": "https://github.com/Brownbull/gabe_lens",
+  "homepage": "https://github.com/khujta/gabe-lens",
+  "repository": "https://github.com/khujta/gabe-lens",
   "license": "MIT",
   "skills": ["./skills/gabe-lens"],
   "commands": ["./commands/"],

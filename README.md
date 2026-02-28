@@ -55,8 +55,8 @@ When you encounter a complex concept, `/gabe-lens` produces a **Gabe Block** —
 Inside a Claude Code session, add the marketplace and install the plugin:
 
 ```
-/plugin marketplace add Brownbull/gabe_lens
-/plugin install gabe-lens@Brownbull-gabe_lens
+/plugin marketplace add khujta/gabe-lens
+/plugin install gabe-lens@khujta-gabe-lens
 ```
 
 ### Local testing
@@ -64,7 +64,7 @@ Inside a Claude Code session, add the marketplace and install the plugin:
 Clone and load directly:
 
 ```bash
-git clone https://github.com/Brownbull/gabe_lens.git
+git clone https://github.com/khujta/gabe-lens.git
 claude --plugin-dir ./gabe_lens
 
 ```

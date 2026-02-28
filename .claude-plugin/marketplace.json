@@ -1,8 +1,8 @@
 {
   "name": "gabe-lens",
   "owner": {
-    "name": "Brownbull",
-    "email": "brownbull@users.noreply.github.com"
+    "name": "khujta",
+    "email": "khujta@users.noreply.github.com"
   },
   "metadata": {
     "description": "Cognitive translation plugin for Claude Code. Transforms complex technical concepts into physical-system analogies, ASCII spatial maps, constraint boxes, and memorable one-line handles."
@@ -13,10 +13,10 @@
       "source": "./",
       "description": "Transform technical concepts into your cognitive format — analogies, spatial maps, constraint boxes.",
       "author": {
-        "name": "Brownbull"
+        "name": "khujta"
       },
-      "homepage": "https://github.com/Brownbull/gabe_lens",
-      "repository": "https://github.com/Brownbull/gabe_lens",
+      "homepage": "https://github.com/khujta/gabe-lens",
+      "repository": "https://github.com/khujta/gabe-lens",
       "license": "MIT",
       "category": "learning",
       "tags": ["learning", "cognitive", "analogies", "visual-spatial", "explanation"]
