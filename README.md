@@ -24,6 +24,7 @@ A growing collection of skills that transform how you understand, review, and de
 | **Gabe Lens** | `/gabe-lens` | Cognitive translation — transforms concepts into analogies, spatial maps, constraint boxes, and one-line handles |
 | **Gabe Lens Calibrate** | `/gabe-lens-calibrate` | Discover your cognitive suit — same concept in 4 styles, pick the one that clicks |
 | **Gabe Roast** | `/gabe-roast` | Adversarial gap review — stress-tests any target from a required perspective, classified by maturity and importance |
+| **Gabe Assess** | `/gabe-assess` | Change impact assessment — blast radius, maturity scope, prerequisites, and alternatives before committing |
 
 ---
 
@@ -231,6 +232,63 @@ Both inputs are **required** — if either is missing, the skill asks before pro
 ### Classification
 
 Gaps are grouped by **maturity level** (MVP / Enterprise / Scale), then by **importance** (Critical / High / Medium / Low). Each gap includes a Gabe Lens one-liner, effort estimate with confidence, and the cost of inaction.
+
+---
+
+## Gabe Assess
+
+Rapid change impact assessment. Pauses before an "obvious yes" to surface what a proposed change actually means before you commit.
+
+### See it in action
+
+Someone proposes fixing CORS on a shared staging bucket. Before saying yes:
+
+```
+/gabe-assess Fix Storage CORS for staging scan testing
+```
+
+```
+GABE ASSESS: Fix Storage CORS for staging scan testing
+Context: blocker
+
+D1 BLAST RADIUS: External
+   Bucket is shared with Gustify. CORS changes affect all apps.
+
+D2 MATURITY SCOPE: MVP
+   Current: MVP. Proposed: MVP-appropriate config change.
+   Match — but shared infra elevates risk.
+
+D3 PREREQUISITES:
+   - Verify Gustify doesn't have its own CORS config
+   - Check who deploys staging rules (INC-001)
+
+D4 ALTERNATIVES:
+   [A] Do nothing — defer E2E, unit tests already prove it
+   [B] Minimal    — gsutil cors set + allowedEmails entry (S)
+   [C] Proper     — combined rules deploy from Gustify repo (M)
+   [D] Workaround — test via admin script, bypass client (S)
+
+RECOMMENDATION: [B] — neither change touches shared rules file
+ONE-LINER: "Bucket knob and guest list — don't redecorate the shared house"
+```
+
+### Usage
+
+```
+/gabe-assess [change description]           # Full assessment
+/gabe-assess bf [change]                    # Brief (4 lines)
+/gabe-assess il [change]                    # Inline (1 sentence)
+/gabe-assess batch [change 1] + [change 2]  # Multiple changes
+```
+
+### Assessment dimensions
+
+| Dimension | Question |
+|---|---|
+| **D1 Blast Radius** | What does this touch? (Contained / Local / Cross-cutting / External) |
+| **D2 Maturity Scope** | Is this the right level of fix for where we are? (MVP / Enterprise / Scale) |
+| **D3 Prerequisites** | What must be true before this change is safe? |
+| **D4 Alternatives** | Is there a simpler, cheaper, or more appropriate path? |
 
 ---
 

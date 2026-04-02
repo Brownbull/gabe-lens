@@ -15,11 +15,14 @@ gabe_lens/
     gabe-align/
       SKILL.md              — Pre-flight alignment check
       VALUES.md             — Curated alignment values (A1–A7)
+    gabe-assess/
+      SKILL.md              — Change impact assessment
   commands/
     gabe-lens.md            — /gabe-lens command
     gabe-lens-calibrate.md  — /gabe-lens-calibrate command
     gabe-roast.md           — /gabe-roast command
     gabe-align.md           — /gabe-align command
+    gabe-assess.md          — /gabe-assess command
   assets/                   — Images for README
   README.md                 — Public-facing documentation
   CLAUDE.md                 — This file
@@ -43,6 +46,7 @@ gabe_lens/
 | **gabe-lens** | 2.1.0 | Transforms concepts into analogies, maps, constraint boxes, handles. Adapts to cognitive suit. |
 | **gabe-roast** | 1.0.0 | Adversarial gap review from a required perspective, classified by maturity + importance |
 | **gabe-align** | 1.0.0 | Pre-flight alignment check against curated values. Three modes: shadow, standard, deep |
+| **gabe-assess** | 1.0.0 | Rapid change impact assessment. Blast radius, maturity scope, prerequisites, alternatives |
 
 ## Commands
 
@@ -52,6 +56,7 @@ gabe_lens/
 | `/gabe-lens-calibrate` | gabe-lens | Discover your cognitive suit (interactive, one-time) |
 | `/gabe-roast` | gabe-roast | Adversarial gap review (full, brief) |
 | `/gabe-align` | gabe-align | Pre-flight alignment check (shadow, standard, deep) |
+| `/gabe-assess` | gabe-assess | Change impact assessment (full, brief, inline, batch) |
 
 ## Adding a New Skill
 
