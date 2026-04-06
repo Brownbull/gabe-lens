@@ -64,6 +64,16 @@ Never auto-detect from test count or CI presence. Maturity is a human decision.
 
 ## Review Process
 
+### Step 0.5: Load KDBP Context (if available)
+
+If `.kdbp/LEDGER.md` exists, read the last 5 checkpoint entries. For each:
+- If a value was CONCERN on a file that's in the current diff → note it as prior signal
+- If a scenario was ❌ on a file that's in the current diff → pre-seed as expected finding
+
+This means gabe-review knows what the automatic checkpoints already flagged. If the checkpoint said "test gap on rateLimiter.ts" across 3 commits, and rateLimiter.ts is in this diff, the finding starts with context: "flagged by checkpoint 3 times" — which amplifies the severity beyond what the diff alone would show.
+
+If no `.kdbp/LEDGER.md` exists, skip this step silently.
+
 ### Step 1: Load Deferred Backlog
 
 Before reviewing new code, check for existing deferred items:

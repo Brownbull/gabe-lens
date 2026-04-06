@@ -238,6 +238,16 @@ After displaying, append to `.kdbp/LEDGER.md`:
 U1:PASS U2:CONCERN V1:PASS V2:PASS | Scenarios: 4/6 covered | Committed: pending
 ```
 
+### Checkpoint ❌ → Deferred Item Handoff
+
+If the user proceeds with a commit despite ❌ untested scenarios, write those scenarios to `.kdbp/deferred-cr.md` as new deferred items:
+
+```markdown
+| D3 | 2026-04-05 | checkpoint | Empty pantry scenario untested | suggestRecipes.ts | UNTESTED PATH — P(high), I(high) | 1 | Deferred |
+```
+
+Source is "checkpoint" (not a review name). This ensures that when `/gabe-review` runs next, it finds these items in the deferred backlog. If the same gap appears in the review's branch-test detection, `Times Deferred` increments to 2 → ⚠️ ESCALATED. This closes the loop between the automatic checkpoint and the manual review.
+
 ---
 
 ## Scenario Check (Automatic Checkpoint Only)
