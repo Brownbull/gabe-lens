@@ -214,7 +214,7 @@ Handle: "[one-liner for the batch decision]"
 ## Integration with Other Skills
 
 - **After gabe-roast**: Roast finds gaps. Assessment triages which gaps to fix and how. Use `/gabe-assess` on each gap's suggested fix before implementing.
-- **Before gabe-align**: If the proposed change is large enough to question alignment, run `/gabe-align shadow` first, then `/gabe-assess` on the aligned approach.
+- **Before gabe-align**: If the proposed change is large enough to question alignment, run `/gabe-align shallow` first, then `/gabe-assess` on the aligned approach.
 - **With gabe-lens**: Assessment one-liners use Gabe Lens format. If the user needs to understand WHY a change has cross-cutting blast radius, use `/gabe-lens` on the underlying concept.
 
 ---

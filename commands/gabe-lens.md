@@ -74,3 +74,17 @@ Read a document and produce a companion file with Gabe Blocks for its key concep
    - Reference the source document at the top
    - Present Gabe Blocks in the order they appear in the source
    - Include a brief intro explaining what this file is
+
+### Mode 5: Calibrate (`calibrate`)
+
+**Usage:** `/gabe-lens calibrate` or `/gabe-lens calibrate reset`
+
+Interactive calibration to find which cognitive suit matches how you think. The result is saved globally so all future `/gabe-lens` output adapts to your style.
+
+1. Read the suit definitions from `skills/gabe-lens/SUITS.md`
+2. Present 3 concept options (Simple: Caching, Medium: Event-driven architecture, Complex: Consensus algorithms)
+3. Generate a FULL Gabe Block in each of the 4 suits for the chosen concept
+4. User picks the one that clicked fastest
+5. Save selected suit to `~/.claude/gabe-lens-profile.md`
+
+**Reset:** `/gabe-lens calibrate reset` — deletes the profile, returns to default (Spatial-Analogical)

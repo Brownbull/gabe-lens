@@ -1,4 +1,4 @@
-Load and follow the skill at `skills/gabe-cr/SKILL.md` (project-local) or `~/.claude/skills/gabe-cr/SKILL.md` (global).
+Load and follow the skill at `skills/gabe-review/SKILL.md` (project-local) or `~/.claude/skills/gabe-review/SKILL.md` (global).
 
 Review code changes with risk pricing and deferred item tracking.
 

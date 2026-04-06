@@ -1,15 +1,15 @@
 ---
 name: gabe-align
-description: "Pre-flight alignment check against curated values. Modes: shadow (core only), standard (all values), deep (alignment brief). Usage: /gabe-align [mode] [target]"
+description: "Alignment guardian — shallow/standard/deep checks plus automatic checkpoint at commit/PR. Usage: /gabe-align [mode] [target] or /gabe-align init [project]"
 ---
 
 # Gabe Align
 
-Pre-flight alignment check. Tests proposed work against curated values before building.
+Alignment guardian. Manual pre-flight checks + automatic checkpoint at commit/PR boundaries.
 
 ## Before Anything Else
 
-Read the full skill definition from the gabe-align skill (`SKILL.md`) and the values from `VALUES.md`. Both are required.
+Read the full skill definition from the gabe-align skill (`SKILL.md`) and the values from `VALUES.md`. Both are required. Also read `~/.kdbp/VALUES.md` (user-level) and `.kdbp/VALUES.md` (project-level) if they exist.
 
 ## Modes
 
@@ -17,38 +17,50 @@ Read the full skill definition from the gabe-align skill (`SKILL.md`) and the va
 
 **Usage:** `/gabe-align [target]`
 
-Full alignment check against all Standard-tier values. Steps:
+Full alignment check against all loaded values (structural A1-A7 + user U* + project V*).
 
-1. Read gabe-align SKILL.md for procedure and behavior rules
-2. Read VALUES.md for current values and their tests
-3. Identify the target (file path, intent description, task reference, or "this conversation")
-4. If target is a file/folder: read it fully
-5. If target is a task reference (dev-story N, code-review N): look for sprint-status.yaml, TASKS.md, or STORIES.md in the project root. If not found, ask the user.
-6. If available, load cognitive profile from ~/.claude/gabe-lens-profile.md
-7. Run each Standard-tier value’s test against the target
-8. Produce the standard output format
-9. If gaps found that no value covers, propose a new value
+### Mode 2: Shallow (`shallow` | `sf` | `bf`)
 
-### Mode 2: Shadow (`shadow` | `sf` | `bf`)
+**Usage:** `/gabe-align shallow [target]`
 
-**Usage:** `/gabe-align shadow [target]` or `/gabe-align sf [target]`
-
-Core values only. 3-5 line output. Steps:
-
-1. Read VALUES.md for Core values only (A1-A3)
-2. Identify the target
-3. Run each Core value’s test
-4. Produce shadow output (one line per value)
+Core values + project values only. 3-5 line output. Quick sanity check.
 
 ### Mode 3: Deep (`deep` | `dp`)
 
-**Usage:** `/gabe-align deep [target]` or `/gabe-align dp [target]`
+**Usage:** `/gabe-align deep [target]`
 
-Full check plus alignment brief. Steps:
+Full check plus alignment brief with intent, risks, recommended approach, and open questions.
 
-1. Read gabe-align SKILL.md and VALUES.md
-2. Identify the target
-3. If available, load cognitive profile
-4. Run all value tests (Core + Standard + applicable Extended)
-5. Produce standard alignment output
-6. Produce alignment brief with: Intent, Cognitive Profile Constraints, Structural Risks, Recommended Approach, Open Questions, Values to Watch
+## Subcommands
+
+### Init Project
+
+**Usage:** `/gabe-align init [project-name]`
+
+Create `.kdbp/` directory with BEHAVIOR.md and VALUES.md. Interactive — asks about project domain, maturity, and core values.
+
+### Init User
+
+**Usage:** `/gabe-align init-user`
+
+Create `~/.kdbp/VALUES.md` with universal values for all projects. Interactive.
+
+### Status
+
+**Usage:** `/gabe-align status`
+
+Show all loaded values (user + project) and whether `.kdbp/` exists.
+
+### Migrate
+
+**Usage:** `/gabe-align migrate`
+
+Convert old `_kdbp/behaviors/` to new `.kdbp/` format.
+
+### Evolve
+
+**Usage:** `/gabe-align evolve`
+
+Review value PASS/CONCERN frequency and suggest changes.
+
+$ARGUMENTS

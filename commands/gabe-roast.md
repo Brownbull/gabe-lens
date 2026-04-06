@@ -20,11 +20,11 @@ Read the full skill definition from the gabe-roast skill (`SKILL.md`). This cont
 
 ## Pre-Roast Alignment Gate
 
-Before executing any roast, run a shadow alignment check:
+Before executing any roast, run a shallow alignment check:
 
 1. Read gabe-align VALUES.md for Core values (A1-A3)
 2. Run each Core value’s test against the roast target
-3. Print the shadow result before the roast output:
+3. Print the shallow result before the roast output:
    - All PASS: proceed normally
    - Any CONCERN: print warning, proceed with roast
    - Any FAIL: print warning + "Foundational alignment issue detected on [value]. Consider running /gabe-align standard before roasting implementation details. Proceed anyway?"

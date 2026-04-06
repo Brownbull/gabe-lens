@@ -19,8 +19,8 @@ Before producing any Gabe Block, check for a profile at `~/.claude/gabe-lens-pro
 
 - **If the file exists:** read the `suit` field from frontmatter. Load the matching suit from `SUITS.md` and adapt all output accordingly.
 - **If the file does not exist:** use the default suit (Spatial-Analogical) described below.
-- **To calibrate:** run `/gabe-lens-calibrate`. This presents the same concept in 4 suits and saves the user's choice.
-- **To reset to default:** run `/gabe-lens-calibrate reset`.
+- **To calibrate:** run `/gabe-lens calibrate`. This presents the same concept in 4 suits and saves the user's choice.
+- **To reset to default:** run `/gabe-lens calibrate reset`.
 
 Available suits: Spatial-Analogical (default), Sequential-Procedural, Abstract-Structural, Narrative-Contextual. Full definitions in `SUITS.md`.
 
