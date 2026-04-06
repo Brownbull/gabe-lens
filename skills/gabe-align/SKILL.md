@@ -210,13 +210,17 @@ Same as Standard, plus:
 
 ### Automatic Checkpoint (at commit/PR)
 
+Only evaluates **session** and **story** altitude values (not epic). Only uses Hot tier context.
+
 ```
 📋 KDBP Checkpoint — Pre-Commit
 
-Values (U=user, V=project):
+Values (session+story altitude only):
   U1 — Verify Before Shipping: ✅ PASS
   U2 — Say Why: ⚠️ CONCERN — new error message gives no context
-  V1 — One New Thing: ✅ PASS
+  V1 — Cook First: ✅ PASS
+  V2 — Nothing Rots: ✅ PASS
+  (V3 — Shared Floor: skipped — epic altitude)
 
 Test Scenarios:
   suggestRecipes.ts:
@@ -226,6 +230,12 @@ Test Scenarios:
 
 Action: 2 untested scenarios + 1 value concern.
   Fix now, or commit and track as deferred: /gabe-review deferred
+```
+
+After displaying, append to `.kdbp/LEDGER.md`:
+```
+## 2026-04-05 14:30 — Checkpoint (pre-commit)
+U1:PASS U2:CONCERN V1:PASS V2:PASS | Scenarios: 4/6 covered | Committed: pending
 ```
 
 ---
@@ -248,6 +258,31 @@ At commit/PR boundaries, after evaluating values, Claude reads the modified sour
 - Only `.md`, `.json`, `.yaml`, or config files changed (no source code)
 - Trivial fix (single-line typo, import fix)
 
+### Checkpoint Logging
+
+After the checkpoint runs (values + scenarios), append a one-line summary to `.kdbp/LEDGER.md`:
+
+```
+## 2026-04-05 14:30 — Checkpoint (pre-commit)
+U1:PASS U2:CONCERN V1:PASS V2:PASS | Scenarios: 2/3 covered | Committed: yes
+```
+
+This gives `/gabe-align evolve` data to analyze. The ledger is append-only — never read during normal checkpoint flow, only by `evolve`.
+
+---
+
+## Context Tiers
+
+Not all values need to be in context at all times. Load by tier to avoid context pollution:
+
+| Tier | What | When loaded | Cost |
+|------|------|-------------|------|
+| **Hot** | User values (U*) + project values (V*) | SessionStart hook — always | ~500 bytes |
+| **Warm** | Structural values (A1-A7) | On `/gabe-align standard` or `deep` invocation | ~2KB |
+| **Cold** | Ledger history, evolution data | Only by `/gabe-align evolve` | Variable |
+
+The automatic checkpoint at commit/PR only uses **Hot** tier values. Structural values (A1-A7) are design-level guards — they're checked when you deliberately run `/gabe-align standard`, not on every commit.
+
 ---
 
 ## Project Files
@@ -256,6 +291,7 @@ At commit/PR boundaries, after evaluating values, Claude reads the modified sour
 .kdbp/
 ├── BEHAVIOR.md     # Project name, domain, maturity, active focus (~500 words)
 ├── VALUES.md       # Project-specific value handles (3-7 values)
+├── LEDGER.md       # Checkpoint history (auto-appended, one line per checkpoint)
 └── deferred-cr.md  # Shared with gabe-review (created on first deferral)
 ```
 
@@ -284,10 +320,34 @@ Followed by markdown describing purpose, active focus, and constraints. Keep und
 ```markdown
 # [User|Project] Values
 
-- **[ID] — [Name]:** [One sentence a tired developer can read and immediately know what to do]
+- **[ID] — [Name]:** [One sentence] `[altitude]`
 ```
 
-Rules:
+Example:
+```markdown
+# Project Values
+
+- **V1 — Cook First:** Every decision starts from "does this help someone cook better?" `session`
+- **V2 — Nothing Rots:** Use what's expiring before what's exciting `story`
+- **V3 — Shared Floor:** Never deploy rules without cross-app validation `epic`
+```
+
+### Altitude
+
+Each value has an altitude that determines WHEN it gets checked:
+
+| Altitude | Meaning | Checked at |
+|----------|---------|------------|
+| `session` | Real-time relevance — check every checkpoint | Automatic checkpoint (commit/PR) |
+| `story` | Per-feature relevance — check during feature work | Automatic checkpoint + `/gabe-align shallow` |
+| `epic` | System-level relevance — check during planning/closing | `/gabe-align standard` and `deep` only |
+
+If no altitude is specified, default to `session` (checked at every checkpoint).
+
+At automatic checkpoints, only evaluate `session` and `story` altitude values. This keeps the checkpoint lightweight — epic-level values won't fire noise on session-level commits.
+
+### Rules
+
 - Maximum 7 per level (user: 3-5, project: 3-7)
 - Each must be testable: you can look at a diff and say PASS or CONCERN
 - Use the project's language, not abstract principles
@@ -319,9 +379,21 @@ Reads old `_kdbp/behaviors/*/VALUES.md` and `BEHAVIOR.md`. Copies values and beh
 
 ### `/gabe-align evolve`
 
-Reviews recent checkpoint results. Counts per-value PASS/CONCERN frequency. Suggests:
-- Values violated 3+ times → "Reword, escalate, or accept?"
-- Values passing 10+ times → "Internalized — graduate out, or keep as safety net?"
+Reviews checkpoint history from `.kdbp/LEDGER.md`. Counts per-value PASS/CONCERN frequency across recent entries.
+
+**Process:**
+1. Read `.kdbp/LEDGER.md` — parse the one-line checkpoint entries
+2. Count per-value: how many PASS, how many CONCERN, across last 10-20 entries
+3. Surface patterns:
+
+| Pattern | Trigger | Suggestion |
+|---------|---------|------------|
+| Value CONCERN 3+ times | Recurring violation | "V2 has been CONCERN in 3 of last 5 checkpoints. Options: (a) reword to be more specific, (b) escalate — make it block commits, (c) accept — this is a known tradeoff" |
+| Value PASS 10+ consecutive | Internalized | "U1 has been PASS for 10 straight checkpoints. Options: (a) graduate it out — add a new value, (b) keep as safety net, (c) tighten the test" |
+| Scenario ❌ recurring on same file | Persistent coverage gap | "suggestRecipes.ts has had untested scenarios in 4 of last 6 checkpoints. Consider: /gabe-roast qa suggestRecipes.ts" |
+| No checkpoints in ledger | Never run | "No checkpoint data yet. Run a few sessions with the hooks active, then try evolve again." |
+
+4. If the user approves a value change, update VALUES.md directly
 
 ---
 
