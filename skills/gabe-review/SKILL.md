@@ -193,13 +193,31 @@ Items from this review + unresolved deferred backlog, ordered by risk:
 | D1 | [review name] | N days | [description] | file | [risk] | [status] |
 | ... | | | | | | |
 
+### Coverage Confidence
+
+Before producing the verdict, assess coverage confidence:
+
+| Condition | Coverage | Effect |
+|---|---|---|
+| All changed source files have corresponding test changes | HIGH | No cap |
+| Some test gaps exist but none on error handling paths | MEDIUM | No cap |
+| Test gaps exist on error handling / fail-open / fallback paths | LOW | Verdict capped at WARNING |
+| Multiple untested branches on HOT files | VERY LOW | Verdict capped at BLOCK |
+
+Format in output:
+```
+Coverage: LOW (2 untested error-handling branches) — verdict capped at WARNING
+```
+
 ### Verdict
 
 [APPROVE|WARNING|BLOCK] — [reason]
 
-- APPROVE: No CRITICAL, no ESCALATED deferrals above maturity gate
-- WARNING: HIGH findings exist but within maturity tolerance
-- BLOCK: CRITICAL present, or ESCALATED deferrals (2+ times), or maturity gate exceeded
+- APPROVE: No CRITICAL, no ESCALATED deferrals above maturity gate, coverage confidence ≥ MEDIUM
+- WARNING: HIGH findings within maturity tolerance, OR coverage confidence LOW (caps verdict)
+- BLOCK: CRITICAL present, OR ESCALATED deferrals (2+ times), OR coverage VERY LOW, OR maturity gate exceeded
+
+**Deferred items must be tracked before verdict:** If any findings are deferred during this review, write them to `deferred-cr.md` BEFORE producing the verdict. If the user declines to track deferred items, the verdict cannot be APPROVE — downgrade to WARNING with note: "Deferred items not tracked — risk of invisible debt."
 
 ### Session Estimate
 Fixing [CRITICAL+HIGH]: ~Nh | Fixing all: ~Nh | Deferring [count]: risk exposure ≈ [summary]
@@ -266,4 +284,4 @@ File format:
 | Multiple findings in same area | Run `/gabe-roast [perspective]` on that area |
 | Alignment concern (wrong direction) | Run `/gabe-align shallow` to check values |
 | Deferred item reaches 3+ deferrals | BLOCK. Suggest `/gabe-roast qa` for test coverage roast |
-| KDBP checkpoint showed untested scenarios | Those scenarios become findings in gabe-cr with severity HIGH |
+| KDBP checkpoint showed untested scenarios | Those scenarios become findings in gabe-review with severity HIGH |
