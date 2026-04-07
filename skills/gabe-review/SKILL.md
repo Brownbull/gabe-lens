@@ -1,8 +1,8 @@
 ---
 name: gabe-review
-description: "Code review with risk pricing, deferred item tracking, and maturity-appropriate severity. Surfaces the cost of NOT fixing each finding. Usage: /gabe-review [target] or /gabe-review deferred"
+description: "Code review with risk pricing, confidence scoring, interactive triage, and deferred item tracking. Surfaces the cost of NOT fixing each finding. Usage: /gabe-review [target] or /gabe-review deferred"
 metadata:
-  version: 1.1.0
+  version: 1.3.0
 ---
 
 # Gabe Review — Code Review with Risk Pricing
@@ -11,7 +11,7 @@ metadata:
 
 Review code changes and price every finding — what it costs to fix now, what it costs to ignore, and what you're betting by deferring. Track deferred items across reviews and escalate when the same gap gets kicked down the road.
 
-This is NOT a generic checklist review. Every finding gets a **Defer Risk** (consequence + probability) and a **Maturity Gate** (MVP/Enterprise/Scale). The output is a risk matrix that lets humans make informed ship/defer decisions.
+This is NOT a generic checklist review. Every finding gets a **Defer Risk** (consequence + probability) and a **Maturity Gate** (MVP/Enterprise/Scale). The output is a risk matrix with a **Review Confidence Score** that lets humans make informed ship/defer decisions — and an interactive **Triage** loop to resolve findings on the spot.
 
 ---
 
@@ -22,6 +22,7 @@ This is NOT a generic checklist review. Every finding gets a **Defer Risk** (con
 - A code review (CE:review, BMad, manual) approved with deferred items and you want to price the risk
 - You want to see all accumulated deferred items and their escalation status
 - You need to decide between "fix now" and "defer" with real risk information
+- You want to fix findings interactively without leaving the review context (`/gabe-review fix`)
 
 **Don't use when:**
 - You need deep multi-persona review (use CE:review or BMad code-review first, then /gabe-review post-review)
@@ -70,7 +71,7 @@ If `.kdbp/LEDGER.md` exists, read the last 5 checkpoint entries. For each:
 - If a value was CONCERN on a file that's in the current diff → note it as prior signal
 - If a scenario was ❌ on a file that's in the current diff → pre-seed as expected finding
 
-This means gabe-review knows what the automatic checkpoints already flagged. If the checkpoint said "test gap on rateLimiter.ts" across 3 commits, and rateLimiter.ts is in this diff, the finding starts with context: "flagged by checkpoint 3 times" — which amplifies the severity beyond what the diff alone would show.
+This means gabe-review knows what the automatic checkpoints already flagged. Prior signals add a `FLAGGED (Nx)` annotation to the finding (where N = number of checkpoint flags). If flagged 3+ times, bump severity by one tier (LOW→MEDIUM, MEDIUM→HIGH, HIGH→CRITICAL). Do not bump findings already at CRITICAL.
 
 If no `.kdbp/LEDGER.md` exists, skip this step silently.
 
@@ -85,7 +86,7 @@ Before reviewing new code, check for existing deferred items:
    - If file matches, compare Finding text with >50% word overlap
    - If file was renamed (detected via `git diff --find-renames`), match on Finding text alone with >70% overlap
 4. If addressed: mark as `Resolved` in the file (use Edit tool to update the table row)
-5. If NOT addressed and same file is in the diff: increment `Times Deferred` and apply escalation rules
+5. If NOT addressed and the diff touches the same function or within 20 lines of the finding's original location: increment `Times Deferred` and apply escalation rules. Changes elsewhere in the same file do NOT trigger escalation.
 
 ### Step 2: Review the Diff
 
@@ -175,6 +176,193 @@ Every finding gets these fields:
 
 **Risk score for sorting:** Rank by probability first, then impact within same probability. In the Risk Dashboard, highest risk items appear first.
 
+### Step 4.5: Review Confidence Score
+
+After pricing all findings, compute a **Review Confidence Score** (0–100). This tells the user: "how confident should you feel shipping this code as-is?"
+
+#### Scoring Formula
+
+Start at **100**. Deduct per finding:
+
+| Severity | Base deduction | HOT churn | ESCALATED (2+) |
+|----------|---------------|-----------|-----------------|
+| CRITICAL | −20 | ×1.5 | ×1.5 |
+| HIGH | −12 | ×1.3 | ×1.3 |
+| MEDIUM | −5 | ×1.2 | — |
+| LOW | −2 | — | — |
+
+Multipliers stack: a CRITICAL finding on a HOT file that's ESCALATED = −20 × 1.5 × 1.5 = −45.
+
+**Coverage confidence modifier** (from existing coverage assessment):
+
+| Coverage | Modifier |
+|----------|----------|
+| HIGH | 0 |
+| MEDIUM | −5 |
+| LOW | −10 |
+| VERY LOW | −15 |
+
+**Floor: 0. Ceiling: 100.**
+
+#### Confidence Projections
+
+After the score, show what happens if the user fixes findings at each tier. Each projection removes the deductions from findings that match the criteria:
+
+| Projection | Which findings are removed from the score |
+|---|---|
+| **Fix CRITICAL + HIGH** | All findings with severity CRITICAL or HIGH |
+| **Fix all MVP gate** | All findings with Maturity Gate = MVP |
+| **Fix all Enterprise gate** | All findings with Maturity Gate = MVP or Enterprise |
+| **Fix all (including Scale)** | All findings (score → 100 minus coverage modifier) |
+
+**Multiplier handling:** Projections remove the full multiplied deduction of each matching finding (including churn and escalation multipliers), not just the base severity deduction.
+
+#### Output Format
+
+```
+### Review Confidence
+
+Score: 62 / 100
+
+| If you fix... | Findings resolved | Projected | Δ |
+|---------------|-------------------|-----------|---|
+| All CRITICAL + HIGH | 4 of 9 | 78 / 100 | +16 |
+| All MVP gate | 5 of 9 | 85 / 100 | +23 |
+| All Enterprise gate | 7 of 9 | 95 / 100 | +33 |
+| All (incl. Scale) | 9 of 9 | 100 / 100* | +38 |
+
+*Assumes HIGH coverage (modifier = 0). Actual ceiling: 100 minus coverage modifier.
+```
+
+**Interpretation guide:**
+
+| Score range | Signal | Recommendation |
+|-------------|--------|----------------|
+| 90–100 | Ship with confidence | Minor items can be deferred safely |
+| 70–89 | Ship with awareness | Review the projections — a small fix effort may buy a lot of confidence |
+| 50–69 | Caution | Significant risk exposure. Check which tier gives the best ROI |
+| 0–49 | Do not ship | Critical gaps. Fix at minimum the CRITICAL + HIGH tier before proceeding |
+
+The confidence score appears BEFORE the verdict — it informs the verdict but doesn't replace it.
+
+### Step 5: Triage
+
+After the verdict and session estimate, present the triage prompt. This closes the gap between "here's what's wrong" and "let's fix it."
+
+#### Entry Point
+
+```
+### Triage
+
+N findings to resolve. Enter triage? [Y/n]
+```
+
+If the user declines, persist any findings above the maturity gate as deferred items and end. If the user accepts, enter the triage loop.
+
+#### Triage Loop
+
+Present findings **grouped by file** (not by severity), because fixes in the same file batch naturally. Within each file group, order by severity (CRITICAL first).
+
+For each finding, show a compact card:
+
+```
+[1/5] HIGH — Missing fail-open test | rateLimiter.ts:88 | Fix: S (<30m)
+      Defer Risk: SILENT FAILURE — P(medium), I(high)
+
+  (f) Fix now    (d) Defer    (x) Dismiss    (s) Skip for now    (a) Fix all remaining
+```
+
+#### Actions
+
+| Action | What happens |
+|--------|-------------|
+| **f — Fix now** | Claude applies the fix immediately. For code changes: edit the file, show the diff. For test gaps: write the test. For doc issues: update the doc. After fix, re-validate and mark resolved. |
+| **d — Defer** | Ask for optional justification. Write to `deferred-cr.md` with current date, finding details, and Times Deferred = 1 (or increment if recurring). Move to next finding. |
+| **x — Dismiss** | Ask for one-line reason. Record dismissal in the review output (not in deferred backlog). Move to next finding. Dismissals don't persist across reviews — they're session-only decisions. |
+| **s — Skip** | Leave in the findings table without deciding. At end of triage, un-skipped items get a final "defer or dismiss?" prompt. |
+| **a — Fix all** | Apply fixes for all remaining findings in sequence without per-finding prompts. Show a summary diff at the end. Useful when the user trusts the fixes and wants to batch them. |
+
+#### Fix Behavior
+
+When the user picks **Fix now**, Claude should:
+
+1. **Read the file** at the finding's location (if not already in context)
+2. **Apply the minimal fix** — same constraints as normal editing (no scope creep, no bonus refactoring)
+3. **Show the diff** — so the user can see what changed
+4. **Re-validate** — check if the fix actually resolves the finding (e.g., does the test now exist? is the validation present?)
+5. **Report result**: `Fixed: [finding summary] — [file:line]` or `Partial fix: [what remains]`
+
+For findings that can't be auto-fixed (e.g., "needs architectural decision", "requires external input"):
+```
+This finding needs manual resolution: [reason].
+Suggested approach: [one-liner]
+(d) Defer    (x) Dismiss
+```
+
+#### Fix All Behavior
+
+When the user picks **(a) Fix all remaining**, Claude:
+
+1. Groups remaining findings by file (reduces file re-reads)
+2. Applies fixes in severity order within each file (CRITICAL first)
+3. After all fixes, shows a single batched summary:
+   ```
+   Applied 4 fixes across 3 files:
+   - rateLimiter.ts: #2 fail-open test, #3 error handling
+   - vault-protocol.md: #1 schema count, #5 working type rules
+   ```
+4. Any finding that couldn't be auto-fixed is collected at the end:
+   ```
+   1 finding requires manual resolution:
+   - #4 concurrency model — needs architectural decision
+   (d) Defer    (x) Dismiss
+   ```
+
+#### Triage Summary and Score Update
+
+After all findings are processed, show a compact summary **with updated confidence score**:
+
+```
+### Triage Complete
+
+| Action | Count | Findings |
+|--------|-------|----------|
+| Fixed | 3 | #1 schema drift, #2 working type lifecycle, #5 quick capture fields |
+| Deferred | 1 | #3 signal log granularity → deferred-cr.md |
+| Dismissed | 1 | #4 concurrency model — "single-agent MVP, revisit at Scale" |
+
+Review Confidence: 62 → 87 / 100 (+25)
+
+### Final Verdict
+
+[APPROVE|WARNING|BLOCK] — [reason, incorporating triage outcomes]
+
+Deferred items written to .kdbp/deferred-cr.md
+```
+
+The post-triage score recalculates: **fixed** findings are fully removed from the deduction, **dismissed** findings count at **50%** of their original multiplied deduction (acknowledged but unresolved risk), and **deferred** findings count at full deduction. The Final Verdict replaces the Provisional Verdict using the updated score and remaining finding state.
+
+#### CRITICAL Finding Constraint
+
+CRITICAL findings during triage **cannot be deferred**. The `(d)` option is disabled:
+
+```
+[2/5] CRITICAL — SQL injection via unsanitized input | api.ts:44 | Fix: S (<30m)
+      Defer Risk: DATA BREACH — P(high), I(catastrophic)
+
+  (f) Fix now    (x) Dismiss (requires justification)    (s) Skip for now    (a) Fix all remaining
+```
+
+#### Edge Cases
+
+| Situation | Behavior |
+|-----------|----------|
+| All findings are LOW and below maturity gate | Still offer triage, but default prompt is "All findings below MVP gate. Defer all? [Y/n]" |
+| User exits mid-triage (Ctrl+C, context limit) | Persist any already-deferred items. Un-triaged findings are NOT auto-deferred — they remain in the session output only. |
+| Fix introduces a new issue | Don't re-review during triage. The fix-then-review loop is for the next `/gabe-review` run. |
+| Finding references a file not in the workspace | Can't auto-fix. Offer defer/dismiss only. |
+| Skipped CRITICAL at end of triage | CRITICALs cannot be deferred. At the final sweep, present only **(f) Fix now** or **(x) Dismiss (requires justification)**. If the user skips again, auto-classify as Dismissed with note: "No resolution chosen — treated as acknowledged risk." |
+
 ---
 
 ## Output Format
@@ -219,27 +407,71 @@ Format in output:
 Coverage: LOW (2 untested error-handling branches) — verdict capped at WARNING
 ```
 
-### Verdict
+### Review Confidence
+
+Score: [0-100] / 100
+
+| If you fix... | Findings resolved | Projected | Δ |
+|---------------|-------------------|-----------|---|
+| All CRITICAL + HIGH | X of N | XX / 100 | +XX |
+| All MVP gate | X of N | XX / 100 | +XX |
+| All Enterprise gate | X of N | XX / 100 | +XX |
+| All (incl. Scale) | N of N | XX / 100 | +XX |
+
+### Verdict (Provisional)
 
 [APPROVE|WARNING|BLOCK] — [reason]
+*This verdict is based on findings as-is. Triage decisions below may change it.*
 
-- APPROVE: No CRITICAL, no ESCALATED deferrals above maturity gate, coverage confidence ≥ MEDIUM
-- WARNING: HIGH findings within maturity tolerance, OR coverage confidence LOW (caps verdict)
-- BLOCK: CRITICAL present, OR ESCALATED deferrals (2+ times), OR coverage VERY LOW, OR maturity gate exceeded
+- APPROVE: No CRITICAL, no ESCALATED deferrals above maturity gate, coverage confidence ≥ MEDIUM, review confidence ≥ 70
+- WARNING: HIGH findings within maturity tolerance, OR coverage confidence LOW (caps verdict), OR review confidence 50–69
+- BLOCK: CRITICAL present, OR ESCALATED deferrals (2+ times), OR coverage VERY LOW, OR maturity gate exceeded, OR review confidence < 50
 
-**Deferred items must be tracked before verdict:** If any findings are deferred during this review, write them to `deferred-cr.md` BEFORE producing the verdict. If the user declines to track deferred items, the verdict cannot be APPROVE — downgrade to WARNING with note: "Deferred items not tracked — risk of invisible debt."
+**Coverage vs confidence precedence:** The coverage verdict cap and confidence score are independent signals. When they conflict, the stricter result wins (e.g., coverage caps at WARNING but score < 50 → BLOCK).
 
 ### Session Estimate
 Fixing [CRITICAL+HIGH]: ~Nh | Fixing all: ~Nh | Deferring [count]: risk exposure ≈ [summary]
+
+### Triage
+
+N findings to resolve. Enter triage? [Y/n]
 ```
+
+**Verdict finalization:** The verdict shown before triage is PROVISIONAL. After triage completes, restate the **Final Verdict** incorporating triage outcomes (fixed items removed, dismissed at 50% weight, deferred at full weight). If the user declines triage, auto-defer findings above the maturity gate and restate the final verdict. If the user declines to track deferred items, the verdict cannot be APPROVE — downgrade to WARNING with note: "Deferred items not tracked — risk of invisible debt."
 
 ### Brief Mode (`/gabe-review brief`)
 
-Only the findings table + verdict. No dashboard, no session estimate.
+Only the findings table + headline confidence score + verdict. No projection table, no interpretation guide, no dashboard, no session estimate, no triage. Format: `Score: 62 / 100 | Verdict: WARNING — [reason]`. In brief mode the verdict is **final** (not provisional) since triage is not offered.
+
+### Fix Mode (`/gabe-review fix`)
+
+Runs the full review (Steps 0.5–4.5) then shows a compact pre-triage summary before auto-fixing:
+
+```
+Score: 48 / 100 (BLOCK) — 7 findings. Applying fixes...
+```
+
+Then enters triage with "(a) Fix all" pre-selected. Shows full triage summary with updated confidence score and Final Verdict at the end. For users who trust the review and just want everything patched.
 
 ### Deferred-Only Mode (`/gabe-review deferred`)
 
-Only the Risk Dashboard table. No new review.
+Shows the Risk Dashboard table with current confidence impact of deferred items. Offers triage:
+
+```
+### Deferred Backlog — N items
+
+| # | Age | Finding | File | Defer Risk | Times Deferred | Confidence cost |
+|---|-----|---------|------|------------|----------------|-----------------|
+| D1 | 26d | Missing IP skip test | suggestRecipes.ts:31 | P(high), I(high) | 2 ⚠️ | −18 pts |
+| D2 | 26d | Missing fail-open test | rateLimiter.ts:88 | P(medium), I(high) | 1 | −12 pts |
+| ...
+
+Total deferred confidence drag: −XX pts
+
+Tackle deferred items? [Y/n]
+```
+
+If yes, enter the same triage loop with (f)/(d)/(x)/(s) options.
 
 ### Post-Review Mode (`/gabe-review post-review`)
 
@@ -252,7 +484,7 @@ Parse the most recent code review output in the conversation. Detect the source 
 | **ECC code-reviewer** | CRITICAL→CRITICAL, HIGH→HIGH, MEDIUM→MEDIUM, LOW→LOW (same scale) |
 | **Manual/unknown** | Infer from keywords (security→CRITICAL, performance→MEDIUM, style→LOW) |
 
-Add Defer Risk + Maturity Gate columns to each parsed finding. Present in the standard Gabe Review table format.
+Add Defer Risk + Maturity Gate + Confidence Score columns to each parsed finding. Present in the standard Gabe Review table format. After presenting findings, follow the full mode flow (confidence score with projections, provisional verdict, session estimate, triage).
 
 ---
 
@@ -262,23 +494,37 @@ Written to `.kdbp/deferred-cr.md` or `.planning/deferred-cr.md` (first found, or
 
 File format:
 ```markdown
-<!-- gabe-review:1.1 -->
+<!-- gabe-review:1.3 -->
 # Deferred Code Review Items
 
-| # | First Seen | Review | Finding | File | Defer Risk | Times Deferred | Status |
-|---|-----------|--------|---------|------|------------|----------------|--------|
-| D1 | 2026-03-10 | TD-2-9 | Missing IP skip test | suggestRecipes.ts:31 | UNTESTED PATH — P(high), I(high) | 2 | ⚠️ ESCALATED |
-| D2 | 2026-03-10 | TD-2-9 | Missing fail-open test | rateLimiter.ts:88 | SILENT FAILURE — P(medium), I(high) | 1 | Deferred |
+| # | First Seen | Review | Finding | File | Defer Risk | Times Deferred | Status | Resolved |
+|---|-----------|--------|---------|------|------------|----------------|--------|----------|
+| D1 | 2026-03-10 | TD-2-9 | Missing IP skip test | suggestRecipes.ts:31 | UNTESTED PATH — P(high), I(high) | 2 | ⚠️ ESCALATED | |
+| D2 | 2026-03-10 | TD-2-9 | Missing fail-open test | rateLimiter.ts:88 | SILENT FAILURE — P(medium), I(high) | 1 | Resolved | 2026-04-06 |
 ```
 
-**Persistence protocol:** Use the Edit tool to update individual rows. Read the file → find the row by `#` → update Status and Times Deferred → write back. If file doesn't exist, create it with the Write tool including the `<!-- gabe-review:1.1 -->` version header.
+**Persistence protocol:** Use the Edit tool to update individual rows. Read the file → find the row by `#` → update Status, Times Deferred, and Resolved date → write back. If file doesn't exist, create it with the Write tool including the `<!-- gabe-review:1.3 -->` version header.
+
+### Triage Persistence
+
+When a finding is **fixed** during triage:
+- If it existed in deferred backlog: mark `Status: Resolved` with today's date in the `Resolved` column
+- Log which review resolved it
+
+When a finding is **deferred** during triage:
+- If new: add row with `Times Deferred: 1`, `Status: Deferred`
+- If recurring: increment `Times Deferred`, apply escalation rules (existing logic)
+
+When a finding is **dismissed** during triage:
+- NOT written to deferred backlog (dismissals are session-only)
+- Noted in the triage summary output but not persisted
 
 ### Escalation Rules
 
 | Times Deferred | Status | Effect |
 |---------------|--------|--------|
-| 1 | Deferred | Shown in Risk Dashboard, no score impact |
-| 2 | ⚠️ ESCALATED | Promoted to HIGH if was MEDIUM/LOW. Highlighted in findings. |
+| 1 | Deferred | Shown in Risk Dashboard, no additional escalation multiplier on score |
+| 2 | ⚠️ ESCALATED | Promoted to HIGH if was MEDIUM/LOW. Highlighted in findings. Confidence deduction uses ESCALATED multiplier. |
 | 3+ | 🔴 BLOCKING | Treated as CRITICAL. Cannot approve until resolved or re-justified. |
 
 **Re-justification:** When user explicitly provides NEW reasoning for why a deferral is acceptable (not just "defer again"), reset counter to 1 and append justification as a comment below the table row.
@@ -295,3 +541,5 @@ File format:
 | Alignment concern (wrong direction) | Run `/gabe-align shallow` to check values |
 | Deferred item reaches 3+ deferrals | BLOCK. Suggest `/gabe-roast qa` for test coverage roast |
 | KDBP checkpoint showed untested scenarios | Those scenarios become findings in gabe-review with severity HIGH |
+| Review confidence < 50 | Suggest fixing CRITICAL+HIGH before proceeding. Show projection table. |
+| Confidence jump ≥ 20 pts for a single tier | Highlight that tier as "best ROI" in the session estimate |

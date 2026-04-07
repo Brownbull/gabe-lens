@@ -27,7 +27,7 @@ This is NOT a code review (use /gabe-review). This is NOT a design critique (use
 **Don't use when:**
 - Reviewing a specific diff (use /gabe-review)
 - Looking for bugs in code (use /gabe-roast qa)
-- Checking alignment with values (use /gabe-align check)
+- Checking alignment with values (use /gabe-align shallow)
 
 ---
 
@@ -214,7 +214,7 @@ When invoked with a focus (e.g., `/gabe-health coupling`), only that analysis ru
 | God file detected | `/gabe-roast architect [file]` — structural review to plan decomposition |
 | Coupling cluster | `/gabe-assess` — evaluate whether to decouple now or accept the coupling |
 | Bug-fix concentration | `/gabe-review` on that area — price the risk of current state |
-| Scope creep | `/gabe-align check` — values alignment check on unplanned work |
+| Scope creep | `/gabe-align shallow` — values alignment check on unplanned work |
 | High churn + hot file in next PR | `/gabe-review` will show 🔴 HOT churn flag — extra scrutiny on defer decisions |
 
 ---

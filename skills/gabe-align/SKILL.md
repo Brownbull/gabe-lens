@@ -277,6 +277,8 @@ After the checkpoint runs (values + scenarios), append a one-line summary to `.k
 U1:PASS U2:CONCERN V1:PASS V2:PASS | Scenarios: 2/3 covered | Committed: yes
 ```
 
+The `Committed` field is set at write time: `yes` if the checkpoint fires during a commit that proceeds, `no` if the user aborts after seeing concerns. Since the hook fires via `PreToolUse` (before the commit executes), always write `Committed: yes` — if the user cancels the commit after seeing the checkpoint, the next session's checkpoint will detect the same issues and overwrite. Do not attempt to update the field retroactively.
+
 This gives `/gabe-align evolve` data to analyze. The ledger is append-only — never read during normal checkpoint flow, only by `evolve`.
 
 ---
@@ -482,7 +484,7 @@ Before executing any roast, gabe-roast runs a shallow alignment:
 | A | Syntax/Build | Build tools, CI |
 | B | Logic | Tests, code review |
 | C | Integration | E2E tests |
-| D | Performance | Profiling, /ag-perf |
+| D | Performance | Profiling, /gabe-health hotspots |
 | E | UX | /gabe-roast UX perspective |
 | **F** | **Alignment** | **Values check (this tool)** |
 | **G** | **Coverage** | **Scenario check (this tool)** |

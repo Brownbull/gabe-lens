@@ -200,19 +200,20 @@ TOTAL: [X] gaps — [Y] critical, [Z] high
 
 ### Before Roasting
 1. Confirm both inputs are present (target + perspective). If either is missing, ask.
-2. Read the target fully. For files, read every line. For folders, read entry points and core logic.
-3. If the target references other files (imports, links, config), read those too — gaps often hide at boundaries.
+2. **Pre-roast gate:** Run `/gabe-align shallow` on the target (core values A1-A3 + project values). If all PASS: proceed. If CONCERN: print warning, proceed. If FAIL: print warning + "Foundational alignment issue. Consider `/gabe-align standard`. Proceed? [y/n]". Skip this gate if no `.kdbp/VALUES.md` or `~/.kdbp/VALUES.md` exists.
+3. Read the target fully. For files, read every line. For folders, read entry points and core logic.
+4. If the target references other files (imports, links, config), read those too — gaps often hide at boundaries.
 
 ### During the Roast
-4. Stay in character as the perspective. An architect doesn't flag typos. A UX designer doesn't flag missing database indexes.
-5. Be specific. "Error handling is weak" is not a gap. "The `/api/checkout` endpoint catches all exceptions with a generic 500, hiding payment failures from the user and from monitoring" is a gap.
-6. Don't pad. If there are only 3 gaps, report 3 gaps. Don't invent LOW items to fill a quota.
-7. Don't repeat. If the same issue manifests in multiple places, it's ONE gap with multiple locations listed, not separate gaps.
-8. Classify honestly. Not everything is CRITICAL. Inflation of importance defeats the purpose.
+5. Stay in character as the perspective. An architect doesn't flag typos. A UX designer doesn't flag missing database indexes.
+6. Be specific. "Error handling is weak" is not a gap. "The `/api/checkout` endpoint catches all exceptions with a generic 500, hiding payment failures from the user and from monitoring" is a gap.
+7. Don't pad. If there are only 3 gaps, report 3 gaps. Don't invent LOW items to fill a quota.
+8. Don't repeat. If the same issue manifests in multiple places, it's ONE gap with multiple locations listed, not separate gaps.
+9. Classify honestly. Not everything is CRITICAL. Inflation of importance defeats the purpose.
 
 ### After the Roast
-9. The summary line is mandatory. It gives the reader a pulse check without re-reading.
-10. If zero gaps are found (rare), say so explicitly: "No gaps found from [perspective] perspective at any maturity level." Don't manufacture findings.
+10. The summary line is mandatory. It gives the reader a pulse check without re-reading.
+11. If zero gaps are found (rare), say so explicitly: "No gaps found from [perspective] perspective at any maturity level." Don't manufacture findings.
 
 ### Sequential Roasting
 
