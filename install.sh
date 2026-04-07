@@ -27,7 +27,7 @@ run() {
     fi
 }
 
-SKILLS=(gabe-align gabe-assess gabe-health gabe-lens gabe-review gabe-roast)
+SKILLS=(gabe-align gabe-assess gabe-health gabe-help gabe-lens gabe-review gabe-roast)
 
 if $UNINSTALL; then
     echo "=== Uninstall Gabe Lens Suite ==="
