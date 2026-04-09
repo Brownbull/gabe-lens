@@ -2,7 +2,7 @@
 name: gabe-align
 description: "Alignment guardian — manual pre-flight checks (shallow/standard/deep) plus automatic values + scenario checks at commit/PR boundaries. Usage: /gabe-align [mode] [target] or /gabe-align init [project]"
 metadata:
-  version: 2.0.0
+  version: 2.1.0
 ---
 
 # Gabe Align — Alignment Guardian
@@ -37,8 +37,9 @@ Fires at `git commit` / `gh pr create` via hook. Runs:
 
 | Command | What it does |
 |---------|-------------|
-| `/gabe-align init [name]` | Create `.kdbp/` with BEHAVIOR.md + VALUES.md (interactive) |
+| `/gabe-align init [name]` | Create `.kdbp/` with BEHAVIOR.md + VALUES.md (interactive), then run readiness check |
 | `/gabe-align init-user` | Create `~/.kdbp/VALUES.md` (interactive) |
+| `/gabe-align install-hooks` | Check `~/.claude/settings.json` for KDBP hooks and install missing ones (with confirmation) |
 | `/gabe-align status` | Show current values (user + project) |
 | `/gabe-align migrate` | Convert old `_kdbp/` to new `.kdbp/` format |
 | `/gabe-align evolve` | Review value PASS/CONCERN frequency, suggest changes |
@@ -127,7 +128,7 @@ All loaded values are evaluated:
 4. Identify mode from invocation (shallow / standard / deep)
 5. Identify target and context type
 6. If existing artifact: locate and read ALL referenced files
-7. If available, load cognitive profile from `~/.claude/gabe-lens-profile.md`
+7. If available, load cognitive profile from `~/.claude/gabe-lens-profile.md`. If the file does not exist and mode is **deep**, note it for the alignment brief (see Deep Mode below).
 
 ### During Checking
 
@@ -193,7 +194,8 @@ Same as Standard, plus:
 [Restated for clarity — what we're trying to achieve]
 
 ## Cognitive Profile Constraints
-[From gabe-lens suit. What this means for structural decisions.]
+[From gabe-lens suit. What this means for structural decisions.
+ If no profile exists: "No cognitive profile found. Run `/gabe-lens calibrate` to generate one. Skipping cognitive constraints."]
 
 ## Structural Risks
 [Risks identified by value checks — what's likely to go wrong]
@@ -380,10 +382,54 @@ Creates `.kdbp/` in the current project. Interactive:
 4. "What keeps breaking between sprints?" → suggests a value
 5. Presents suggested values + the user-level values (if they exist)
 6. User picks, modifies, or replaces → writes VALUES.md
+7. Run **Readiness Report** (see below)
+
+#### Readiness Report
+
+After writing `.kdbp/` files, scan the environment and print a summary:
+
+```
+Gabe Suite — Readiness Report
+
+  ✅ .kdbp/ created (BEHAVIOR.md, VALUES.md, LEDGER.md)
+  ✅ ~/.kdbp/VALUES.md found (3 user values)         | or ❌ Missing — run /gabe-align init-user
+  ✅ SessionStart hook installed                       | or ❌ Missing — run /gabe-align install-hooks
+  ✅ PreToolUse checkpoint hook installed              | or ❌ Missing — run /gabe-align install-hooks
+  ✅ ~/.claude/gabe-lens-profile.md found              | or ⚠️  Missing (optional, for deep mode — run /gabe-lens calibrate)
+```
+
+If any ❌ items exist, print: `"Run the suggested commands to complete setup. Checkpoint hooks are required for automatic values + scenario checks at commit/PR."`
 
 ### `/gabe-align init-user`
 
 Creates `~/.kdbp/VALUES.md` if it doesn't exist. Same discovery questions but aimed at cross-project patterns.
+
+### `/gabe-align install-hooks`
+
+Checks `~/.claude/settings.json` for the two KDBP hooks and installs any that are missing. Requires user confirmation before modifying the file.
+
+**Procedure:**
+1. Read `~/.claude/settings.json`
+2. Check for **SessionStart** hook — look for a hook whose command contains `KDBP Active`
+3. Check for **PreToolUse** (Bash matcher) hook — look for a hook whose command contains `KDBP CHECKPOINT`
+4. For each missing hook:
+   - Show the user what will be added (the JSON snippet)
+   - Ask for confirmation: "Add KDBP [SessionStart/PreToolUse] hook to settings.json? [Y/n]"
+   - If confirmed: read the file, parse JSON, add the hook entry to the appropriate array, write back
+   - If the hooks key or sub-arrays don't exist, create them
+5. After installation, verify by re-reading and confirming both hooks are present
+6. Print result:
+   ```
+   ✅ SessionStart hook: installed
+   ✅ PreToolUse checkpoint hook: installed
+   ```
+
+**Safety rules:**
+- Never overwrite existing hooks — only append to the hooks arrays
+- Preserve all existing entries (RTK, GSD, etc.)
+- If both hooks already exist, print: "Both KDBP hooks are already installed. No changes needed."
+
+See the **Hook Installation** section below for the exact JSON to add.
 
 ### `/gabe-align migrate`
 

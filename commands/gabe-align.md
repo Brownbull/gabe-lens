@@ -45,6 +45,12 @@ Create `.kdbp/` directory with BEHAVIOR.md and VALUES.md. Interactive — asks a
 
 Create `~/.kdbp/VALUES.md` with universal values for all projects. Interactive.
 
+### Install Hooks
+
+**Usage:** `/gabe-align install-hooks`
+
+Check `~/.claude/settings.json` for KDBP hooks (SessionStart + PreToolUse checkpoint) and install any that are missing. Required for automatic checkpoint system.
+
 ### Status
 
 **Usage:** `/gabe-align status`
