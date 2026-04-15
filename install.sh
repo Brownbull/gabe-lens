@@ -28,12 +28,16 @@ run() {
 }
 
 SKILLS=(gabe-align gabe-assess gabe-health gabe-help gabe-lens gabe-review gabe-roast)
+COMMANDS_ONLY=(gabe-init gabe-commit)
 
 if $UNINSTALL; then
     echo "=== Uninstall Gabe Lens Suite ==="
     for skill in "${SKILLS[@]}"; do
         run "rm -rf ~/.claude/skills/$skill"
         run "rm -f ~/.claude/commands/$skill.md"
+    done
+    for cmd in "${COMMANDS_ONLY[@]}"; do
+        run "rm -f ~/.claude/commands/$cmd.md"
     done
     echo "Done."
     exit 0
@@ -59,5 +63,15 @@ for skill in "${SKILLS[@]}"; do
     INSTALLED=$((INSTALLED + 1))
 done
 
+# Commands without a skill directory (command file is the full spec)
+for cmd in "${COMMANDS_ONLY[@]}"; do
+    if [ -f "$SCRIPT_DIR/commands/$cmd.md" ]; then
+        run "mkdir -p ~/.claude/commands"
+        run "cp \"$SCRIPT_DIR/commands/$cmd.md\" ~/.claude/commands/$cmd.md"
+        echo "  OK: $cmd (command only)"
+        INSTALLED=$((INSTALLED + 1))
+    fi
+done
+
 echo ""
-echo "Installed $INSTALLED/${#SKILLS[@]} skills."
+echo "Installed $INSTALLED/$((${#SKILLS[@]} + ${#COMMANDS_ONLY[@]})) components."

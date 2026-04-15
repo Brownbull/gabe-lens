@@ -34,12 +34,13 @@ This is NOT a code review (use /gabe-review). This is NOT a design critique (use
 ## Inputs
 
 ```
-/gabe-health                    # Full analysis (all 5 checks)
+/gabe-health                    # Full analysis (all 6 checks)
 /gabe-health hotspots           # Churn hotspots only
 /gabe-health coupling           # Coupling clusters only
 /gabe-health fragile            # Bug-fix concentration only
 /gabe-health gods               # God files only
 /gabe-health scope              # Plan vs actual (requires GSD or CE plan)
+/gabe-health deferred           # Deferred items + maintenance staleness
 /gabe-health [path]             # Analyze a specific directory
 ```
 
@@ -176,6 +177,30 @@ Scope Creep — Phase 3 (Recipe Detail View):
   it should have been a separate PR (V3 — Ship Small).
 ```
 
+### 6. Deferred Items & Maintenance Staleness
+
+Track the health of deferred technical decisions and maintenance obligations.
+
+**Detection:**
+- Read `.kdbp/PENDING.md` — count open items by priority
+- Read `.kdbp/MAINTENANCE.md` — check "Last completed" date against today
+- Flag items approaching escalation (Times Deferred >= 2)
+
+**Output:**
+```
+Deferred Items — .kdbp/PENDING.md:
+  Open: 3 items (1 critical, 1 high, 1 medium)
+  ⚠️ D2 approaching escalation (deferred 2x, next defer → priority bump)
+  Oldest open: D1 (45 days) — coverage gap in classify.py
+
+Maintenance — .kdbp/MAINTENANCE.md:
+  Last completed: 2025-10-01 (198 days ago)
+  ⚠️ Overdue — quarterly checklist not completed in 180+ days
+  Suggest: Review MAINTENANCE.md checklist items
+```
+
+**Skip if:** `.kdbp/` directory doesn't exist.
+
 ---
 
 ## Output Format
@@ -191,6 +216,7 @@ Scope Creep — Phase 3 (Recipe Detail View):
 [3. Coupling Clusters]
 [4. Bug-Fix Concentration]
 [5. Scope Creep (if plan exists)]
+[6. Deferred Items & Maintenance (if .kdbp/ exists)]
 
 Summary:
   🔴 Critical: [count] god files, [count] fragile modules

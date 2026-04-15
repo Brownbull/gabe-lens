@@ -79,7 +79,7 @@ If no `.kdbp/LEDGER.md` exists, skip this step silently.
 
 Before reviewing new code, check for existing deferred items:
 
-1. Look for `.kdbp/deferred-cr.md` or `.planning/deferred-cr.md`
+1. Look for `.kdbp/PENDING.md` (preferred), `.kdbp/deferred-cr.md`, or `.planning/deferred-cr.md`
 2. If found, load all entries with `Status != Resolved`
 3. For each deferred item, check if the current diff addresses it:
    - **Match by file path** (exact match)
@@ -277,7 +277,7 @@ For each finding, show a compact card:
 | Action | What happens |
 |--------|-------------|
 | **f — Fix now** | Claude applies the fix immediately. For code changes: edit the file, show the diff. For test gaps: write the test. For doc issues: update the doc. After fix, re-validate and mark resolved. |
-| **d — Defer** | Ask for optional justification. Write to `deferred-cr.md` with current date, finding details, and Times Deferred = 1 (or increment if recurring). Move to next finding. |
+| **d — Defer** | Ask for optional justification. Write to `.kdbp/PENDING.md` (or `deferred-cr.md` if PENDING.md doesn't exist) with current date, finding details, source=`gabe-review`, and Times Deferred = 1 (or increment if recurring). Move to next finding. |
 | **x — Dismiss** | Ask for one-line reason. Record dismissal in the review output (not in deferred backlog). Move to next finding. Dismissals don't persist across reviews — they're session-only decisions. |
 | **s — Skip** | Leave in the findings table without deciding. At end of triage, un-skipped items get a final "defer or dismiss?" prompt. |
 | **a — Fix all** | Apply fixes for all remaining findings in sequence without per-finding prompts. Show a summary diff at the end. Useful when the user trusts the fixes and wants to batch them. |
@@ -328,7 +328,7 @@ After all findings are processed, show a compact summary **with updated confiden
 | Action | Count | Findings |
 |--------|-------|----------|
 | Fixed | 3 | #1 schema drift, #2 working type lifecycle, #5 quick capture fields |
-| Deferred | 1 | #3 signal log granularity → deferred-cr.md |
+| Deferred | 1 | #3 signal log granularity → PENDING.md |
 | Dismissed | 1 | #4 concurrency model — "single-agent MVP, revisit at Scale" |
 
 Review Confidence: 62 → 87 / 100 (+25)
@@ -337,7 +337,7 @@ Review Confidence: 62 → 87 / 100 (+25)
 
 [APPROVE|WARNING|BLOCK] — [reason, incorporating triage outcomes]
 
-Deferred items written to .kdbp/deferred-cr.md
+Deferred items written to .kdbp/PENDING.md
 ```
 
 The post-triage score recalculates: **fixed** findings are fully removed from the deduction, **dismissed** findings count at **50%** of their original multiplied deduction (acknowledged but unresolved risk), and **deferred** findings count at full deduction. The Final Verdict replaces the Provisional Verdict using the updated score and remaining finding state.
@@ -490,7 +490,7 @@ Add Defer Risk + Maturity Gate + Confidence Score columns to each parsed finding
 
 ## Deferred Item Persistence
 
-Written to `.kdbp/deferred-cr.md` or `.planning/deferred-cr.md` (first found, or create `.kdbp/deferred-cr.md`).
+Written to `.kdbp/PENDING.md` (preferred), `.kdbp/deferred-cr.md`, or `.planning/deferred-cr.md` (first found, or create `.kdbp/PENDING.md`).
 
 File format:
 ```markdown
