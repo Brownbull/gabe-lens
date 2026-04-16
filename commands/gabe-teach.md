@@ -114,7 +114,7 @@ Invoked by `/gabe-teach init-wells` OR selected during the foundation gate.
 | Priority | Source | What to extract |
 |----------|--------|----------------|
 | 1 | `docs/architecture.md` | All `## ` (H2) headings |
-| 2 | `setup/ai-stack/FOLDER-STRUCTURE-STANDARD.md` (if present) | Pre-catalogued static gravity wells relevant to the project |
+| 2 | `.kdbp/STRUCTURE.md` Allowed Patterns | Folder patterns already established for this project (bundled per-project artifact) |
 | 3 | Top-level folders | `app/`, `frontend/`, `backend/`, `tests/`, `infra/`, etc. |
 | 4 | `.kdbp/DECISIONS.md` | Architectural areas mentioned in decisions |
 | 5 | `package.json` / `pyproject.toml` scripts | Reveals layers (build, test, lint, deploy) |

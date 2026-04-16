@@ -39,6 +39,7 @@ Run the equivalent of `/gabe-align init [project-name]`:
 ├── DOCS.md          # Doc drift mappings (from project type, used by CHECK 7)
 ├── PLAN.md          # Active plan (empty template — populated by /gabe-plan)
 ├── KNOWLEDGE.md     # Human knowledge map (topics tracked by /gabe-teach)
+├── STRUCTURE.md     # Per-project folder conventions (checked by gabe-commit CHECK 9)
 └── archive/         # Archived plans (completed_, defer_, cancelled_)
 ```
 
@@ -61,7 +62,7 @@ created: [today's date]
 <!-- - **V1 — [Name]:** [One sentence] `[session|story|epic]` -->
 ```
 
-**DECISIONS.md** — use template from `cherry-pick/kdbp/templates/DECISIONS.md`
+**DECISIONS.md** — use template from `~/.claude/templates/gabe/DECISIONS.md`
 
 **PENDING.md** — start with:
 ```markdown
@@ -76,15 +77,20 @@ created: [today's date]
 # Session Ledger
 ```
 
-**MAINTENANCE.md** — use template from `cherry-pick/kdbp/templates/MAINTENANCE.md`
+**MAINTENANCE.md** — use template from `~/.claude/templates/gabe/MAINTENANCE.md`
 
-**PLAN.md** — use template from `cherry-pick/kdbp/templates/PLAN.md`
+**PLAN.md** — use template from `~/.claude/templates/gabe/PLAN.md`
 
-**KNOWLEDGE.md** — use template from `cherry-pick/kdbp/templates/KNOWLEDGE.md`
+**KNOWLEDGE.md** — use template from `~/.claude/templates/gabe/KNOWLEDGE.md`
+
+**STRUCTURE.md** — use template from `~/.claude/templates/gabe/STRUCTURE.md`:
+- The base template has MVP patterns + disallowed patterns active
+- Based on the project type selected in Step 3, uncomment the matching stack-specific block (`Agent App`, `Web App`, `CLI`, `Library`)
+- Leave other blocks commented out as reference
 
 **archive/** — create empty directory: `mkdir -p .kdbp/archive`
 
-**DOCS.md** — use template from `cherry-pick/kdbp/templates/DOCS.md`:
+**DOCS.md** — use template from `~/.claude/templates/gabe/DOCS.md`:
 - Select the section matching the project type chosen in Step 3
 - Agent app → use the Agent App section
 - Web app → use the Web App section
@@ -97,7 +103,7 @@ created: [today's date]
 Non-destructive top-up of an existing `.kdbp/` directory. Never overwrites, never deletes.
 
 1. **Scan what's missing.** Compare the existing `.kdbp/` contents against the current template set:
-   - Expected files: `BEHAVIOR.md`, `VALUES.md`, `DECISIONS.md`, `PENDING.md`, `LEDGER.md`, `MAINTENANCE.md`, `DOCS.md`, `PLAN.md`, `KNOWLEDGE.md`
+   - Expected files: `BEHAVIOR.md`, `VALUES.md`, `DECISIONS.md`, `PENDING.md`, `LEDGER.md`, `MAINTENANCE.md`, `DOCS.md`, `PLAN.md`, `KNOWLEDGE.md`, `STRUCTURE.md`
    - Expected directory: `archive/`
    - Note: project-specific files like `PUSH.md` or historical `PLAN-PHASE-N.md` are NOT in the expected set — leave them untouched.
 
@@ -113,7 +119,7 @@ Non-destructive top-up of an existing `.kdbp/` directory. Never overwrites, neve
    ```
 
 3. **If confirmed, create only missing items:**
-   - For each missing template file: copy from `cherry-pick/kdbp/templates/[FILE]`
+   - For each missing template file: copy from `~/.claude/templates/gabe/[FILE]`
    - For `archive/`: run `mkdir -p .kdbp/archive`
    - For `DOCS.md` specifically: if missing, do NOT auto-select a project type — ask: "Project type? (agent-app | web-app | cli | library)" and use that section
    - Skip any file that already exists (never overwrite)
@@ -143,6 +149,7 @@ Check `~/.claude/settings.json` for these hooks:
 - SessionStart knowledge awareness (contains `KNOWLEDGE:` or `gabe-teach`)
 - PreToolUse checkpoint hook (contains `KDBP CHECKPOINT`)
 - PostToolUse ledger writer (contains `LEDGER.md`)
+- PostToolUse structure warning (contains `STRUCTURE:` — new-file placement)
 - Stop session-end reminder (contains `SESSION-END REMINDER`)
 
 For each missing hook:
@@ -150,7 +157,7 @@ For each missing hook:
 - Ask: "Install? [Y/n]"
 - If yes: read settings.json, parse JSON, append hook to the appropriate array, write back
 
-If all hooks present: "All 6 KDBP hooks installed."
+If all hooks present: "All 7 KDBP hooks installed."
 
 ### Step 3: Project type
 
@@ -196,14 +203,15 @@ Agent Application Checklist:
   □ 8. STATE       — PostgreSQL + Redis
   □ 9. OBSERVE     — Langfuse traces + Prometheus metrics
 
-Reference: arch-ref-lib Tier 9 (AI Agent Applications)
+Each stage maps to a folder in STRUCTURE.md (api/guardrails/, api/agents/,
+api/services/, api/observability/). Stages 1-5 are MVP; 6-9 are Enterprise.
 ```
 
 ### Step 4: Show readiness report
 
 ```
-✅ .kdbp/ initialized (9 files + archive/)
-✅ Hooks installed (6/6)
+✅ .kdbp/ initialized (10 files + archive/)
+✅ Hooks installed (7/7)
 ✅ Project type: [type]
 ✅ Maturity: [mvp|enterprise|scale]
 ✅ DOCS.md: [N] mappings loaded for [project-type]

@@ -101,6 +101,33 @@ Is there a simpler, cheaper, or more appropriate path?
 - **Proper**: What's the "right" fix if we had unlimited time?
 - **Workaround**: Is there a way to achieve the goal without this change?
 
+### D5: Structural Fit
+
+Does this change land in known folder patterns, or does it propose new locations?
+
+Requires `.kdbp/STRUCTURE.md`. Skip silently if missing.
+
+From the change description, extract the anticipated file paths (explicit paths, inferred `new file X.py`, or "add Y under Z/"). For each:
+
+| Outcome | Flag |
+|---|---|
+| Matches an Allowed Pattern at or below project maturity | ✅ in-standard |
+| Matches a Disallowed Pattern | ❌ disallowed — explain why |
+| No match — new location proposed | ⚠ drift — suggest 2-3 nearest-match allowed patterns, or propose adding this as a new pattern |
+
+A change proposing 3+ files in new locations is a signal — either the STRUCTURE is outdated (project has evolved and needs pattern additions) or the change itself is architecturally questionable. Flag this explicitly in the assessment output.
+
+Output format inside D5:
+```
+D5 Structural Fit:
+  ✅ api/routes/incidents.py (matches api/routes/*.py, MVP tier)
+  ⚠ experiments/prompt_eval.py — no matching pattern
+    Nearest: tests/**/*.py, scripts/**/*.py
+    Suggest: add `experiments/**/*.py` as Enterprise tier, or reroute to scripts/
+```
+
+This catches drift at the cheapest moment — before any code is written. Hook + commit-time CHECK 8 remain as safety nets for changes that skip assess.
+
 ---
 
 ## Output Format
@@ -127,6 +154,10 @@ D4 ALTERNATIVES:
    [B] Minimal fix   — [what it looks like, effort T-shirt size]
    [C] Proper fix    — [what it looks like, effort T-shirt size]
    [D] Workaround    — [if applicable]
+
+D5 STRUCTURAL FIT: (only if .kdbp/STRUCTURE.md exists)
+   ✅ in-standard: [count]   ⚠ drift: [count]   ❌ disallowed: [count]
+   [per-file breakdown for drift/disallowed items]
 
 RECOMMENDATION: [A/B/C/D] — [one sentence why]
 ONE-LINER: "[memorable handle for this decision — Gabe Lens format]"

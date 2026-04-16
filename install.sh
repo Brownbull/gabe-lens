@@ -39,6 +39,7 @@ if $UNINSTALL; then
     for cmd in "${COMMANDS_ONLY[@]}"; do
         run "rm -f ~/.claude/commands/$cmd.md"
     done
+    run "rm -rf ~/.claude/templates/gabe"
     echo "Done."
     exit 0
 fi
@@ -72,6 +73,15 @@ for cmd in "${COMMANDS_ONLY[@]}"; do
         INSTALLED=$((INSTALLED + 1))
     fi
 done
+
+
+# Templates — bundled source of truth for .kdbp/ files created by /gabe-init and other commands
+if [ -d "$SCRIPT_DIR/templates" ]; then
+    run "mkdir -p ~/.claude/templates/gabe"
+    run "cp \"$SCRIPT_DIR/templates/\"*.md ~/.claude/templates/gabe/"
+    TEMPLATE_COUNT=$(ls -1 "$SCRIPT_DIR/templates/" | wc -l)
+    echo "  OK: $TEMPLATE_COUNT templates → ~/.claude/templates/gabe/"
+fi
 
 echo ""
 echo "Installed $INSTALLED/$((${#SKILLS[@]} + ${#COMMANDS_ONLY[@]})) components."

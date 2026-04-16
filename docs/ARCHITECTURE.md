@@ -2,7 +2,7 @@
 
 The settled stack for building AI agent applications. Derived from the AgentX hackathon post-mortem and 11 finalist analysis (April 2026).
 
-For the full decision log and rationale, see `refrepos/setup/ai-stack/IMPLEMENTATION-PLAN.md`.
+This document captures the settled stack; the original decision log lives outside this repo (AgentX post-mortem). For the folder conventions that back this stack, see `templates/STRUCTURE.md` — that's the bundled, per-project-applicable artifact.
 
 ---
 

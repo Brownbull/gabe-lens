@@ -74,6 +74,30 @@ Two layers, both deterministic:
     - If Doc Target NOT in diff → create finding at pattern's Priority
 - Deduplicate: one finding per unique Doc Target (use highest priority among matches)
 
+**CHECK 8 — Structure** (requires `.kdbp/STRUCTURE.md`)
+
+Deterministic path-pattern check for new files. Zero LLM cost. Skipped if `.kdbp/STRUCTURE.md` missing.
+
+1. Get new files only: `git diff --staged --name-only --diff-filter=A`
+2. Read `.kdbp/STRUCTURE.md`, parse:
+   - Allowed Patterns table — each row has a glob pattern + maturity tier
+   - Disallowed Patterns table — each row has a glob pattern + reason
+3. For each new file path:
+   - If it matches a Disallowed pattern → finding `critical`, text `Disallowed location: [pattern] — [reason]`
+   - If it matches an Allowed pattern at or below current maturity (from BEHAVIOR.md) → pass, no finding
+   - If it matches NO pattern → finding `medium`, text `No structural pattern matches [path]. Intended location?`
+
+Tier rules:
+- maturity mvp → only MVP-tagged patterns are active (E and S count as "no match")
+- maturity enterprise → MVP + E patterns active
+- maturity scale → all patterns active
+
+Action set for Structure findings:
+- `move` — suggest 3 nearest-match allowed patterns by edit distance, user picks one, apply `git mv`, re-stage
+- `update-structure` — add the path (or a generalized glob) as a new allowed pattern in STRUCTURE.md with a chosen tier; re-run CHECK 8 to confirm
+- `accept` — commit with warning, append one row to STRUCTURE.md Exceptions Log
+- `defer` — add to PENDING.md as source=`gabe-commit`, priority=medium
+
 ### Step 3: Assign severity
 
 Deterministic thresholds, not LLM judgment:
@@ -94,6 +118,8 @@ Deterministic thresholds, not LLM judgment:
 | Doc drift (DOCS.md high) | Doc target in diff | `high` |
 | Doc drift (DOCS.md medium) | Doc target in diff | `medium` |
 | Doc drift (DOCS.md low) | Doc target in diff | `low` |
+| Structure (disallowed pattern) | N/A (always fail) | `critical` |
+| Structure (no pattern match) | Match at/below current maturity | `medium` |
 
 ### Step 4: Present results
 
@@ -162,6 +188,10 @@ Fix critical findings before committing.
 | **Doc drift** | `update-docs` | Reads diff + target doc section, suggests minimal edit | Yes | tokens |
 | | `accept` | Acknowledges drift, commits without doc update | No | 0 |
 | | `defer` | Adds to PENDING.md at detected priority | No | 0 |
+| **Structure** | `move` | Suggests nearest-match patterns, `git mv` to chosen, re-stage | No | 0 |
+| | `update-structure` | Adds path/glob as allowed pattern in STRUCTURE.md | No | 0 |
+| | `accept` | Appends to Exceptions Log, commits | No | 0 |
+| | `defer` | Adds to PENDING.md | No | 0 |
 
 ### Step 6: Commit + record
 
@@ -207,5 +237,6 @@ DEFERRED: +D8 (coverage classify.py)
 | Shape | skip | ✅ (30 files) | ✅ (20 files) |
 | Deferred | HIGH+ only | MEDIUM+ | All |
 | Doc Drift | safe cards only | safe cards + DOCS.md | safe cards + DOCS.md |
+| Structure | MVP patterns | MVP + E patterns | All patterns |
 
 $ARGUMENTS
