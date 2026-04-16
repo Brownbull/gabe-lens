@@ -120,25 +120,30 @@ Invoked by `/gabe-teach init-wells` OR selected during the foundation gate.
 | 4 | `.kdbp/DECISIONS.md` | Architectural areas mentioned in decisions |
 | 5 | `package.json` / `pyproject.toml` scripts | Reveals layers (build, test, lint, deploy) |
 
-**Step 2b — Propose a starter set.** Aim for 4-7 wells. Each well gets a proposed one-line description **plus a one-liner analogy** (via `gabe-lens` oneliner mode — 5-15 words, concrete, memorable).
+**Step 2b — Propose a starter set.** Aim for 4-7 wells. Each well gets a proposed one-line description, a one-liner analogy (via `gabe-lens` oneliner mode — 5-15 words), and anchor path globs (from the Step 2a scan — folder signals, STRUCTURE.md Allowed Patterns, commit history).
 
 ```
 Suggested gravity wells for [project] (from [sources used]):
 
   G1 — [Name 1]     — [one-line description]
          ↪ Analogy: "[5-15 word gabe-lens oneliner]"
+         ↪ Paths:   app/agent/guardrails*, tests/agent/**
   G2 — [Name 2]     — [one-line description]
          ↪ Analogy: "[oneliner]"
+         ↪ Paths:   app/agent/pipeline*, app/agent/triage*
   ...
 
 Options:
   [accept]   Use as-is
   [edit N]   Rename/redescribe well N
-  [relens N] Regenerate analogy for well N (new gabe-lens oneliner)
+  [relens N] Regenerate analogy for well N
+  [paths N]  Edit path globs for well N
   [drop N]   Remove well N
   [add]      Add a new well
   [done]     Finish — write wells to KNOWLEDGE.md
 ```
+
+Path globs are proposed heuristically: (1) folders matching the well name, (2) STRUCTURE.md patterns whose description aligns with the well, (3) top 3 paths from recent commits if signals are sparse. Globs are deliberately loose — `app/api/**` beats `app/api/main.py` for durability.
 
 The analogy is generated via one `gabe-lens` call per well in `oneliner` mode. If a well's description is trivial (e.g., "Tests"), the analogy may be the description itself — don't force poetry on what's already clear.
 
@@ -162,7 +167,7 @@ If KNOWLEDGE.md already has topic rows (e.g., user ran `/gabe-teach` before defi
 
 **Step 2d — Write to KNOWLEDGE.md.**
 
-Replace the `Status: uninitialized.` placeholder with the populated Gravity Wells table, including the `Analogy` column. Update topic rows with their assigned wells. Log to LEDGER.md:
+Replace the `Status: uninitialized.` placeholder with the populated Gravity Wells table, including the `Analogy` and `Paths` columns. Update topic rows with their assigned wells. Log to LEDGER.md:
 ```
 ## [YYYY-MM-DD HH:MM] — /gabe-teach init-wells
 WELLS: [N] defined | RETAGGED: [M] topics
@@ -184,6 +189,7 @@ Actions:
   [rename N]  Rename well N (topics stay assigned)
   [redesc N]  Edit description
   [relens N]  Regenerate analogy via gabe-lens oneliner
+  [paths N]   Edit path globs for well N (used by brief activity signals)
   [merge N M] Merge well N into M (topics reassigned to M)
   [archive N] Archive well N (topics move to G0 or user chooses new well)
   [done]      Exit
@@ -344,49 +350,78 @@ Read-only orientation snapshot. A newcomer (dev who knows the language/stack but
 **Step 8a — Gather inputs (all deterministic):**
 
 1. `.kdbp/BEHAVIOR.md` frontmatter → `domain:` (one-liner), `maturity:`, `tech:`
-2. `.kdbp/KNOWLEDGE.md` → Gravity Wells table (rows), Topics table (rows with Well + Status + Last Touched columns)
+2. `.kdbp/KNOWLEDGE.md` → Gravity Wells table (Name + Description + Analogy + Paths), Topics table (Well + Class + Topic + Status + Last Touched), Storyline section (if present)
 3. `.kdbp/PLAN.md` → active plan goal + current phase (N of M) + Review/Commit/Push tick states, if `status: active`
 4. `.kdbp/LEDGER.md` → last 5 entries (dated section headers + first line of each)
-5. `git log --since="14 days ago" --oneline` → recent commit count (scalar only)
+5. `.kdbp/PENDING.md` → open items with status=open, their priority, file, and finding summary
+6. `.kdbp/DECISIONS.md` → last 3 decision entries (date + one-line title)
+7. `git log --since="14 days ago" --oneline` → project-wide commit count
+8. Per well with Paths populated: `git log --since="14 days ago" --oneline -- <globs>` → well-scoped commit count + most recent commit (hash + date)
 
-**Step 8b — Per-well activity signal (deterministic):**
+**Step 8b — Per-well signals (deterministic):**
 
 For each well row in KNOWLEDGE.md:
 - `pending_count` = topics in this well with status `pending` or `skipped`
 - `verified_count` = topics with status `verified`
-- `recent_touched` = topics whose `Last Touched` date is within 14 days
+- `pending_titles` = topic titles for pending rows (first 3, truncated to 50 chars each)
 - `stale_count` = topics with status `stale` (verified >90 days ago)
+- `commits_14d` = git commit count in the well's Paths (0 if Paths empty)
+- `last_commit` = most recent commit in Paths (`YYYY-MM-DD hash`) or `—` if none
+- `health` = derived: `🟢 active` if commits_14d > 0, `🟡 cold` if 0 commits_14d but verified/pending > 0, `🔴 stale` if stale_count > 0 (precedence: stale > cold > active)
 
-No LLM call for this step. If a well has zero activity and zero topics, still show it — the brief is about orientation, absence is informative.
+No LLM call for this step. Wells with zero Paths show `commits_14d: —` but still render — absence is informative.
 
 **Step 8b.5 — Backfill missing analogies (one-time per well):**
 
-If a well row has an empty `Analogy` column (wells predating the analogy feature, or post-hoc imports), generate one on the fly via `gabe-lens` in `oneliner` mode (5-15 words). Write the result back to KNOWLEDGE.md so subsequent briefs are free. One LLM call per missing analogy, one-time cost per well.
+If a well row has an empty `Analogy` column, generate one on the fly via `gabe-lens` in `oneliner` mode (5-15 words). Write the result back to KNOWLEDGE.md so subsequent briefs are free. One LLM call per missing analogy, one-time cost per well.
 
-**Step 8c — Output format** (one-page tight brief, ~30 lines):
+**Step 8c — Output format** (tight, ~50 lines including context blocks):
 
 ```
-GABE TEACH BRIEF — [project name from .kdbp/ parent folder or BEHAVIOR.md name]
+GABE TEACH BRIEF — [project name]
 
 App:        [BEHAVIOR.md `domain` field]
 Stack:      [BEHAVIOR.md `tech` field]
 Maturity:   [mvp | enterprise | scale]
-Active:     [PLAN.md goal] — Phase [N]/[M] [Review ✅/⬜ Commit ✅/⬜ Push ✅/⬜]
+Active:     [PLAN.md goal] — Phase [N]/[M]  Review [✅/⬜] Commit [✅/⬜] Push [✅/⬜]
             (or "No active plan" if PLAN.md status != active)
 
 GRAVITY WELLS ([N] defined)
 
-  G1 [Name]
-     [description]
-     Analogy: "[gabe-lens oneliner]"
-     Activity: [pending_count] pending, [verified_count] verified, [recent_touched] touched <14d
+  G1 [Name]: "[gabe-lens oneliner]"  [health icon+label]
+     [description] · [paths or "paths not set"] · last: [YYYY-MM-DD hash] or "—"
+     Pending: "[title 1]", "[title 2]", "[title 3]"        (or "none" if 0 pending)
      [⚠ [stale_count] stale  — only shown if stale_count > 0]
 
-  G2 [Name]
-     [description]
-     Analogy: "[oneliner]"
-     Activity: ...
+  G2 [Name]: "[oneliner]"  [health]
+     [description] · [paths] · last: [date hash]
+     Pending: ...
   ...
+
+CONTEXT
+
+  Story so far:
+    [first 1-2 sentences of KNOWLEDGE.md ## Storyline]
+    (run /gabe-teach story for full narrative)
+    — OR — "No storyline yet. Run /gabe-teach story to generate one."
+
+  Key decisions:
+    [date] — [DECISIONS.md entry title 1]
+    [date] — [title 2]
+    [date] — [title 3]
+    — OR — "No decisions recorded yet."
+
+OPEN & NEXT
+
+  Deferred items (PENDING.md):
+    D[N] ([priority])  [short finding]  — [file]
+    ... (up to 3 highest-priority open items)
+    — OR — "No open deferred items."
+
+  Suggested next actions:
+    [tailored hint 1 based on signals below]
+    [tailored hint 2]
+    [tailored hint 3]
 
 RECENT PROJECT ACTIVITY (last 14 days)
 
@@ -394,32 +429,43 @@ RECENT PROJECT ACTIVITY (last 14 days)
 
   From LEDGER.md:
     - [date] [first line of entry]
-    - [date] [first line]
     - ... (up to 5)
 
-NEXT STEPS
-  /gabe-teach topics          — start a teach session on pending topics
-  /gabe-teach wells           — drill into a specific well
-  /gabe-teach story           — read the project's narrative arc
-  /gabe-teach history         — full timeline of plans and phases
+COMMANDS
+  /gabe-teach topics    /gabe-teach wells    /gabe-teach story    /gabe-teach history
 ```
+
+**Step 8c.1 — Suggested next actions logic** (deterministic, pick first 2-3 that apply):
+
+| Signal | Hint |
+|--------|------|
+| Any well with pending_count ≥ 3 | `High-pending wells: [list] → /gabe-teach topics` |
+| Any stale_count > 0 across wells | `Stale knowledge in [wells] → /gabe-teach topics (auto-refreshes)` |
+| No active plan | `No active plan → /gabe-plan to set one` |
+| PENDING.md has ≥ 3 open items | `[N] deferred items backing up → /gabe-review to triage` |
+| No storyline AND ≥ 3 archived plans | `Enough history for a story → /gabe-teach story` |
+| Wells exist but all have empty Paths | `Wells lack path globs (activity signals disabled) → /gabe-teach wells + [paths N]` |
+| Nothing above applies | `Looking healthy. Consider /gabe-health for deeper audit.` |
 
 **Step 8d — Missing data graceful degradation:**
 
 | Missing | Behavior |
 |---------|----------|
-| BEHAVIOR.md `domain:` field | Show `App: (not set — add \`domain:\` to .kdbp/BEHAVIOR.md frontmatter)` |
+| BEHAVIOR.md `domain:` field | `App: (not set — add \`domain:\` to BEHAVIOR.md frontmatter)` |
 | PLAN.md absent OR status != active | `Active: No active plan` |
-| LEDGER.md absent or empty | Skip the "From LEDGER.md" block, show commit count only |
-| No wells (foundation gate caught this) | Gate blocks before reaching Step 8a |
+| LEDGER.md absent or empty | Skip the "From LEDGER.md" block; show scalar commit count |
+| PENDING.md absent or all-closed | `Deferred items: none` |
+| DECISIONS.md absent or empty | `Key decisions: none recorded` |
+| Well has empty Paths | Show `paths not set` inline; `last: —`; health falls through to cold/stale using topic signals only |
+| No wells | Foundation gate blocks before Step 8a |
 
-**Step 8e — No persistence:**
+**Step 8e — No persistence (except analogy backfill):**
 
-Brief mode does NOT write to KNOWLEDGE.md, LEDGER.md, or anywhere. It's read-only orientation. This keeps it cheap to re-run at any time without side effects.
+Brief mode is read-only except for one-time analogy backfill in 8b.5. It does NOT write plans, decisions, topics, or activity. Safe to re-run anytime.
 
 **Note on LLM usage:**
 
-Brief mode is fully deterministic once analogies are cached. The `App:` line comes from BEHAVIOR.md (Behavior configuration for the project), well descriptions + analogies from KNOWLEDGE.md. First run after adding the Analogy column may fire N one-liner gabe-lens calls (one per well with missing analogy); those are written back and subsequent briefs are free. If the user wants a richer narrative, `/gabe-teach story` is the LLM-backed companion.
+Brief is deterministic once analogies are cached. First run after adding the Analogy column fires one gabe-lens call per well missing an analogy; cached thereafter. For narrative depth, `/gabe-teach story` remains the LLM-backed companion.
 
 **Principle — progressive-depth analogies everywhere:**
 

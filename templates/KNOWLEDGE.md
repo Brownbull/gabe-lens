@@ -14,10 +14,11 @@
 **Status: uninitialized.** Run `/gabe-teach init-wells` to define architectural sections before the first teach session.
 
 <!-- Analogy column: one-liner (5-15 words) from gabe-lens. Makes each well graspable at a glance. -->
-<!-- Generated at init-wells time; can be regenerated via /gabe-teach wells. -->
+<!-- Paths column: comma-separated globs where this well's code lives (e.g., `app/api/**, tests/api/**`). Used by brief mode for health/last-commit signals. -->
+<!-- Both columns generated at init-wells time; regenerable via /gabe-teach wells. -->
 
-| # | Name | Description | Analogy | Topics (verified / pending / total) |
-|---|------|-------------|---------|--------------------------------------|
+| # | Name | Description | Analogy | Paths | Topics (verified / pending / total) |
+|---|------|-------------|---------|-------|--------------------------------------|
 
 ## Topic Classes
 
