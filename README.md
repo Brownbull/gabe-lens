@@ -4,27 +4,82 @@
 
 # Gabe Lens
 
-**Cognitive toolkit for Claude Code**
+**Development suite for Claude Code**
 
-A growing collection of skills that transform how you understand, review, and decide — built from reverse-engineering how one brain actually learns.
+Skills, commands, and hooks for understanding, reviewing, deciding, and shipping — with a knowledge system (KDBP) that tracks values, decisions, and deferred work across sessions.
 
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Claude Code Plugin](https://img.shields.io/badge/Claude_Code-Plugin-blueviolet.svg?style=flat-square&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiPjxwYXRoIGQ9Ik0xMiAyTDIgN2wxMCA1IDEwLTUtMTAtNXoiLz48cGF0aCBkPSJNMiAxN2wxMCA1IDEwLTUiLz48cGF0aCBkPSJNMiAxMmwxMCA1IDEwLTUiLz48L3N2Zz4=)](https://github.com/khujta/gabe-lens)
-[![Version](https://img.shields.io/badge/version-2.1.0-green.svg?style=flat-square)](https://github.com/khujta/gabe-lens)
+[![Version](https://img.shields.io/badge/version-2.2.0-green.svg?style=flat-square)](https://github.com/khujta/gabe-lens)
 [![GitHub Stars](https://img.shields.io/github/stars/khujta/gabe-lens?style=flat-square&color=yellow)](https://github.com/khujta/gabe-lens/stargazers)
 
 *Not a prompt template. Built from empirical self-observation.*
 
 </div>
 
-## Skills
+## The Suite
+
+### Skills (7)
 
 | Skill | Command | What it does |
 |---|---|---|
-| **Gabe Lens** | `/gabe-lens` | Cognitive translation — transforms concepts into analogies, spatial maps, constraint boxes, and one-line handles |
-| **Gabe Lens Calibrate** | `/gabe-lens-calibrate` | Discover your cognitive suit — same concept in 4 styles, pick the one that clicks |
-| **Gabe Roast** | `/gabe-roast` | Adversarial gap review — stress-tests any target from a required perspective, classified by maturity and importance |
-| **Gabe Assess** | `/gabe-assess` | Change impact assessment — blast radius, maturity scope, prerequisites, and alternatives before committing |
+| **Gabe Lens** | `/gabe-lens` | Cognitive translation — analogies, spatial maps, constraint boxes, one-line handles |
+| **Gabe Align** | `/gabe-align` | Values enforcement — pre-flight checks + auto-checkpoint at commit/PR |
+| **Gabe Review** | `/gabe-review` | Code review — risk pricing, confidence scoring, interactive triage, deferred items |
+| **Gabe Roast** | `/gabe-roast` | Adversarial gap review — stress-tests from a required perspective |
+| **Gabe Assess** | `/gabe-assess` | Change impact — blast radius, maturity scope, prerequisites, alternatives |
+| **Gabe Health** | `/gabe-health` | Codebase health — god files, churn hotspots, coupling, deferred items, maintenance |
+| **Gabe Help** | `/gabe-help` | Context-aware guide — scans environment, suggests the right tool |
+
+### Commands (2)
+
+| Command | What it does |
+|---|---|
+| `/gabe-init` | Project setup — creates `.kdbp/`, installs hooks, selects project type + maturity |
+| `/gabe-commit` | Commit quality gate — deterministic checks, interactive triage, defer/accept/fix per finding |
+
+### KDBP System
+
+The Knowledge, Decisions, Behavior, and Pending system tracks project state across sessions:
+
+```
+.kdbp/
+├── BEHAVIOR.md      # Project name, domain, maturity, tech stack
+├── VALUES.md        # 3-7 project-specific values (checked at commit)
+├── DECISIONS.md     # Append-only architecture decision table
+├── PENDING.md       # Deferred items with priority and escalation
+├── LEDGER.md        # Session checkpoint history (auto-appended)
+└── MAINTENANCE.md   # Quarterly human checklist
+```
+
+User-level values at `~/.kdbp/VALUES.md` apply across all projects.
+
+### Hooks (4, installed to `~/.claude/settings.json`)
+
+| Hook | Event | What it does |
+|---|---|---|
+| KDBP values loader | SessionStart | Loads user + project values into context |
+| Commit gate | PreToolUse (Bash) | Runs deterministic checks on `git commit`, blocks on CRITICAL |
+| Ledger writer | PostToolUse (Bash) | Auto-appends commit entries to `.kdbp/LEDGER.md` |
+| Session-end reminder | Stop | Reminds about deferred items and scope changes |
+
+### Workflows
+
+| I need to... | Use |
+|---|---|
+| Start a new project | `/gabe-init [name]` |
+| Check values alignment | `/gabe-align [shallow/standard/deep]` |
+| Understand a concept | `/gabe-lens [concept]` |
+| Find gaps in a design | `/gabe-roast [perspective] [target]` |
+| Assess a change | `/gabe-assess [change]` |
+| Review code | `/gabe-review` |
+| Check codebase health | `/gabe-health` |
+| Commit with quality checks | `/gabe-commit [message]` |
+| What tool do I need? | `/gabe-help` |
+
+### Architecture Reference
+
+For application stack decisions (Python + FastAPI + PydanticAI + React + Bun), see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ---
 
@@ -83,20 +138,21 @@ That one-line handle — *"Hooks are gravity — docs are speed limit signs"* �
 
 ## Install
 
-Inside Claude Code:
-
-```
-/plugin marketplace add khujta/gabe-lens
-/plugin install gabe-lens@khujta-gabe-lens
-```
-
-Or clone locally:
-
-```
+```bash
 git clone https://github.com/khujta/gabe-lens.git
+cd gabe-lens
+./install.sh              # Install all skills + commands
+./install.sh --dry-run    # Show what would be done
+./install.sh --uninstall  # Remove everything
 ```
 
-Then point Claude Code at the local directory with `--plugin-dir ./gabe_lens` or add it via your project settings.
+After install, initialize a project:
+
+```
+/gabe-init [project-name]
+```
+
+This creates `.kdbp/`, installs hooks, and asks about project type and maturity.
 
 ## Usage
 
