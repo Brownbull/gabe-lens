@@ -213,9 +213,12 @@ Next steps:
   1. Add project-specific values to .kdbp/VALUES.md
   2. Run /gabe-plan to create your first plan
   3. Start building — hooks will checkpoint automatically at commit
-  4. After commits/pushes, run /gabe-teach to stay architect-level current with changes
-  5. Run /gabe-health anytime for codebase health check
-  6. Customize .kdbp/DOCS.md if your project structure differs from the standard
+  4. Before your first /gabe-teach session, run /gabe-teach init-wells to define
+     the architectural sections (gravity wells) topics will anchor to. The teach
+     command also prompts for this automatically the first time it runs.
+  5. After commits/pushes, run /gabe-teach to stay architect-level current with changes
+  6. Run /gabe-health anytime for codebase health check
+  7. Customize .kdbp/DOCS.md if your project structure differs from the standard
 ```
 
 $ARGUMENTS
