@@ -48,6 +48,25 @@ Run these scripts. No LLM. No token cost. Target: 2-10 seconds total.
 - Flag open items whose `File` column matches any changed file
 - Use item's existing priority
 
+**CHECK 7 — Doc Drift** (requires `.kdbp/` directory)
+
+Two layers, both deterministic:
+
+**Layer 1 — Universal safe cards** (always active when `.kdbp/` exists, no config needed):
+- `.env.example` OR `config.py` changed AND `README.md` NOT in diff → flag README.md (`low`)
+- `pyproject.toml` OR `package.json` dependency section changed AND `README.md` NOT in diff → flag README.md (`low`)
+- `docker-compose.yml` changed AND `README.md` NOT in diff → flag README.md (`low`)
+- New `@app.get` / `@app.post` / `@router` decorator added AND no file in `docs/` in diff → flag docs/ (`medium`)
+
+**Layer 2 — DOCS.md pattern matching** (active only when `.kdbp/DOCS.md` exists):
+- Read `.kdbp/DOCS.md` mapping table
+- For each changed file in `git diff --staged --name-only`:
+  - Match against Source Pattern column (glob match)
+  - If pattern matches AND Doc Target is NOT `skip`:
+    - Check if Doc Target file appears in the staged diff
+    - If Doc Target NOT in diff → create finding at pattern's Priority
+- Deduplicate: one finding per unique Doc Target (use highest priority among matches)
+
 ### Step 3: Assign severity
 
 Deterministic thresholds, not LLM judgment:
@@ -63,6 +82,11 @@ Deterministic thresholds, not LLM judgment:
 | File >400 lines | <=400 | `low` |
 | New file <20 lines | >=20 | `low` |
 | Open deferred on changed file | None | item's priority |
+| Doc drift (universal safe card) | Doc target in diff | `low` (config/deps/docker) / `medium` (new routes) |
+| Doc drift (DOCS.md critical) | Doc target in diff | `critical` |
+| Doc drift (DOCS.md high) | Doc target in diff | `high` |
+| Doc drift (DOCS.md medium) | Doc target in diff | `medium` |
+| Doc drift (DOCS.md low) | Doc target in diff | `low` |
 
 ### Step 4: Present results
 
@@ -70,7 +94,7 @@ Deterministic thresholds, not LLM judgment:
 ```
 GABE COMMIT: feat: update triage prompt
 
-CHECKS: ✅ lint  ✅ types  ✅ tests (84/84)  ✅ coverage  ✅ shape
+CHECKS: ✅ lint  ✅ types  ✅ tests (84/84)  ✅ coverage  ✅ shape  ✅ docs
 No findings. Committing...
 [main abc1234] feat: update triage prompt
 ```
@@ -80,13 +104,14 @@ Stage all changes, commit, done.
 ```
 GABE COMMIT: feat: add classification pipeline stage
 
-CHECKS: ✅ lint  ✅ types  ✅ tests (84/84)  ⚠ coverage  ⚠ shape
+CHECKS: ✅ lint  ✅ types  ✅ tests (84/84)  ⚠ coverage  ⚠ shape  ⚠ docs
 
 | # | Sev    | Finding                              | Actions                              |
 |---|--------|--------------------------------------|--------------------------------------|
 | 1 | medium | Coverage: classify.py at 62% (<80%)  | [write-test] [accept] [defer]        |
 | 2 | low    | New file: route.py (23 lines)        | [merge:classify.py] [keep] [defer]   |
 | 3 | low    | D2 open on agent.py (you changed it) | [resolve-now] [skip] [defer]         |
+| 4 | medium | Docs: README.md may need update (config.py changed) | [update-docs] [accept] [defer] |
 
 → Actions? (e.g., "1:defer 2:keep 3:skip") or "all:commit" to defer all:
 ```
@@ -95,7 +120,7 @@ CHECKS: ✅ lint  ✅ types  ✅ tests (84/84)  ⚠ coverage  ⚠ shape
 ```
 GABE COMMIT: ❌ BLOCKED — 1 critical finding
 
-CHECKS: ✅ lint  ❌ tests  ✅ types
+CHECKS: ✅ lint  ❌ tests  ✅ types  ✅ docs
 
 | # | Sev      | Finding                              | Actions                |
 |---|----------|--------------------------------------|------------------------|
@@ -127,6 +152,9 @@ Fix critical findings before committing.
 | **Open deferred** | `resolve-now` | Shows item, helps fix | Yes | tokens |
 | | `skip` | Leaves open, no re-prompt this commit | No | 0 |
 | | `escalate` | Bumps priority +1 level | No | 0 |
+| **Doc drift** | `update-docs` | Reads diff + target doc section, suggests minimal edit | Yes | tokens |
+| | `accept` | Acknowledges drift, commits without doc update | No | 0 |
+| | `defer` | Adds to PENDING.md at detected priority | No | 0 |
 
 ### Step 6: Commit + record
 
@@ -157,5 +185,6 @@ DEFERRED: +D8 (coverage classify.py)
 | Coverage | skip | ✅ | ✅ |
 | Shape | skip | ✅ (30 files) | ✅ (20 files) |
 | Deferred | HIGH+ only | MEDIUM+ | All |
+| Doc Drift | safe cards only | safe cards + DOCS.md | safe cards + DOCS.md |
 
 $ARGUMENTS

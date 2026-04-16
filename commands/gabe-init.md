@@ -27,7 +27,8 @@ Run the equivalent of `/gabe-align init [project-name]`:
 ├── DECISIONS.md     # Append-only architecture decision table
 ├── PENDING.md       # Deferred items (empty)
 ├── LEDGER.md        # Checkpoint history (empty)
-└── MAINTENANCE.md   # Quarterly human checklist
+├── MAINTENANCE.md   # Quarterly human checklist
+└── DOCS.md          # Doc drift mappings (from project type, used by CHECK 7)
 ```
 
 **BEHAVIOR.md** — generate from answers:
@@ -66,6 +67,14 @@ created: [today's date]
 
 **MAINTENANCE.md** — use template from `cherry-pick/kdbp/templates/MAINTENANCE.md`
 
+**DOCS.md** — use template from `cherry-pick/kdbp/templates/DOCS.md`:
+- Select the section matching the project type chosen in Step 3
+- Agent app → use the Agent App section
+- Web app → use the Web App section
+- CLI → use the CLI section
+- Library → use the Library section
+- Remove commented-out sections for other project types
+
 ### Step 2: Check hooks
 
 Check `~/.claude/settings.json` for these hooks:
@@ -84,12 +93,26 @@ If all hooks present: "All 4 KDBP hooks installed."
 ### Step 3: Project type
 
 Ask: "Project type?"
-- **Web app** → Standard setup, done
-- **Agent app** → Add U4-U8 to project VALUES.md + show agent blueprint checklist
-- **CLI** → Standard setup, done
-- **Library** → Standard setup, done
 
-If **agent app** selected:
+For ALL project types, create doc stubs if they don't already exist:
+
+- **Agent app**:
+  - `docs/architecture.md` with headings: `# Architecture`, `## Data Model`, `## API Contracts`, `## API Endpoints`, `## Integrations`
+  - `docs/AGENTS_USE.md` with headings: `# Agent Documentation`, `## Agent Design`, `## Tools`, `## Prompts`, `## Safety`, `## Context Engineering`
+  - `docs/SCALING.md` with headings: `# Scaling`, `## Observability`
+  - Add U4-U8 to project VALUES.md + show agent blueprint checklist (see below)
+
+- **Web app**:
+  - `docs/architecture.md` with headings: `# Architecture`, `## Data Model`, `## API Contracts`, `## API Endpoints`
+
+- **CLI**:
+  - Ensure README.md has sections: `## Usage`, `## Installation`, `## Commands`
+
+- **Library**:
+  - `docs/api.md` with heading: `# API Reference`
+  - Ensure README.md has sections: `## Installation`, `## Skills`, `## Commands`
+
+If **agent app** selected, also:
 1. Add to `.kdbp/VALUES.md`:
 ```markdown
 - **V1 — Enforce Output Structure:** Use PydanticAI output_type or equivalent. Never prompt-only. `story`
@@ -117,15 +140,18 @@ Reference: arch-ref-lib Tier 9 (AI Agent Applications)
 ### Step 4: Show readiness report
 
 ```
-✅ .kdbp/ initialized (6 files)
+✅ .kdbp/ initialized (7 files)
 ✅ Hooks installed (4/4)
 ✅ Project type: [type]
 ✅ Maturity: [mvp|enterprise|scale]
+✅ DOCS.md: [N] mappings loaded for [project-type]
+✅ Doc stubs: [list of created doc files]
 
 Next steps:
   1. Add project-specific values to .kdbp/VALUES.md
   2. Start building — hooks will checkpoint automatically at commit
   3. Run /gabe-health anytime for codebase health check
+  4. Customize .kdbp/DOCS.md if your project structure differs from the standard
 ```
 
 $ARGUMENTS
