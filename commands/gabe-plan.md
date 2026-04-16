@@ -83,11 +83,17 @@ Only after user confirms. Write with this structure:
 
 ## Phases
 
-| # | Phase | Description | Complexity | Status |
-|---|-------|-------------|------------|--------|
-| 1 | [name] | [description] | low/med/high | pending |
-| 2 | [name] | [description] | low/med/high | pending |
-| 3 | [name] | [description] | low/med/high | pending |
+| # | Phase | Description | Complexity | Review | Commit | Push |
+|---|-------|-------------|------------|--------|--------|------|
+| 1 | [name] | [description] | low/med/high | ⬜ | ⬜ | ⬜ |
+| 2 | [name] | [description] | low/med/high | ⬜ | ⬜ | ⬜ |
+| 3 | [name] | [description] | low/med/high | ⬜ | ⬜ | ⬜ |
+
+<!-- Review/Commit/Push auto-ticked by /gabe-review, /gabe-commit, /gabe-push -->
+<!-- A phase is complete when all three columns are ✅ -->
+<!-- Manual override is fine — edit cells by hand any time -->
+<!-- Legacy plans with a single Status column still work; auto-tick is a silent no-op -->
+
 
 ## Current Phase
 
@@ -173,12 +179,13 @@ GABE PLAN: [goal]
 
 STATUS: ✅ Plan written to .kdbp/PLAN.md
 PHASES: [N] phases | Current: Phase 1 — [name]
+TRACKERS: Review ⬜ | Commit ⬜ | Push ⬜ (auto-ticked by gabe-review/commit/push)
 MATURITY: [mvp/enterprise/scale]
 LEDGER: ✅ logged
 
 Next steps:
   1. Start Phase 1 — [brief description]
-  2. Update phase status as you progress (edit .kdbp/PLAN.md)
+  2. Run /gabe-review, /gabe-commit, /gabe-push as you progress — they tick the row
   3. Run /gabe-plan when done to archive as completed
 ```
 
@@ -201,6 +208,43 @@ If the user runs `/gabe-plan update` or `/gabe-plan status`:
   Last Updated: [date] ([N days ago])
   ```
   If last updated >14 days ago, add: "⚠ Plan may be stale. Run `/gabe-plan update` to refresh."
+
+---
+
+## Shared: auto-tick phase column (used by /gabe-review, /gabe-commit, /gabe-push)
+
+This logic is invoked by the three trigger commands to update the Phases table in `.kdbp/PLAN.md` when a phase gate passes. Idempotent and silent on mismatch.
+
+### Procedure
+
+1. **Preconditions (all must hold; otherwise exit silently, no error):**
+   - `.kdbp/PLAN.md` exists
+   - File contains `<!-- status: active -->`
+   - File contains a `## Current Phase` section
+   - The Phases table header includes the target column name (`Review`, `Commit`, or `Push`) — **detection is by column name, not position**. If the plan uses the legacy `Status` column, this logic no-ops so old plans keep working.
+
+2. **Find the target row:**
+   - Parse `## Current Phase` — extract the leading integer N from a line like `Phase 3: [name]`
+   - In the Phases table, locate the row where the first data column equals N
+
+3. **Tick the cell:**
+   - Target column is determined by caller: `Review` / `Commit` / `Push`
+   - If the cell is already `✅`, exit silently (idempotent — no rewrite)
+   - If the cell is `⬜`, replace with `✅`
+
+4. **Bump Last Updated:**
+   - In the Context section, replace the `- **Last Updated:** ...` line with today's date (`YYYY-MM-DD`)
+
+5. **Exit. Do NOT:**
+   - Advance the Current Phase (manual via `/gabe-plan update`)
+   - Log to LEDGER.md from this helper (callers already log their primary action)
+   - Modify any other column or row
+
+### Implementation note
+
+Keep this logic local to each command (short awk/sed block ~15 lines). Duplication is clearer than indirection here. A shared shell script would need to be installed alongside the commands, which adds install complexity for a small benefit.
+
+---
 
 ### Staleness detection
 

@@ -135,6 +135,28 @@ If `.kdbp/KNOWLEDGE.md` exists, count rows with status `pending`:
 
 Non-blocking suggestion only. Push is already complete.
 
+### Step 10: Auto-tick Push column in PLAN.md
+
+Silent no-op on any mismatch. Only runs when ALL of the following are true:
+
+1. Push succeeded (Step 4 reached without failure)
+2. CI passed green (Step 6 ended with "All checks passed" — or CI provider is `none` and user confirmed)
+3. Branch promotion reached the final link per PUSH.md, OR the PR was merged before running push
+
+If any of those is false, skip this step. The Push column should only tick when the work is actually live on the target branch.
+
+Follow the shared procedure documented in `/gabe-plan` under "Shared: auto-tick phase column":
+- Target column: `Push`
+- Preconditions: `.kdbp/PLAN.md` exists, contains `status: active`, has `## Current Phase`, and Phases table includes a `Push` column
+- On mismatch or legacy Status-column format: exit silently
+- On success, display: `✅ PLAN: Phase [N] push ticked` (one line)
+
+If ticking Push completes all three columns (Review + Commit + Push = ✅) for the current phase, additionally display:
+```
+🎯 Phase [N] complete (all three gates passed).
+   Run /gabe-plan update to advance to the next phase.
+```
+
 ### Output examples
 
 **All succeeds (most common):**

@@ -249,17 +249,124 @@ The confidence score appears BEFORE the verdict — it informs the verdict but d
 
 After the verdict and session estimate, present the triage prompt. This closes the gap between "here's what's wrong" and "let's fix it."
 
-#### Entry Point
+#### Entry Point — Bulk Matrix Menu
+
+Replaces the old binary "Enter triage? [Y/n]" with a severity × scale matrix plus seven clearly-bounded options. Every option is explicit about **both** the fix set and the remainder behavior, so the user is never surprised by what happened to findings they didn't explicitly address.
+
+**Matrix display:**
 
 ```
-### Triage
+### Triage — [N] findings across [M] files
 
-N findings to resolve. Enter triage? [Y/n]
+Severity × Maturity Gate:
+
+| Severity     | MVP | Enterprise | Scale | Total |
+|--------------|-----|------------|-------|-------|
+| CRITICAL     | [n] | [n]        | [n]   | [n]   |
+| HIGH         | [n] | [n]        | [n]   | [n]   |
+| MEDIUM       | [n] | [n]        | [n]   | [n]   |
+| LOW          | [n] | [n]        | [n]   | [n]   |
+
+Project maturity: [MVP|Enterprise|Scale] (from .kdbp/BEHAVIOR.md)
 ```
 
-If the user declines, persist any findings above the maturity gate as deferred items and end. If the user accepts, enter the triage loop.
+Counts come deterministically from the Findings table already produced in Step 4. No recomputation.
 
-#### Triage Loop
+**Seven options, each with explicit fix set AND remainder behavior:**
+
+```
+Bulk options:
+
+  [1] Fix MVP items only
+      Fix:          [n_mvp] findings (MVP gate, any severity)
+      Defer:        [n_ent+n_scale] findings (Enterprise + Scale) → PENDING.md
+      Confidence:   [current] → [projected] (+[delta])
+
+  [2] Fix MVP + Enterprise items
+      Fix:          [n_mvp+n_ent] findings (MVP + Enterprise gates)
+      Defer:        [n_scale] findings (Scale gate) → PENDING.md
+      Confidence:   [current] → [projected] (+[delta])
+
+  [3] Fix all including Scale
+      Fix:          [total] findings (everything)
+      Defer:        none
+      Confidence:   [current] → [projected] (+[delta])
+
+  [4] Fix CRITICAL + HIGH only (severity-based, ignores gate)
+      Fix:          [n_crit+n_high] findings (CRITICAL + HIGH, any gate)
+      Defer:        [n_med+n_low] findings (MEDIUM + LOW) → PENDING.md
+      Confidence:   [current] → [projected] (+[delta])
+
+  [5] Defer Scale, triage the rest one-by-one
+      Defer now:    [n_scale] findings (Scale gate) → PENDING.md
+      Then enter:   one-by-one for remaining [total-n_scale] (MVP + Enterprise)
+
+  [6] One-by-one (per-finding prompt)
+      Enter:        per-finding loop for all [total] findings
+      Each gets:    f / d / x / s / a / e decision
+
+  [7] Skip triage
+      Defer:        all [total] findings → PENDING.md
+      Fix:          none
+
+★ Recommended for [project maturity]: [default option]
+
+Pick [1-7] or type `custom` for a mixed expression (e.g. "fix 1-3, defer 4-6, dismiss 7"):
+```
+
+**Starred default (by project maturity, not by project name):**
+
+| Project maturity | Recommended option |
+|------------------|--------------------|
+| MVP | [1] Fix MVP items only |
+| Enterprise | [2] Fix MVP + Enterprise items |
+| Scale | [3] Fix all including Scale |
+
+If no `.kdbp/BEHAVIOR.md` exists or maturity is unset, star [1] as the conservative default.
+
+#### Bulk Option Guardrails
+
+Before executing any bulk option, apply these two guardrails:
+
+**1. CRITICAL findings are always in the fix set.**
+
+If the chosen option would leave a CRITICAL unresolved (e.g., user picks [1] but a CRITICAL has Enterprise gate), show this warning and adjust:
+
+```
+⚠ Option [1] would defer [N] CRITICAL finding(s). CRITICALs cannot be deferred.
+  Adjusted fix set:  [N+n_mvp] findings ([n_mvp] MVP + [N] CRITICAL forced)
+  Adjusted defer:    [rest]
+  Proceed? [Y/n]
+```
+
+If the user confirms, execute with the adjusted sets. If they decline, return to the menu.
+
+**2. Dismiss is never a bulk action.**
+
+All remainders from bulk options go to **defer** (PENDING.md, re-surfaces on next review). Dismiss is session-only and requires per-finding justification — only available in per-finding mode (options [5], [6], custom).
+
+#### Custom Expression
+
+User types a mixed expression:
+
+```
+fix 1-3, defer 4-6, dismiss 7
+fix 1,3,5 defer 2,4
+fix all-critical, defer all-scale, one-by-one rest
+```
+
+Parse rules:
+- `fix N` / `fix N-M` / `fix N,M,P` — add to fix set
+- `defer N` / `defer N-M` — add to defer set (PENDING.md)
+- `dismiss N` — requires asking for justification per item
+- `skip N` — leave un-triaged (prompted at end)
+- `one-by-one N` or `one-by-one rest` — route specific items (or everything else) to the per-finding loop
+- Shortcuts: `all-critical`, `all-high`, `all-mvp`, `all-enterprise`, `all-scale`, `rest`
+- Unresolved items at the end of the expression → auto-defer with a confirmation prompt
+
+Apply the same two guardrails (CRITICAL-always-fixed, dismiss-needs-justification).
+
+#### One-by-one Loop (options [5] remainder, [6], or custom `one-by-one`)
 
 Present findings **grouped by file** (not by severity), because fixes in the same file batch naturally. Within each file group, order by severity (CRITICAL first).
 
@@ -269,7 +376,7 @@ For each finding, show a compact card:
 [1/5] HIGH — Missing fail-open test | rateLimiter.ts:88 | Fix: S (<30m)
       Defer Risk: SILENT FAILURE — P(medium), I(high)
 
-  (f) Fix now    (d) Defer    (x) Dismiss    (s) Skip for now    (a) Fix all remaining
+  (f) Fix now    (d) Defer    (x) Dismiss    (s) Skip    (a) Fix all remaining    (e) Explain
 ```
 
 #### Actions
@@ -281,6 +388,48 @@ For each finding, show a compact card:
 | **x — Dismiss** | Ask for one-line reason. Record dismissal in the review output (not in deferred backlog). Move to next finding. Dismissals don't persist across reviews — they're session-only decisions. |
 | **s — Skip** | Leave in the findings table without deciding. At end of triage, un-skipped items get a final "defer or dismiss?" prompt. |
 | **a — Fix all** | Apply fixes for all remaining findings in sequence without per-finding prompts. Show a summary diff at the end. Useful when the user trusts the fixes and wants to batch them. |
+| **e — Explain** | Invoke the `gabe-lens` skill to generate an analogy for the finding + expose trade-offs. Returns to this same prompt after explaining — doesn't advance. See "Explain behavior" below. |
+
+#### Explain Behavior (`e`)
+
+When the user picks `e`, Claude:
+
+1. **Invokes the `gabe-lens` skill** with the finding details (severity, file:line, description, defer risk, maturity gate) as context
+2. **Produces 4 sections** — short, concrete, no filler:
+   - **ANALOGY:** physical or spatial metaphor for what's broken and why it matters (2-4 lines)
+   - **WHY IT MATTERS:** bullets on what the finding actually buys the project (2-3 bullets)
+   - **IF YOU FIX:** concrete outcome + confidence delta
+   - **IF YOU DEFER:** concrete failure mode + when it bites
+3. **Re-prompts the same action menu** — user can then pick f / d / x / s / a. Does NOT advance to the next finding on its own.
+
+Example:
+
+```
+[2/9] HIGH — Missing fail-open test | rateLimiter.ts:88 | Fix: S (<30m)
+      Defer Risk: SILENT FAILURE — P(medium), I(high)
+
+> e
+
+ANALOGY: Like a circuit breaker with no test that it actually trips. The code says
+"if upstream fails, fail open (allow requests)". That's a reasonable policy — but
+nothing exercises it. Six months later someone refactors, the fail-open silently
+becomes fail-closed, and production drops 10% of traffic during partial outages
+until someone notices in a dashboard.
+
+WHY IT MATTERS:
+  - Without the test, you can't know if the behavior is intentional
+  - The fix is <30m (one test)
+  - Deferring means the next refactor could silently flip the behavior
+
+IF YOU FIX:  Confidence +12. Permanent guardrail on rate-limiter behavior.
+IF YOU DEFER: Finding escalates on next review if rate-limiter is touched again.
+
+  (f) Fix   (d) Defer   (x) Dismiss   (s) Skip   (a) Fix all
+
+>
+```
+
+Keep analogies concrete. Avoid "this is like a house" handwaving — use the specific domain of the finding (timing, locking, data flow, UI state) so the analogy teaches something transferable.
 
 #### Fix Behavior
 
@@ -362,6 +511,23 @@ CRITICAL findings during triage **cannot be deferred**. The `(d)` option is disa
 | Fix introduces a new issue | Don't re-review during triage. The fix-then-review loop is for the next `/gabe-review` run. |
 | Finding references a file not in the workspace | Can't auto-fix. Offer defer/dismiss only. |
 | Skipped CRITICAL at end of triage | CRITICALs cannot be deferred. At the final sweep, present only **(f) Fix now** or **(x) Dismiss (requires justification)**. If the user skips again, auto-classify as Dismissed with note: "No resolution chosen — treated as acknowledged risk." |
+
+### Step 6: Auto-tick Review column in PLAN.md
+
+After triage completes (Final Verdict produced), tick the Review column of the current phase if the review passed. Silent no-op on any mismatch.
+
+**Pass condition for Review column:**
+- Final Verdict is APPROVE or WARNING (not BLOCK)
+- No unresolved CRITICAL findings (deferred = OK; deferred CRITICAL cannot exist per guardrail)
+- No unresolved HIGH findings ABOVE the maturity gate (deferred = OK)
+
+Follow the shared procedure documented in `/gabe-plan` under "Shared: auto-tick phase column":
+- Target column: `Review`
+- Preconditions: `.kdbp/PLAN.md` exists, contains `status: active`, has `## Current Phase`, and Phases table includes a `Review` column
+- On mismatch or legacy Status-column format: exit silently
+- On success, display: `✅ PLAN: Phase [N] review ticked` (one line at the end of output)
+
+If the pass condition is not met (BLOCK verdict or unresolved issues above gate), do NOT tick — but do not emit a warning either. The user knows they blocked.
 
 ---
 

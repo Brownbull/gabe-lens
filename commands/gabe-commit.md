@@ -189,6 +189,13 @@ DEFERRED: +D8 (coverage classify.py)
    - Otherwise: skip suggestion
    - Message: `ℹ New topics likely introduced. Run /gabe-teach topics to consolidate understanding.`
 
+6. **Auto-tick Commit column in PLAN.md** (silent no-op on any mismatch). Only runs when the `git commit` in step 6.2 returned 0.
+   - Follow the shared procedure documented in `/gabe-plan` under "Shared: auto-tick phase column"
+   - Target column: `Commit`
+   - Preconditions: `.kdbp/PLAN.md` exists, contains `status: active`, has a `## Current Phase` section, and Phases table includes a `Commit` column
+   - On mismatch or legacy Status-column format: exit silently
+   - On success, display: `✅ PLAN: Phase [N] commit ticked` (one line, non-blocking)
+
 ### Maturity-Driven Check Selection
 
 | Check | MVP | Enterprise | Scale |
