@@ -117,8 +117,16 @@ Suggested next:
 
 ```
 1. /gabe-review             — Full review with confidence score + triage
-2. /gabe-review fix         — Auto-fix all findings (if you trust the review)
+2. /gabe-push               — Push, create PR, watch CI, promote
 3. /gabe-roast [perspective] [target] — Stress-test from a specific angle
+```
+
+### Post-Commit (committed, not pushed)
+
+```
+1. /gabe-push               — Push, create PR, watch CI
+2. /gabe-review             — Double-check before shipping (if not done yet)
+3. /gabe-assess bf [feature] — Quick impact check on what you're about to ship
 ```
 
 ### Deferred Debt (pending deferred items)
@@ -149,7 +157,7 @@ Suggested next:
 6. **Show the full suite on request.** If the user asks "what tools are available?" or similar, show the complete list:
 
 ```
-The Gabe Suite — 7 tools:
+The Gabe Suite — 10 tools (7 skills + 3 commands):
 
 | Tool | Command | What it does |
 |------|---------|-------------|
@@ -160,6 +168,9 @@ The Gabe Suite — 7 tools:
 | gabe-roast | /gabe-roast [perspective] [target] | Adversarial gap review from a specific viewpoint |
 | gabe-review | /gabe-review [target] | Code review with risk pricing + confidence score + triage |
 | gabe-health | /gabe-health [focus] | Codebase structural health — gods, churn, coupling, bugs |
+| gabe-init | /gabe-init [name] | Project setup — .kdbp/, hooks, project type, maturity |
+| gabe-commit | /gabe-commit [msg] | Commit quality gate — deterministic checks, triage |
+| gabe-push | /gabe-push | Push, create PR, watch CI, branch promotion |
 ```
 
 ---

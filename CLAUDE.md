@@ -23,6 +23,9 @@ gabe_lens/
     gabe-roast.md           — /gabe-roast command
     gabe-align.md           — /gabe-align command
     gabe-assess.md          — /gabe-assess command
+    gabe-init.md            — /gabe-init command (project setup)
+    gabe-commit.md          — /gabe-commit command (commit quality gate)
+    gabe-push.md            — /gabe-push command (push + PR + CI + promote)
   assets/                   — Images for README
   README.md                 — Public-facing documentation
   CLAUDE.md                 — This file
@@ -57,6 +60,9 @@ gabe_lens/
 | `/gabe-roast` | gabe-roast | Adversarial gap review (full, brief) |
 | `/gabe-align` | gabe-align | Pre-flight alignment check (shadow, standard, deep) |
 | `/gabe-assess` | gabe-assess | Change impact assessment (full, brief, inline, batch) |
+| `/gabe-init` | — | Project setup — .kdbp/, hooks, project type, maturity |
+| `/gabe-commit` | — | Commit quality gate — deterministic checks, interactive triage |
+| `/gabe-push` | — | Push, create PR, watch CI, branch promotion |
 
 ## Adding a New Skill
 

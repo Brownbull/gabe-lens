@@ -31,12 +31,13 @@ Skills, commands, and hooks for understanding, reviewing, deciding, and shipping
 | **Gabe Health** | `/gabe-health` | Codebase health — god files, churn hotspots, coupling, deferred items, maintenance |
 | **Gabe Help** | `/gabe-help` | Context-aware guide — scans environment, suggests the right tool |
 
-### Commands (2)
+### Commands (3)
 
 | Command | What it does |
 |---|---|
 | `/gabe-init` | Project setup — creates `.kdbp/`, installs hooks, selects project type + maturity |
 | `/gabe-commit` | Commit quality gate — deterministic checks, interactive triage, defer/accept/fix per finding |
+| `/gabe-push` | Push, create PR, watch CI, promote branches — the post-commit shipping workflow |
 
 ### KDBP System
 
@@ -75,6 +76,7 @@ User-level values at `~/.kdbp/VALUES.md` apply across all projects.
 | Review code | `/gabe-review` |
 | Check codebase health | `/gabe-health` |
 | Commit with quality checks | `/gabe-commit [message]` |
+| Push, create PR, watch CI | `/gabe-push` |
 | What tool do I need? | `/gabe-help` |
 
 ### Architecture Reference
