@@ -13,8 +13,11 @@
 
 **Status: uninitialized.** Run `/gabe-teach init-wells` to define architectural sections before the first teach session.
 
-| # | Name | Description | Topics (verified / pending / total) |
-|---|------|-------------|--------------------------------------|
+<!-- Analogy column: one-liner (5-15 words) from gabe-lens. Makes each well graspable at a glance. -->
+<!-- Generated at init-wells time; can be regenerated via /gabe-teach wells. -->
+
+| # | Name | Description | Analogy | Topics (verified / pending / total) |
+|---|------|-------------|---------|--------------------------------------|
 
 ## Topic Classes
 

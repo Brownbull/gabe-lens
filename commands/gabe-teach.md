@@ -120,24 +120,27 @@ Invoked by `/gabe-teach init-wells` OR selected during the foundation gate.
 | 4 | `.kdbp/DECISIONS.md` | Architectural areas mentioned in decisions |
 | 5 | `package.json` / `pyproject.toml` scripts | Reveals layers (build, test, lint, deploy) |
 
-**Step 2b — Propose a starter set.** Aim for 4-7 wells. Each well gets a proposed one-line description.
+**Step 2b — Propose a starter set.** Aim for 4-7 wells. Each well gets a proposed one-line description **plus a one-liner analogy** (via `gabe-lens` oneliner mode — 5-15 words, concrete, memorable).
 
 ```
 Suggested gravity wells for [project] (from [sources used]):
 
   G1 — [Name 1]     — [one-line description]
+         ↪ Analogy: "[5-15 word gabe-lens oneliner]"
   G2 — [Name 2]     — [one-line description]
-  G3 — [Name 3]     — [one-line description]
-  G4 — [Name 4]     — [one-line description]
-  G5 — [Name 5]     — [one-line description]
+         ↪ Analogy: "[oneliner]"
+  ...
 
 Options:
-  [accept] Use as-is
-  [edit N] Rename/redescribe well N
-  [drop N] Remove well N
-  [add]    Add a new well
-  [done]   Finish — write wells to KNOWLEDGE.md
+  [accept]   Use as-is
+  [edit N]   Rename/redescribe well N
+  [relens N] Regenerate analogy for well N (new gabe-lens oneliner)
+  [drop N]   Remove well N
+  [add]      Add a new well
+  [done]     Finish — write wells to KNOWLEDGE.md
 ```
+
+The analogy is generated via one `gabe-lens` call per well in `oneliner` mode. If a well's description is trivial (e.g., "Tests"), the analogy may be the description itself — don't force poetry on what's already clear.
 
 Interactive until user says `done`. Soft cap:
 
@@ -159,7 +162,7 @@ If KNOWLEDGE.md already has topic rows (e.g., user ran `/gabe-teach` before defi
 
 **Step 2d — Write to KNOWLEDGE.md.**
 
-Replace the `Status: uninitialized.` placeholder with the populated Gravity Wells table. Update topic rows with their assigned wells. Log to LEDGER.md:
+Replace the `Status: uninitialized.` placeholder with the populated Gravity Wells table, including the `Analogy` column. Update topic rows with their assigned wells. Log to LEDGER.md:
 ```
 ## [YYYY-MM-DD HH:MM] — /gabe-teach init-wells
 WELLS: [N] defined | RETAGGED: [M] topics
@@ -180,6 +183,7 @@ Actions:
   [view N]    Show topics in well N
   [rename N]  Rename well N (topics stay assigned)
   [redesc N]  Edit description
+  [relens N]  Regenerate analogy via gabe-lens oneliner
   [merge N M] Merge well N into M (topics reassigned to M)
   [archive N] Archive well N (topics move to G0 or user chooses new well)
   [done]      Exit
@@ -355,6 +359,10 @@ For each well row in KNOWLEDGE.md:
 
 No LLM call for this step. If a well has zero activity and zero topics, still show it — the brief is about orientation, absence is informative.
 
+**Step 8b.5 — Backfill missing analogies (one-time per well):**
+
+If a well row has an empty `Analogy` column (wells predating the analogy feature, or post-hoc imports), generate one on the fly via `gabe-lens` in `oneliner` mode (5-15 words). Write the result back to KNOWLEDGE.md so subsequent briefs are free. One LLM call per missing analogy, one-time cost per well.
+
 **Step 8c — Output format** (one-page tight brief, ~30 lines):
 
 ```
@@ -370,11 +378,13 @@ GRAVITY WELLS ([N] defined)
 
   G1 [Name]
      [description]
+     Analogy: "[gabe-lens oneliner]"
      Activity: [pending_count] pending, [verified_count] verified, [recent_touched] touched <14d
      [⚠ [stale_count] stale  — only shown if stale_count > 0]
 
   G2 [Name]
      [description]
+     Analogy: "[oneliner]"
      Activity: ...
   ...
 
@@ -409,7 +419,11 @@ Brief mode does NOT write to KNOWLEDGE.md, LEDGER.md, or anywhere. It's read-onl
 
 **Note on LLM usage:**
 
-Brief mode is fully deterministic by default. The `App:` line comes from BEHAVIOR.md, well descriptions from KNOWLEDGE.md. No LLM call is required. If the user wants a richer narrative, `/gabe-teach story` is the LLM-backed companion.
+Brief mode is fully deterministic once analogies are cached. The `App:` line comes from BEHAVIOR.md (Behavior configuration for the project), well descriptions + analogies from KNOWLEDGE.md. First run after adding the Analogy column may fire N one-liner gabe-lens calls (one per well with missing analogy); those are written back and subsequent briefs are free. If the user wants a richer narrative, `/gabe-teach story` is the LLM-backed companion.
+
+**Principle — progressive-depth analogies everywhere:**
+
+Whenever `/gabe-teach` surfaces a concept that a newcomer or fatigued operator might not grasp instantly, attach a `gabe-lens` oneliner by default. Escalate to `brief` mode if the oneliner can't carry the weight, and only use full analogy when the concept is genuinely load-bearing. This applies to wells (here), to topics in `topics` mode (optional add-on), and to any future surface where the suite presents architectural terms. Cheap cognitive insurance.
 
 ---
 
