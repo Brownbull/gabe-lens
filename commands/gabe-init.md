@@ -13,7 +13,15 @@ One-command project setup. Wraps three operations into a single flow.
 
 Run the equivalent of `/gabe-align init [project-name]`:
 
-1. If `.kdbp/` already exists, show status and ask: "Reset or skip init?"
+1. If `.kdbp/` already exists, show status and ask: "Reset, update, or skip init?"
+   - **reset** — wipe `.kdbp/` and start fresh (destructive, loses LEDGER history and any active plan)
+   - **update** — keep existing files, add missing KDBP files/directories from the current template set, verify and install missing hooks. Non-destructive. No existing files modified.
+   - **skip** — do nothing (exit init)
+
+   If user picks **update**, run Step 1.5 (Update Mode) and then skip to Step 2 (hook check).
+   If user picks **reset**, continue to step 2 below (full init).
+   If user picks **skip**, exit.
+
 2. If no project name in $ARGUMENTS, ask: "Project name?"
 3. Ask: "What does this project do?" (one sentence for BEHAVIOR.md `domain`)
 4. Ask: "Maturity level?" → `mvp` (default) | `enterprise` | `scale`
@@ -83,6 +91,49 @@ created: [today's date]
 - CLI → use the CLI section
 - Library → use the Library section
 - Remove commented-out sections for other project types
+
+### Step 1.5: Update Mode (only when user picked `update`)
+
+Non-destructive top-up of an existing `.kdbp/` directory. Never overwrites, never deletes.
+
+1. **Scan what's missing.** Compare the existing `.kdbp/` contents against the current template set:
+   - Expected files: `BEHAVIOR.md`, `VALUES.md`, `DECISIONS.md`, `PENDING.md`, `LEDGER.md`, `MAINTENANCE.md`, `DOCS.md`, `PLAN.md`, `KNOWLEDGE.md`
+   - Expected directory: `archive/`
+   - Note: project-specific files like `PUSH.md` or historical `PLAN-PHASE-N.md` are NOT in the expected set — leave them untouched.
+
+2. **Report findings before acting:**
+   ```
+   UPDATE MODE — [project name]
+
+   Present (9):    BEHAVIOR, VALUES, DECISIONS, PENDING, LEDGER, MAINTENANCE, DOCS, PUSH, PLAN-PHASE-1
+   Missing (3):    PLAN.md, KNOWLEDGE.md, archive/
+   Unrecognized:   PLAN-PHASE-1.md (not in template set — will keep as-is)
+
+   Proceed with top-up? (y/n)
+   ```
+
+3. **If confirmed, create only missing items:**
+   - For each missing template file: copy from `cherry-pick/kdbp/templates/[FILE]`
+   - For `archive/`: run `mkdir -p .kdbp/archive`
+   - For `DOCS.md` specifically: if missing, do NOT auto-select a project type — ask: "Project type? (agent-app | web-app | cli | library)" and use that section
+   - Skip any file that already exists (never overwrite)
+
+4. **Do NOT touch:**
+   - `BEHAVIOR.md` — already has maturity, domain, tech (preserves user customization)
+   - `VALUES.md` — user-authored content
+   - Any file with existing content
+   - Files outside the expected template set
+
+5. **After file top-up, continue to Step 2 (hook check).** The hook check runs for both reset and update paths.
+
+6. **After Step 2, skip Steps 3-4** (project type + readiness report). Instead show a condensed Update Report:
+   ```
+   UPDATE COMPLETE
+     Files added:    [list]
+     Directories:    [list]
+     Hooks installed: [N] / [total]
+     Preserved:      [count of files left untouched]
+   ```
 
 ### Step 2: Check hooks
 
