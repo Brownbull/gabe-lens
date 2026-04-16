@@ -28,7 +28,10 @@ Run the equivalent of `/gabe-align init [project-name]`:
 ├── PENDING.md       # Deferred items (empty)
 ├── LEDGER.md        # Checkpoint history (empty)
 ├── MAINTENANCE.md   # Quarterly human checklist
-└── DOCS.md          # Doc drift mappings (from project type, used by CHECK 7)
+├── DOCS.md          # Doc drift mappings (from project type, used by CHECK 7)
+├── PLAN.md          # Active plan (empty template — populated by /gabe-plan)
+├── KNOWLEDGE.md     # Human knowledge map (topics tracked by /gabe-teach)
+└── archive/         # Archived plans (completed_, defer_, cancelled_)
 ```
 
 **BEHAVIOR.md** — generate from answers:
@@ -67,6 +70,12 @@ created: [today's date]
 
 **MAINTENANCE.md** — use template from `cherry-pick/kdbp/templates/MAINTENANCE.md`
 
+**PLAN.md** — use template from `cherry-pick/kdbp/templates/PLAN.md`
+
+**KNOWLEDGE.md** — use template from `cherry-pick/kdbp/templates/KNOWLEDGE.md`
+
+**archive/** — create empty directory: `mkdir -p .kdbp/archive`
+
 **DOCS.md** — use template from `cherry-pick/kdbp/templates/DOCS.md`:
 - Select the section matching the project type chosen in Step 3
 - Agent app → use the Agent App section
@@ -79,6 +88,8 @@ created: [today's date]
 
 Check `~/.claude/settings.json` for these hooks:
 - SessionStart hook (contains `KDBP Active`)
+- SessionStart plan awareness (contains `ACTIVE PLAN` or `gabe-plan`)
+- SessionStart knowledge awareness (contains `KNOWLEDGE:` or `gabe-teach`)
 - PreToolUse checkpoint hook (contains `KDBP CHECKPOINT`)
 - PostToolUse ledger writer (contains `LEDGER.md`)
 - Stop session-end reminder (contains `SESSION-END REMINDER`)
@@ -88,7 +99,7 @@ For each missing hook:
 - Ask: "Install? [Y/n]"
 - If yes: read settings.json, parse JSON, append hook to the appropriate array, write back
 
-If all hooks present: "All 4 KDBP hooks installed."
+If all hooks present: "All 6 KDBP hooks installed."
 
 ### Step 3: Project type
 
@@ -140,8 +151,8 @@ Reference: arch-ref-lib Tier 9 (AI Agent Applications)
 ### Step 4: Show readiness report
 
 ```
-✅ .kdbp/ initialized (7 files)
-✅ Hooks installed (4/4)
+✅ .kdbp/ initialized (9 files + archive/)
+✅ Hooks installed (6/6)
 ✅ Project type: [type]
 ✅ Maturity: [mvp|enterprise|scale]
 ✅ DOCS.md: [N] mappings loaded for [project-type]
@@ -149,9 +160,11 @@ Reference: arch-ref-lib Tier 9 (AI Agent Applications)
 
 Next steps:
   1. Add project-specific values to .kdbp/VALUES.md
-  2. Start building — hooks will checkpoint automatically at commit
-  3. Run /gabe-health anytime for codebase health check
-  4. Customize .kdbp/DOCS.md if your project structure differs from the standard
+  2. Run /gabe-plan to create your first plan
+  3. Start building — hooks will checkpoint automatically at commit
+  4. After commits/pushes, run /gabe-teach to stay architect-level current with changes
+  5. Run /gabe-health anytime for codebase health check
+  6. Customize .kdbp/DOCS.md if your project structure differs from the standard
 ```
 
 $ARGUMENTS

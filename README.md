@@ -31,13 +31,15 @@ Skills, commands, and hooks for understanding, reviewing, deciding, and shipping
 | **Gabe Health** | `/gabe-health` | Codebase health — god files, churn hotspots, coupling, deferred items, maintenance |
 | **Gabe Help** | `/gabe-help` | Context-aware guide — scans environment, suggests the right tool |
 
-### Commands (3)
+### Commands (5)
 
 | Command | What it does |
 |---|---|
 | `/gabe-init` | Project setup — creates `.kdbp/`, installs hooks, selects project type + maturity |
 | `/gabe-commit` | Commit quality gate — deterministic checks, interactive triage, defer/accept/fix per finding |
 | `/gabe-push` | Push, create PR, watch CI, promote branches — the post-commit shipping workflow |
+| `/gabe-plan` | KDBP-aware planning — persists plan to `.kdbp/PLAN.md`, lifecycle (complete/defer/cancel) with archive |
+| `/gabe-teach` | Human knowledge consolidation — tracks WHY/WHEN/WHERE topics from recent commits with Socratic verification |
 
 ### KDBP System
 
@@ -50,19 +52,24 @@ The Knowledge, Decisions, Behavior, and Pending system tracks project state acro
 ├── DECISIONS.md     # Append-only architecture decision table
 ├── PENDING.md       # Deferred items with priority and escalation
 ├── LEDGER.md        # Session checkpoint history (auto-appended)
-└── MAINTENANCE.md   # Quarterly human checklist
+├── MAINTENANCE.md   # Quarterly human checklist
+├── PLAN.md          # Active plan (written by /gabe-plan)
+├── KNOWLEDGE.md     # Human knowledge map (managed by /gabe-teach)
+└── archive/         # Archived plans (completed_, defer_, cancelled_)
 ```
 
 User-level values at `~/.kdbp/VALUES.md` apply across all projects.
 
-### Hooks (4, installed to `~/.claude/settings.json`)
+### Hooks (6, installed to `~/.claude/settings.json`)
 
 | Hook | Event | What it does |
 |---|---|---|
 | KDBP values loader | SessionStart | Loads user + project values into context |
+| Plan awareness | SessionStart | Surfaces active plan goal, phase, and staleness |
+| Knowledge awareness | SessionStart | Surfaces pending and stale KNOWLEDGE.md topics |
 | Commit gate | PreToolUse (Bash) | Runs deterministic checks on `git commit`, blocks on CRITICAL |
 | Ledger writer | PostToolUse (Bash) | Auto-appends commit entries to `.kdbp/LEDGER.md` |
-| Session-end reminder | Stop | Reminds about deferred items and scope changes |
+| Session-end reminder | Stop | Reminds about deferred items, scope changes, and active plan |
 
 ### Workflows
 
@@ -77,6 +84,8 @@ User-level values at `~/.kdbp/VALUES.md` apply across all projects.
 | Check codebase health | `/gabe-health` |
 | Commit with quality checks | `/gabe-commit [message]` |
 | Push, create PR, watch CI | `/gabe-push` |
+| Create or manage a plan | `/gabe-plan [goal]` |
+| Consolidate architect-level understanding | `/gabe-teach [topics/status/free]` |
 | What tool do I need? | `/gabe-help` |
 
 ### Architecture Reference

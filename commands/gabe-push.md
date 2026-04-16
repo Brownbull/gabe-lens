@@ -127,6 +127,14 @@ CI: [all passed | N failed | skipped | no CI]
 PROMOTION: [promoted to X | skipped | N/A]
 ```
 
+### Step 9: Suggest /gabe-teach (if applicable)
+
+If `.kdbp/KNOWLEDGE.md` exists, count rows with status `pending`:
+- If pending count >= 2: show `ℹ [N] pending topics in KNOWLEDGE.md. Run /gabe-teach topics to review.`
+- Otherwise: skip.
+
+Non-blocking suggestion only. Push is already complete.
+
 ### Output examples
 
 **All succeeds (most common):**

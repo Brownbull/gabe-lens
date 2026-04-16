@@ -15,6 +15,13 @@ Deterministic commit quality gate. Runs checks, shows findings, lets you act on 
 2. If no commit message in $ARGUMENTS, generate one from `git diff --staged` (conventional commit format)
 3. Read `.kdbp/BEHAVIOR.md` for `maturity` field (defaults to `mvp` if missing)
 
+### Step 1b: Surface active plan (context only, no check)
+
+If `.kdbp/PLAN.md` exists and contains `status: active`:
+- Read the `## Current Phase` section
+- Display as info line in Step 4 output: `ℹ PLAN: [goal] — Phase [N]: [name]`
+- This is informational context, not a blocking check. Zero cost.
+
 ### Step 2: Run deterministic checks
 
 Run these scripts. No LLM. No token cost. Target: 2-10 seconds total.
@@ -174,6 +181,13 @@ DEFERRED: +D8 (coverage classify.py)
    - Add new row with date, source=`gabe-commit`, finding, file, scale (from BEHAVIOR.md maturity), priority, impact, times_deferred=1, status=open
    - If item already exists in PENDING.md, increment `Times Deferred`
    - If `Times Deferred` reaches 3, auto-escalate priority one level
+
+5. If `.kdbp/KNOWLEDGE.md` exists, suggest `/gabe-teach` when the commit likely introduces new topics. Heuristic (deterministic, zero cost):
+   - Commit message starts with `feat:` or `refactor:` → suggest
+   - Commit added new file(s) in a new folder → suggest
+   - Commit modified `.kdbp/DECISIONS.md` → suggest
+   - Otherwise: skip suggestion
+   - Message: `ℹ New topics likely introduced. Run /gabe-teach topics to consolidate understanding.`
 
 ### Maturity-Driven Check Selection
 
