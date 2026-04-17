@@ -372,6 +372,48 @@ Deduplicate against existing `verified` / `already-known` topics (same as before
 
 Use one short LLM call to **name** topics (unchanged). Wells are assigned deterministically from Paths — no LLM for that.
 
+**Step 4b.5 — Tag each candidate with architecture concepts.**
+
+Runs after well assignment, before the menu is presented. Attaches `arch_concepts: [concept-id, concept-id]` to each candidate for use in the lesson and final write.
+
+**Layer 1: deterministic match** (always runs, zero LLM cost).
+
+For each candidate, iterate every concept file in `~/.claude/skills/gabe-arch/concepts/**/*.md`. Read each concept's `## Evidence a topic touches this` section and test its three rule types:
+
+| Rule type | Match condition |
+|-----------|-----------------|
+| Keywords  | Any keyword literal appears in any commit message OR in the topic title (case-insensitive substring) |
+| Files     | Any changed file path matches any glob (fnmatch with `**` recursive support) |
+| Commit verbs | Any verb phrase appears at the start of any commit subject (case-insensitive, whole-phrase) |
+
+A concept matches if ≥1 rule type matches with ≥1 hit. Collect all matching concepts.
+
+Deduplicate matches and cap at 3 per candidate (tagging more is noise; pick the 3 with the most rule hits, ties broken by tier order advanced > intermediate > foundational since higher-tier matches signal higher-signal topics).
+
+**Layer 2: LLM fallback** (only when Layer 1 returned 0 matches AND the topic has at least one "architectural verb" in its title or commits).
+
+Architectural verb list (deterministic, case-insensitive substring on topic title + commit subjects):
+
+```
+cache, retry, backoff, idempoten, queue, schema, migrat, valid, auth, route, guardrail,
+stream, fallback, observ, metric, trace, scale, load-balanc, health, deploy, rollback,
+circuit, timeout, rate-limit, session, state, context, prompt, tool, token, pagination
+```
+
+If ≥1 verb matches AND Layer 1 returned 0: run ONE short LLM call with:
+
+- Model: Haiku-tier (user value U6 — route by task)
+- Context: the topic title, 1-line summary from commits, and the catalog index (list of all concept IDs + frontmatter `one_liner` + `tags`)
+- Output: structured (PydanticAI output_type or equivalent) — list of 0-3 concept IDs, ranked by relevance
+- Max tokens: 200
+- Cache: session-scoped catalog index cached for the session (user value — prompt caching)
+
+If the LLM returns IDs that don't exist in the catalog, drop them (deterministic validation).
+
+**Layer 3: human confirmation in Step 4d**. See below.
+
+If both Layer 1 and Layer 2 return 0, the candidate carries `arch_concepts: []` — no tags, Architecture-link section is omitted from its lesson.
+
 **Step 4c — Present menu, grouped by well.**
 
 ```
@@ -437,6 +479,10 @@ Also:
 - [secondary force — 1 line, no code]
 - [secondary force — 1 line, no code]   (optional; 0-2 bullets max)
 
+Architecture link:                         (only if arch_concepts is non-empty, else omit section)
+  ↪ [concept-id] ([tier] · [primary-spec]) — "[one_liner from concept file frontmatter]"
+  ↪ [concept-id] ([tier] · [primary-spec]) — "[one_liner]"   (one line per tagged concept, max 3)
+
 Q1: [Socratic question referencing only What-changed, Scenario, Primary force, or Also]
 Q2: [Socratic question referencing only What-changed, Scenario, Primary force, or Also]
 ```
@@ -445,10 +491,11 @@ Q2: [Socratic question referencing only What-changed, Scenario, Primary force, o
 
 1. **No artifact in a question that wasn't taught above.** If Q references `{safe: bool, reason: str}`, that shape must appear in the `What changed: Before:` line. If Q references a `list[tuple[name, regex]]`, that shape must appear somewhere in steps 1-5. No "introduce new code in the question."
 2. **Jargon gloss on first use.** Any domain term a new reader might not know gets a 3-5 word parenthetical on first mention: `prompt injection (attacker hijacks instructions)`, `SQL probe (malformed query testing injection)`. Applies to: jailbreak, prompt injection, SQL injection/probe, role impersonation, token marker, XML role tag, circuit breaker, idempotency key, etc. If in doubt, gloss it.
-3. **Word cap: 150 words total for sections 1-5.** Questions don't count. If over cap, cut secondary forces first, then shorten the Primary force. Overflow belongs in the well doc (Step 4d.1 auto-append), not the live lesson.
+3. **Word cap: 150 words total for sections 1-5.** Questions don't count. **Architecture link does NOT count against the cap** (it's reference material, not taught content — the teaching for those concepts happens when the human invokes `/gabe-teach arch show <id>`). If over cap, cut secondary forces first, then shorten the Primary force. Overflow belongs in the well doc (Step 4d.1 auto-append), not the live lesson.
 4. **Scenario is required.** If a change has no user-visible before/after, the Scenario describes a developer-visible before/after (debugging trace, test output, review diff). A change with genuinely no observable difference at any level rarely deserves a teach topic; surface a different topic instead.
 5. **Primary force is singular.** Pick ONE reason. If three forces feel equally important, the topic is too broad — split it into two topics. `Also:` bullets are secondary, not co-primary.
 6. **Questions test inversion or application, not recall.** Good: "If we'd kept [before], what operational question becomes impossible?" Bad: "Which three forces drove the change?"
+7. **Architecture link is zero-LLM.** The section is rendered from the concept file's frontmatter `one_liner` + `tier` + `specialization[0]` — no model call at teach time. The concept's deeper content is reached via `/gabe-teach arch show <id>`.
 
 **Worked example** (the T1 from the ai-app screenshot, rewritten to follow the template):
 
@@ -573,7 +620,52 @@ Purely deterministic — uses data already captured in the teach session. No add
 
 If the section `## Topics (auto-appended)` is missing from the file (user deleted it or wrote doc from scratch), create it at end of file before appending.
 
-**Step 4e — Update KNOWLEDGE.md.** Writes rows with the `Well` column populated. Tags column populated with `cross` if flagged.
+**Step 4d.2 — Confirm architecture-concept tags (only when the topic was verified/already-known).**
+
+After the lesson's `classify response` step, if the topic has `arch_concepts` (tagged in Step 4b.5) AND the status is `verified` or `already-known`, ask the human to confirm the tags before writing:
+
+```
+Tag T7 with the following architecture concepts?
+  ✓ retry-with-exponential-backoff (intermediate · distributed-reliability)
+  ✓ idempotency-keys (foundational · distributed-reliability)
+
+  [accept]  Tag with all listed concepts
+  [edit]    Pick/deselect individually
+  [drop]    No concept tags for this topic
+  [none]    Same as drop, but also suppress future confirmations for this session
+```
+
+- `accept`: write all tags to KNOWLEDGE.md Topics row `ArchConcepts` column AND upsert into `~/.claude/gabe-arch/STATE.md`.
+- `edit`: show each tag with `[y]`/`[n]` and commit the subset.
+- `drop`: write empty `ArchConcepts` cell.
+- `none`: same as drop, set an in-session flag that auto-accepts an empty tag list for the rest of this teach run (doesn't persist to BEHAVIOR.md — session-scoped only).
+
+If the topic's status is `pending` or `skipped`, DO NOT write arch tags to STATE.md (the concept wasn't actually learned). The tags stay in KNOWLEDGE.md (per-project record) but don't propagate to the global architecture state yet — verification is what earns a STATE.md entry.
+
+If `arch_concepts` is empty (Step 4b.5 found 0 matches), skip this step silently — no prompt, no write.
+
+**Step 4d.3 — Write architecture-concept state (only after Step 4d.2 confirmed tags for a verified/already-known topic).**
+
+For each confirmed concept ID:
+
+1. **STATE.md upsert** by `Concept ID`:
+   - If row exists and current status is `verified`: increment `Reinforcements` by 1 if `Verified Project` differs from current project; set `Last Reinforced` to today; leave `Verified Date` and `Score` unchanged.
+   - If row exists and current status is `pending` / `skipped`: update to `verified`, set `Verified Date` to today, `Verified Project` to current project, `Score` from the topic's quiz, `Reinforcements` to 0, `Last Reinforced` to today.
+   - If row doesn't exist: append new row with `Status: verified`, `Tier` and `Specialization` copied from the concept file's frontmatter, `Verified Date` today, `Verified Project` current project, `Score` from the topic quiz (or `—/—` if already-known-skip-check), `Reinforcements: 0`, `Last Reinforced` today.
+
+2. **HISTORY.md append** — one grouped entry per teach session:
+   ```
+   ### 2026-04-17 — ai-app (via /gabe-teach topics)
+   - TAG:     T7 → retry-with-exponential-backoff, idempotency-keys
+   - VERIFY:  retry-with-exponential-backoff (2/2) via topic T7
+   - VERIFY:  idempotency-keys (2/2) via topic T7
+   ```
+
+   If the concept was already `verified` in STATE.md and this is a different project, use `REINFORCE` instead of `VERIFY`.
+
+Deterministic writes only; no LLM calls in 4d.2 or 4d.3.
+
+**Step 4e — Update KNOWLEDGE.md.** Writes rows with the `Well` column populated. `Tags` column populated with `cross` if flagged. `ArchConcepts` column populated with the confirmed concept IDs from Step 4d.2 (comma-separated, or empty if no tags).
 
 **Step 4f — Log session** (enriched):
 ```
@@ -585,6 +677,8 @@ If the section `## Topics (auto-appended)` is missing from the file (user delete
 - Verified: T1 (2/2)
 - Skipped: T2
 - Docs appended: T1 → docs/wells/1-guardrails.md  (only when Step 4d.1 succeeded)
+- Arch tags: T1 → retry-with-exponential-backoff, idempotency-keys  (only when Step 4d.2 confirmed non-empty tags)
+- Arch state updates: 2 new verified, 1 reinforcement  (counts from Step 4d.3; omitted if zero)
 ```
 
 **Step 4g — Log to LEDGER.md** (unchanged except includes wells count):
