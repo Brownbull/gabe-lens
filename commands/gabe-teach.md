@@ -350,6 +350,44 @@ Cap: 3 topics per session (prevents quiz fatigue). Same deterministic counting a
 
 **Step 4d — Teach each selected topic.** Unchanged from current flow — analogy (via gabe-lens skill) → 2 Socratic questions → classify response (verified / pending / skipped / already-known with sanity check).
 
+**Step 4d.1 — Auto-append verified topic to well's Docs (prompt-first).**
+
+When a topic is classified `verified` in Step 4d:
+
+1. Look up the topic's assigned well in KNOWLEDGE.md
+2. If the well's `Docs` column is empty → skip silently (well opted out of doc tracking)
+3. If the well's Docs file does NOT exist → skip with one-line warning: `⚠ Can't append: docs/wells/3-api.md not found. Run /gabe-teach wells → [docs N] to fix path, or scaffold via /gabe-teach init-wells.`
+4. Otherwise, check the user's append preference (stored in `.kdbp/BEHAVIOR.md` frontmatter as `teach_append: prompt | always | never`, default `prompt`):
+   - `always` → append silently, show `✅ Appended T[N] to docs/wells/3-api.md`
+   - `never` → skip silently
+   - `prompt` → ask:
+     ```
+     Topic T[N] "[title]" verified. Append to docs/wells/3-api.md?
+       [y]      Append this once
+       [n]      Skip this once
+       [always] Append automatically for every verified topic going forward
+       [never]  Never prompt again; don't append
+     ```
+     `always` and `never` write `teach_append: always` or `teach_append: never` to BEHAVIOR.md frontmatter, so the choice persists across sessions.
+
+**Append format** — inserts a new section under `## Topics (auto-appended)` in the Docs file, preserving any existing content above that heading:
+
+```markdown
+### T[N] — [Topic title]
+
+**Class:** [WHY|WHEN|WHERE]  **Verified:** YYYY-MM-DD  **Score:** [X]/2  **Commits:** [hash, hash]
+
+[One-paragraph summary from the teach session — the analogy + key framing delivered in Step 4d, trimmed to ≤120 words]
+
+**Key points:**
+- [Socratic answer bullet 1]
+- [Socratic answer bullet 2]
+```
+
+Purely deterministic — uses data already captured in the teach session. No additional LLM call.
+
+If the section `## Topics (auto-appended)` is missing from the file (user deleted it or wrote doc from scratch), create it at end of file before appending.
+
 **Step 4e — Update KNOWLEDGE.md.** Writes rows with the `Well` column populated. Tags column populated with `cross` if flagged.
 
 **Step 4f — Log session** (enriched):
@@ -361,6 +399,7 @@ Cap: 3 topics per session (prevents quiz fatigue). Same deterministic counting a
 - Presented: T1, T2, T3
 - Verified: T1 (2/2)
 - Skipped: T2
+- Docs appended: T1 → docs/wells/1-guardrails.md  (only when Step 4d.1 succeeded)
 ```
 
 **Step 4g — Log to LEDGER.md** (unchanged except includes wells count):
