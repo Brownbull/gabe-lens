@@ -151,6 +151,9 @@ Template files can evolve with new columns. Existing `.kdbp/` files predating th
 | Target | Old shape | New shape | Detection |
 |--------|-----------|-----------|-----------|
 | `.kdbp/KNOWLEDGE.md` Gravity Wells table | 4-6 columns (any subset of new cols missing) | 7 columns: `# \| Name \| Description \| Analogy \| Paths \| Docs \| Topics` | Header row missing any of `Analogy`, `Paths`, or `Docs` between `Description` and `Topics` |
+| `.kdbp/KNOWLEDGE.md` Topics table | 10 columns (no ArchConcepts) | 11 columns: `# \| Well \| Class \| Topic \| Status \| Tags \| ArchConcepts \| Last Touched \| Verified Date \| Score \| Source` | Header row missing `ArchConcepts` between `Tags` and `Last Touched` |
+| `~/.claude/gabe-arch/STATE.md` | Missing | Present | File doesn't exist at `~/.claude/gabe-arch/STATE.md` |
+| `~/.claude/gabe-arch/HISTORY.md` | Missing | Present | File doesn't exist at `~/.claude/gabe-arch/HISTORY.md` |
 
 **Procedure for KNOWLEDGE.md wells migration:**
 
@@ -167,6 +170,28 @@ Template files can evolve with new columns. Existing `.kdbp/` files predating th
 3. **On confirm:** rewrite the wells table header AND each row with empty cells inserted for whichever columns are missing (Analogy, Paths, Docs). Preserve the `#`, `Name`, `Description`, `Topics` cells exactly.
 4. **On skip/decline:** leave file as-is; warn that `/gabe-teach brief` may show "paths not set" / "no doc" and will backfill Analogy on first run.
 5. **Follow-up hint** after successful migration: `ℹ Run /gabe-teach brief to backfill Analogy (via gabe-lens) and Paths (heuristic) for existing wells. Then /gabe-teach wells → [docs N] to assign doc paths, or /gabe-teach init-wells to rerun the full wizard including doc-stub scaffolding.`
+
+**Procedure for KNOWLEDGE.md Topics table migration (ArchConcepts):**
+
+1. Backup (same archive path as the wells migration — single backup per `update` run is fine).
+2. **Preview:**
+   ```
+   SCHEMA MIGRATION — .kdbp/KNOWLEDGE.md
+     Topics table: 10 cols → 11 cols (adds ArchConcepts between Tags and Last Touched)
+     Topic rows affected: [N]
+     Proceed? (y/n)
+   ```
+3. **On confirm:** rewrite the Topics header AND each existing topic row with an empty `ArchConcepts` cell inserted between `Tags` and `Last Touched`. Preserve all other cells exactly.
+4. **On skip/decline:** leave file as-is; `/gabe-teach topics` will still function, just without architecture tagging for this project until the column is added.
+5. Follow-up hint: `ℹ Existing topics were not retroactively tagged with arch concepts — only new topics surfaced after migration get tags. Run /gabe-teach topics to start building the architecture knowledge graph.`
+
+**Procedure for ~/.claude/gabe-arch/ global state:**
+
+1. If `~/.claude/gabe-arch/` does not exist, create it: `mkdir -p ~/.claude/gabe-arch`
+2. If `~/.claude/gabe-arch/STATE.md` is missing, copy the template: `cp ~/.claude/templates/gabe/gabe-arch-STATE.md ~/.claude/gabe-arch/STATE.md`
+3. If `~/.claude/gabe-arch/HISTORY.md` is missing, copy the template: `cp ~/.claude/templates/gabe/gabe-arch-HISTORY.md ~/.claude/gabe-arch/HISTORY.md`
+4. These files are user-global (all projects share them), created lazily — never overwritten if already present.
+5. During `reset` mode, do NOT touch `~/.claude/gabe-arch/` — the user's cross-project learning state is never lost by a per-project reset.
 
 **No LLM calls during migration** — purely structural rewrite. Backfill happens later, on first brief run.
 

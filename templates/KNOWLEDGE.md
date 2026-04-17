@@ -41,13 +41,18 @@
 
 ## Topics
 
-| # | Well | Class | Topic | Status | Tags | Last Touched | Verified Date | Score | Source |
-|---|------|-------|-------|--------|------|--------------|---------------|-------|--------|
+<!-- ArchConcepts column: comma-separated architecture concept IDs from the gabe-arch skill -->
+<!-- (e.g., "retry-with-exponential-backoff, idempotency-keys"). Empty = no tags. -->
+<!-- Populated by /gabe-teach Step 4b.5 (deterministic match + LLM fallback + human confirm). -->
+<!-- Cross-project concept verification lives in ~/.claude/gabe-arch/STATE.md. -->
+
+| # | Well | Class | Topic | Status | Tags | ArchConcepts | Last Touched | Verified Date | Score | Source |
+|---|------|-------|-------|--------|------|--------------|--------------|---------------|-------|--------|
 
 <!-- Example rows:
-| T1 | G1 | WHY | Why guardrails run before the LLM | verified |  | 2026-04-17 | 2026-04-17 | 2/2 | a4c9e2f |
-| T2 | G3 | WHY | Why 202 Accepted + BackgroundTask | pending |  | 2026-04-17 | — | — | b1d8e3a |
-| T3 | G5 | WHY | Structured logging format choice | pending | cross | 2026-04-17 | — | — | c7f2a91 |
+| T1 | G1 | WHY | Why guardrails run before the LLM | verified |  | input-guardrails, input-validation-at-boundary | 2026-04-17 | 2026-04-17 | 2/2 | a4c9e2f |
+| T2 | G3 | WHY | Why 202 Accepted + BackgroundTask | pending |  | async-background-processing | 2026-04-17 | — | — | b1d8e3a |
+| T3 | G5 | WHY | Structured logging format choice | pending | cross |  | 2026-04-17 | — | — | c7f2a91 |
 -->
 
 ## Sessions
