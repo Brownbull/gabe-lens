@@ -27,7 +27,7 @@ run() {
     fi
 }
 
-SKILLS=(gabe-align gabe-assess gabe-health gabe-help gabe-lens gabe-review gabe-roast)
+SKILLS=(gabe-align gabe-assess gabe-docs gabe-health gabe-help gabe-lens gabe-review gabe-roast)
 COMMANDS_ONLY=(gabe-init gabe-commit gabe-push gabe-plan gabe-teach)
 
 if $UNINSTALL; then

@@ -192,7 +192,11 @@ If all hooks present: "All 7 KDBP hooks installed."
 
 Ask: "Project type?"
 
-For ALL project types, create doc stubs if they don't already exist:
+For ALL project types, create doc stubs if they don't already exist. **Every stub gets a standards-reference marker as the first non-heading line**, pointing to the `gabe-docs` skill so downstream edits (by humans or by `/gabe-teach` auto-append) follow the house style:
+
+```markdown
+<!-- Standards: see ~/.claude/skills/gabe-docs/SKILL.md (CommonMark + Mermaid + analogy-first) -->
+```
 
 - **Agent app**:
   - `docs/architecture.md` with headings: `# Architecture`, `## Data Model`, `## API Contracts`, `## API Endpoints`, `## Integrations`
@@ -209,6 +213,8 @@ For ALL project types, create doc stubs if they don't already exist:
 - **Library**:
   - `docs/api.md` with heading: `# API Reference`
   - Ensure README.md has sections: `## Installation`, `## Skills`, `## Commands`
+
+For each stub, place the standards marker as an HTML comment on the second line (directly below the `# Heading` line). Skip the marker for README.md since those already exist and may have upstream conventions.
 
 If **agent app** selected, also:
 1. Add to `.kdbp/VALUES.md`:

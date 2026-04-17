@@ -199,14 +199,16 @@ DOC STUB SCAFFOLDING
   [pick] Selectively choose which stubs to create
 ```
 
-**Stub content** (deterministic, zero LLM cost):
+**Stub content** (deterministic, zero LLM cost — diagram type picked by heuristic, see `~/.claude/skills/gabe-docs/SKILL.md` "Per-well diagram recommendations"):
 
 ```markdown
-# [Well Name] — [Analogy in quotes]
+# [Well Name] — "[Analogy]"
 
 > [Description]
 
 **Paths:** [Paths globs]
+
+<!-- Standards: see ~/.claude/skills/gabe-docs/SKILL.md (CommonMark + Mermaid + analogy-first) -->
 
 ---
 
@@ -223,13 +225,32 @@ DOC STUB SCAFFOLDING
 Reasoning: ...
 -->
 
+## Key Diagrams
+
+<!-- Suggested diagram type for this well: [DIAGRAM_TYPE] (picked by gabe-docs per-well heuristic) -->
+<!-- Replace placeholder with a real diagram once the flow stabilizes. Keep ≤15 nodes. -->
+
+[DIAGRAM_PLACEHOLDER_FENCE]
+
 ## Topics (auto-appended)
 
 <!-- /gabe-teach topics appends verified topic summaries here on first run. -->
 <!-- Do not edit the structure below this line; edit individual entries freely. -->
 ```
 
-The `## Topics (auto-appended)` section is the landing zone for Phase B3 auto-append. The `## Purpose` and `## Key Decisions` sections are for human authoring.
+**Diagram type heuristic** (deterministic, case-insensitive substring match on Well Name + Description; first match wins):
+
+| If matches | `[DIAGRAM_TYPE]` | `[DIAGRAM_PLACEHOLDER_FENCE]` body |
+|-----------|------------------|-----------------------------------|
+| `api`, `http`, `endpoint`, `route` | `sequenceDiagram` | `sequenceDiagram\n    participant Client\n    participant Server\n    Client->>Server: TODO request\n    Server-->>Client: TODO response` |
+| `data`, `schema`, `model`, `db`, `persist`, `migration` | `erDiagram` | `erDiagram\n    ENTITY_A ||--o{ ENTITY_B : TODO` |
+| `state`, `lifecycle` | `stateDiagram-v2` | `stateDiagram-v2\n    [*] --> Pending\n    Pending --> Done\n    Done --> [*]` |
+| `integration`, `adapter`, `webhook`, `outbound`, `client` | `sequenceDiagram` | (same as API row) |
+| default (incl. `pipeline`, `frontend`, `guardrails`, `observability`) | `flowchart` | `flowchart TD\n    A[Start] --> B[TODO]\n    B --> C[End]` |
+
+Wrap the body in a mermaid fence: ` ```mermaid\n<body>\n``` ` — that's the substitution for `[DIAGRAM_PLACEHOLDER_FENCE]`.
+
+The `## Topics (auto-appended)` section is the landing zone for Phase B3 auto-append. The `## Purpose`, `## Key Decisions`, and `## Key Diagrams` sections are for human authoring — the placeholder diagram is intentionally crude so a human replaces it; do NOT over-invest in auto-generated diagrams.
 
 **Skip scaffolding** for wells that already have a file at their Docs path — never overwrite. Report: `ℹ Skipped [N] stubs (file already exists)`.
 
