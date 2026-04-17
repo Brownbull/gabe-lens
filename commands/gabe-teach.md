@@ -1104,15 +1104,118 @@ After any arch-mode event that changes verification status (show → verified, v
 
 Deterministic writes — no LLM required.
 
-#### Step 9f — Arch next (Phase 6 placeholder)
+#### Step 9f — Arch next (progressive pressure)
 
-When invoked, print:
+When invoked, select ONE concept to teach using the three-tier fallthrough rule. First match wins; render the concept's lesson through Step 9c's rendering logic (6-part template + LLM-generated Q1/Q2).
+
+**Tier 1 — Project-driven** (highest priority, runs only when a project is active):
+
+1. Read `.kdbp/KNOWLEDGE.md` Topics table.
+2. Collect every `ArchConcepts` value from rows where `Status` is `pending` or `skipped`.
+3. Cross-reference against STATE.md: keep only concepts whose STATE.md status is NOT `verified` / `already-known`.
+4. If any remain: pick the one that appears in the most pending/skipped rows (tie-breaker: lowest tier first — foundational > intermediate > advanced — so prerequisites get built first).
+
+Rationale: this concept is actively blocking project understanding. Teaching it unblocks real work.
+
+**Tier 2 — Adjacency** (fallback when Tier 1 empty OR no active project):
+
+1. Read STATE.md. Build the verified set (IDs with status `verified` or `already-known`).
+2. Glob every concept file, collect those NOT in verified set.
+3. Filter to concepts where every ID in `prerequisites` IS in the verified set (all prereqs satisfied).
+4. Rank the candidates:
+   - Primary sort: specialization where the human has the most `verified` entries (momentum).
+   - Secondary sort: tier matching the human's modal verified tier in that specialization (e.g., if the human has verified 4 foundational + 1 intermediate in agent, propose another intermediate).
+   - Tiebreak: alphabetical by ID for determinism.
+5. Pick the top candidate.
+
+Rationale: the human gets the next concept they're actually ready for, in a spec they're building momentum in.
+
+**Tier 3 — Foundation gap** (fallback when Tier 2 empty):
+
+1. Identify any `intermediate` or `advanced` concept that IS verified.
+2. Check its `prerequisites` — if any are NOT verified, surface the gap.
+3. Pick the unverified foundational prerequisite with the most downstream dependents.
+
+If found, render with a gap warning at the top of the lesson:
 
 ```
-Arch next picker coming in Phase 6. For now, see the "Suggested next" line in /gabe-teach arch.
+⚠ FOUNDATION GAP DETECTED
+
+You've verified [pattern-state-machine] (advanced) but haven't verified
+its foundational prerequisite [structured-output-enforcement]. Filling
+this gap strengthens the rest of what you already know.
 ```
 
-Then render the dashboard (Step 9a). Full logic lands in the Phase 6 commit.
+Then continue to the concept's normal rendering.
+
+**Fallthrough — nothing to teach:**
+
+If all three tiers return empty (catalog fully verified relative to prerequisites), print:
+
+```
+You've verified every concept reachable from your current state.
+
+Options:
+  - /gabe-teach arch browse [spec]     Pick a new specialization to explore
+  - /gabe-teach arch show <concept-id> Teach a specific concept
+  - Wait for the next topic session — new concepts surface as real project
+    work tags new areas.
+
+Total verified: [N] concepts across [M] specializations.
+```
+
+**Rendering the pick:**
+
+Print one line before Step 9c takes over:
+
+```
+ARCH NEXT — picked by [project-driven|adjacency|foundation-gap] rule
+
+  → retry-with-exponential-backoff (intermediate · distributed-reliability)
+     Reason: topic T12 "Why we added tenacity" in ai-app tagged this but not yet taught.
+     Prerequisites verified: idempotency-keys ✓
+
+  [teach] Start lesson       [skip] Pick a different concept       [cancel] Back to dashboard
+```
+
+If the human picks `skip`, re-run Step 9f excluding the just-skipped concept for this session (in-memory; doesn't write to STATE.md). After 3 skips, fall through to the dashboard — something about the progression heuristic isn't matching; the human knows best and should browse manually.
+
+**Enhanced dashboard (Step 9a refinement):**
+
+The dashboard's "Suggested next" line now uses the same Step 9f logic (Tier 1 → 2 → 3), showing the rule that matched:
+
+```
+Suggested next (project-driven):
+  → retry-with-exponential-backoff (intermediate · distributed-reliability)
+     "Wait longer between each retry so the failing system can recover."
+     Unlocks from topic T12 in ai-app.
+```
+
+If Tier 1 has multiple candidates, show the top 3 in the suggested-next block so the human sees their options without running `arch next`:
+
+```
+Suggested next (project-driven, 3 candidates):
+  → retry-with-exponential-backoff         (from topic T12, tier intermediate)
+  → idempotency-keys                       (from topic T12, tier foundational)
+  → circuit-breaker                        (from topic T15, tier intermediate)
+```
+
+**Tier derivation display (Step 9a refinement):**
+
+Dashboard progression bars now include a verified-count breakdown per tier within the spec:
+
+```
+agent                    ▓▓▓▓▓▓▓░░░  intermediate   (f:7/8  i:3/6  a:0/4)
+                                                      └──────┬──────┘
+                                          tiers: foundational, intermediate, advanced
+```
+
+Derivation rule (unchanged from Phase 4, now rendered explicitly):
+- `foundational` reached: verified ≥60% of foundational concepts
+- `intermediate` reached: foundational reached AND verified ≥50% of intermediate concepts
+- `advanced` reached: intermediate reached AND verified ≥40% of advanced concepts
+
+Computed live on every dashboard render — no persisted tier field, no drift risk.
 
 ---
 
