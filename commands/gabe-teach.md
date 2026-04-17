@@ -333,7 +333,25 @@ This is the existing flow, with three changes: wells-aware extraction, wells-gro
 
 **Step 4a — Foundation gate** (Step 0.5 above). Block or fall through to Step 4b.
 
-**Step 4b — Extract candidate topics.** Same deterministic signals as before (LEDGER commits, commit message prefixes, new files, DECISIONS changes). **New step:** assign each candidate a primary well using the wells' `Paths` column from KNOWLEDGE.md:
+**Step 4b — Extract candidate topics.** Same deterministic signals as before (LEDGER commits, commit message prefixes, new files, DECISIONS changes). Each candidate carries a structured record used later by Step 4d:
+
+```
+Candidate {
+  title:          "Why 15 → 25 patterns + return matched names"
+  class:          WHY | WHEN | WHERE
+  well:           G1 (from Paths matching, see table below)
+  commits:        [{sha: "a4c9e2f", subject: "feat(guardrails): …"}, …]   (1-N)
+  changed_files:  [{path: "app/agent/guardrails.py", added: 40, removed: 12, commit_count: 1}, …]
+}
+```
+
+Populate from deterministic git calls (no LLM):
+
+- For a single-commit topic: `git show --numstat --format="%H%n%s" <sha>` → first line = sha, second = subject, remaining = `added  removed  path` per file.
+- For a multi-commit topic: iterate `git show --numstat --format="%H %s" <sha>` per SHA, aggregate `added`/`removed` per path, and track `commit_count` per file.
+- Drop files that are binary (numstat shows `- -`) or outside the repo.
+
+**Assign each candidate a primary well** using the wells' `Paths` column from KNOWLEDGE.md:
 
 | Signal | Well assignment rule |
 |--------|---------------------|
@@ -386,7 +404,46 @@ If user picks `0`: run the **short-brief** variant (Step 8 with `short` flag) in
 
 Cap: 3 topics per session (prevents quiz fatigue). Same deterministic counting as before.
 
-**Step 4d — Teach each selected topic.** Unchanged from current flow — analogy (via gabe-lens skill) → 2 Socratic questions → classify response (verified / pending / skipped / already-known with sanity check).
+**Step 4d — Teach each selected topic.** Flow per topic:
+
+1. **Topic header** — `T[N] (G[M] <Well>, <CLASS>) — <title>`
+2. **📍 Code block** — where the work landed (deterministic, from the candidate record captured in Step 4b). See format below.
+3. **Analogy** — via gabe-lens skill.
+4. **Two Socratic questions** (Q1, Q2).
+5. **Classify response** — verified / pending / skipped / already-known (with sanity check).
+
+**📍 Code block format** (shown immediately after the topic header, before the analogy):
+
+Single commit, ≤5 files:
+
+```
+📍 Code (commit a4c9e2f — feat(guardrails): expand patterns + return names):
+   • app/agent/guardrails.py         (+40 -12)
+   • tests/agent/test_guardrails.py  (+35 -5)
+   • docs/wells/1-guardrails.md      (+8 -0)
+```
+
+Multiple commits (list up to 3 SHAs + subjects, aggregate stats per file, annotate `[N commits]` when a file was touched by >1):
+
+```
+📍 Code (2 commits):
+   a4c9e2f — feat(guardrails): expand patterns + return names
+   b1d8e3a — fix(guardrails): handle XML role tags
+   Files:
+     • app/agent/guardrails.py         (+52 -14)  [2 commits]
+     • tests/agent/test_guardrails.py  (+35 -5)
+```
+
+**Rules:**
+
+- Cap file list at **5 rows**. Overflow → append `… and N more files` on its own line.
+- Sort files by total line delta (`added + removed`) descending so the dominant change is first.
+- Commit subjects: truncate to 72 chars with `…` suffix if longer.
+- If >3 commits: show first 2 + `… and N more commits` before the Files section.
+- If the topic came from a non-commit source (e.g., a DECISIONS.md row with no commit reference), omit the block entirely — don't render an empty heading.
+- Never call the LLM for this block. It's pure git → string formatting.
+
+This lets the human anchor the analogy to concrete code: the gravity of the change (how many files, which area of the tree) and a jump-off point for `git show <sha>` if they want to read the diff themselves.
 
 **Step 4d.1 — Auto-append verified topic to well's Docs (prompt-first).**
 
@@ -415,12 +472,24 @@ When a topic is classified `verified` in Step 4d:
 
 **Class:** [WHY|WHEN|WHERE]  **Verified:** YYYY-MM-DD  **Score:** [X]/2  **Commits:** [hash, hash]
 
+**Files:**
+- `app/agent/guardrails.py` (+40 -12)
+- `tests/agent/test_guardrails.py` (+35 -5)
+
 [One-paragraph summary from the teach session — the analogy + key framing delivered in Step 4d, trimmed to ≤120 words]
 
 **Key points:**
 - [Socratic answer bullet 1]
 - [Socratic answer bullet 2]
 ```
+
+**Files section rules** (same source as the Step 4d 📍 Code block):
+
+- Up to 5 file rows, sorted by line delta descending.
+- `[N commits]` suffix on files touched by >1 commit in the topic's commit set.
+- If >5 files: append `- … and N more files` as the last row.
+- If the topic has no commit source: omit the Files section entirely.
+- Paths rendered as inline code (backticks) so they work as markdown links to the source tree.
 
 Purely deterministic — uses data already captured in the teach session. No additional LLM call.
 
