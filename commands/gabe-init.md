@@ -150,7 +150,7 @@ Template files can evolve with new columns. Existing `.kdbp/` files predating th
 
 | Target | Old shape | New shape | Detection |
 |--------|-----------|-----------|-----------|
-| `.kdbp/KNOWLEDGE.md` Gravity Wells table | 4 columns: `# \| Name \| Description \| Topics` | 6 columns: `# \| Name \| Description \| Analogy \| Paths \| Topics` | Header row has `Description` followed directly by `Topics` (no `Analogy` or `Paths` between them) |
+| `.kdbp/KNOWLEDGE.md` Gravity Wells table | 4-6 columns (any subset of new cols missing) | 7 columns: `# \| Name \| Description \| Analogy \| Paths \| Docs \| Topics` | Header row missing any of `Analogy`, `Paths`, or `Docs` between `Description` and `Topics` |
 
 **Procedure for KNOWLEDGE.md wells migration:**
 
@@ -158,15 +158,15 @@ Template files can evolve with new columns. Existing `.kdbp/` files predating th
 2. **Preview the change:**
    ```
    SCHEMA MIGRATION — .kdbp/KNOWLEDGE.md
-     Wells table: 4 cols → 6 cols (adds Analogy, Paths)
+     Wells table: [current] cols → 7 cols (adds [list of missing: Analogy, Paths, Docs])
      Rows affected: [N]
      Backup: .kdbp/archive/KNOWLEDGE.md.pre-migrate-20260417-1805.md
    
      Proceed? (y/n)
    ```
-3. **On confirm:** rewrite the wells table header AND each row with empty `Analogy` and `Paths` cells inserted in the correct positions. Preserve the `#`, `Name`, `Description`, `Topics` cells exactly.
-4. **On skip/decline:** leave file as-is; warn that `/gabe-teach brief` may show "paths not set" and will backfill Analogy on first run.
-5. **Follow-up hint** after successful migration: `ℹ Run /gabe-teach brief to backfill Analogy (via gabe-lens) and Paths (heuristic) for existing wells.`
+3. **On confirm:** rewrite the wells table header AND each row with empty cells inserted for whichever columns are missing (Analogy, Paths, Docs). Preserve the `#`, `Name`, `Description`, `Topics` cells exactly.
+4. **On skip/decline:** leave file as-is; warn that `/gabe-teach brief` may show "paths not set" / "no doc" and will backfill Analogy on first run.
+5. **Follow-up hint** after successful migration: `ℹ Run /gabe-teach brief to backfill Analogy (via gabe-lens) and Paths (heuristic) for existing wells. Then /gabe-teach wells → [docs N] to assign doc paths, or /gabe-teach init-wells to rerun the full wizard including doc-stub scaffolding.`
 
 **No LLM calls during migration** — purely structural rewrite. Backfill happens later, on first brief run.
 

@@ -122,7 +122,7 @@ Invoked by `/gabe-teach init-wells` OR selected during the foundation gate.
 | 4 | `.kdbp/DECISIONS.md` | Architectural areas mentioned in decisions |
 | 5 | `package.json` / `pyproject.toml` scripts | Reveals layers (build, test, lint, deploy) |
 
-**Step 2b — Propose a starter set.** Aim for 4-7 wells. Each well gets a proposed one-line description, a one-liner analogy (via `gabe-lens` oneliner mode — 5-15 words), and anchor path globs (from the Step 2a scan — folder signals, STRUCTURE.md Allowed Patterns, commit history).
+**Step 2b — Propose a starter set.** Aim for 4-7 wells. Each well gets a proposed one-line description, a one-liner analogy (via `gabe-lens` oneliner mode — 5-15 words), anchor path globs, and a Docs path.
 
 ```
 Suggested gravity wells for [project] (from [sources used]):
@@ -130,9 +130,11 @@ Suggested gravity wells for [project] (from [sources used]):
   G1 — [Name 1]     — [one-line description]
          ↪ Analogy: "[5-15 word gabe-lens oneliner]"
          ↪ Paths:   app/agent/guardrails*, tests/agent/**
+         ↪ Docs:    docs/wells/1-guardrails.md
   G2 — [Name 2]     — [one-line description]
          ↪ Analogy: "[oneliner]"
          ↪ Paths:   app/agent/pipeline*, app/agent/triage*
+         ↪ Docs:    docs/wells/2-llm-pipeline.md
   ...
 
 Options:
@@ -140,12 +142,15 @@ Options:
   [edit N]   Rename/redescribe well N
   [relens N] Regenerate analogy for well N
   [paths N]  Edit path globs for well N
+  [docs N]   Edit docs path for well N (or clear to opt out)
   [drop N]   Remove well N
   [add]      Add a new well
   [done]     Finish — write wells to KNOWLEDGE.md
 ```
 
 Path globs are proposed heuristically: (1) folders matching the well name, (2) STRUCTURE.md patterns whose description aligns with the well, (3) top 3 paths from recent commits if signals are sparse. Globs are deliberately loose — `app/api/**` beats `app/api/main.py` for durability.
+
+Docs paths follow the convention `docs/wells/{n}-{slug}.md` where `n` is the well's numeric ID and `slug` is the lowercased, hyphenated Name (e.g., "LLM Pipeline" → `llm-pipeline`). User can edit or clear via `[docs N]` — clearing means "opt out, no docs tracked for this well".
 
 The analogy is generated via one `gabe-lens` call per well in `oneliner` mode. If a well's description is trivial (e.g., "Tests"), the analogy may be the description itself — don't force poetry on what's already clear.
 
@@ -169,11 +174,64 @@ If KNOWLEDGE.md already has topic rows (e.g., user ran `/gabe-teach` before defi
 
 **Step 2d — Write to KNOWLEDGE.md.**
 
-Replace the `Status: uninitialized.` placeholder with the populated Gravity Wells table, including the `Analogy` and `Paths` columns. Update topic rows with their assigned wells. Log to LEDGER.md:
+Replace the `Status: uninitialized.` placeholder with the populated Gravity Wells table, including the `Analogy`, `Paths`, and `Docs` columns. Update topic rows with their assigned wells. Log to LEDGER.md:
 ```
 ## [YYYY-MM-DD HH:MM] — /gabe-teach init-wells
 WELLS: [N] defined | RETAGGED: [M] topics
 ```
+
+**Step 2e — Scaffold doc stubs (always prompt).**
+
+After writing KNOWLEDGE.md, offer to scaffold one markdown stub per well with a non-empty Docs path:
+
+```
+DOC STUB SCAFFOLDING
+
+  Scaffold [N] doc stubs in docs/wells/? (wells opted-out with empty Docs: [M] skipped)
+
+    docs/wells/1-guardrails.md      (will create)
+    docs/wells/2-llm-pipeline.md    (will create)
+    docs/wells/3-api.md             (will create)
+    ...
+
+  [y]    Scaffold all listed stubs
+  [n]    Skip scaffolding (you can create docs manually or run /gabe-teach wells → [docs N] later)
+  [pick] Selectively choose which stubs to create
+```
+
+**Stub content** (deterministic, zero LLM cost):
+
+```markdown
+# [Well Name] — [Analogy in quotes]
+
+> [Description]
+
+**Paths:** [Paths globs]
+
+---
+
+## Purpose
+
+<!-- 2-3 sentences: what this section of the application does and why it exists. -->
+<!-- Populated manually by the human, or auto-appended from verified /gabe-teach topics. -->
+
+## Key Decisions
+
+<!-- Load-bearing choices for this well. Each entry: date + one-line title + 1-2 paragraph rationale. -->
+<!-- Example:
+### 2026-04-15 — Guardrails run before the LLM, not after
+Reasoning: ...
+-->
+
+## Topics (auto-appended)
+
+<!-- /gabe-teach topics appends verified topic summaries here on first run. -->
+<!-- Do not edit the structure below this line; edit individual entries freely. -->
+```
+
+The `## Topics (auto-appended)` section is the landing zone for Phase B3 auto-append. The `## Purpose` and `## Key Decisions` sections are for human authoring.
+
+**Skip scaffolding** for wells that already have a file at their Docs path — never overwrite. Report: `ℹ Skipped [N] stubs (file already exists)`.
 
 ### Step 3: Wells mode
 
@@ -192,6 +250,8 @@ Actions:
   [redesc N]  Edit description
   [relens N]  Regenerate analogy via gabe-lens oneliner
   [paths N]   Edit path globs for well N (used by brief activity signals — see wizard below)
+  [docs N]    Edit Docs path for well N (clear to opt out; empty = no docs tracked)
+  [opendoc N] Print the Docs path + first heading of each section (quick lookup)
   [merge N M] Merge well N into M (topics reassigned to M)
   [archive N] Archive well N (topics move to G0 or user chooses new well)
   [done]      Exit

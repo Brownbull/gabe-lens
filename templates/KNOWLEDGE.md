@@ -15,10 +15,11 @@
 
 <!-- Analogy column: one-liner (5-15 words) from gabe-lens. Makes each well graspable at a glance. -->
 <!-- Paths column: comma-separated globs where this well's code lives (e.g., `app/api/**, tests/api/**`). Used by brief mode for health/last-commit signals. -->
-<!-- Both columns generated at init-wells time; regenerable via /gabe-teach wells. -->
+<!-- Docs column: single path to this well's docs file (e.g., `docs/wells/3-api.md`). Empty = opt-out (no docs tracked for this well). Used by brief mode to surface doc links, by /gabe-teach topics to auto-append verified summaries, by /gabe-commit CHECK 7 Layer 3 for drift detection. -->
+<!-- All three columns generated at init-wells time; regenerable via /gabe-teach wells. -->
 
-| # | Name | Description | Analogy | Paths | Topics (verified / pending / total) |
-|---|------|-------------|---------|-------|--------------------------------------|
+| # | Name | Description | Analogy | Paths | Docs | Topics (verified / pending / total) |
+|---|------|-------------|---------|-------|------|--------------------------------------|
 
 ## Topic Classes
 
