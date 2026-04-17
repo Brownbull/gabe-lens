@@ -1,6 +1,6 @@
 ---
 name: gabe-teach
-description: "Consolidate the human's architect-level understanding of recent changes. Organizes topics under gravity wells (architectural sections). Detects WHY/WHEN/WHERE topics from commits, explains with analogies, verifies with Socratic questions, tracks in .kdbp/KNOWLEDGE.md. Usage: /gabe-teach [brief|topics|status|wells|init-wells|history|story|free]"
+description: "Consolidate the human's architect-level understanding of recent changes. Organizes topics under gravity wells (architectural sections). Detects WHY/WHEN/WHERE topics from commits, explains with analogies, verifies with Socratic questions, tracks in .kdbp/KNOWLEDGE.md. Also offers a cross-project architecture curriculum via /gabe-teach arch. Usage: /gabe-teach [brief|topics|status|wells|init-wells|history|story|arch|free]"
 ---
 
 # Gabe Teach
@@ -24,6 +24,11 @@ Parse `$ARGUMENTS`:
 | `history full` | Unbounded history (default shows last 10 sessions + last 5 plans) |
 | `story` | Show cached Storyline, or generate if missing |
 | `story refresh` | Force regeneration of Storyline |
+| `arch` | Architecture curriculum dashboard — tier × specialization map of verified/pending concepts |
+| `arch browse [tier\|spec]` | List concepts from the `gabe-arch` skill, filterable |
+| `arch show <concept-id>` | Teach one architecture concept via the 6-part lesson template |
+| `arch verify <concept-id>` | Mark a concept as already-known (prompts quick-check or skip-check) |
+| `arch next` | Pick the next concept via progressive-pressure rule (project → adjacency → foundation-gap) — ships in Phase 6 |
 | `free [concept]` | Raw analogy generation (invokes `gabe-lens` skill) |
 
 If `.kdbp/` doesn't exist: fall back to `free` with a note: "No KDBP detected. Running in free mode. Run `/gabe-init` to enable knowledge tracking."
@@ -831,6 +836,189 @@ Brief is deterministic once analogies are cached. First run after adding the Ana
 **Principle — progressive-depth analogies everywhere:**
 
 Whenever `/gabe-teach` surfaces a concept that a newcomer or fatigued operator might not grasp instantly, attach a `gabe-lens` oneliner by default. Escalate to `brief` mode if the oneliner can't carry the weight, and only use full analogy when the concept is genuinely load-bearing. This applies to wells (here), to topics in `topics` mode (optional add-on), and to any future surface where the suite presents architectural terms. Cheap cognitive insurance.
+
+---
+
+### Step 9: Arch mode (architecture curriculum)
+
+Enters when `$ARGUMENTS` starts with `arch`. Parse the subcommand: `arch` (dashboard), `arch browse [tier|spec]`, `arch show <id>`, `arch verify <id>`, `arch next` (Phase 6 — stub for now: print "coming soon" and fall through to `arch`).
+
+**Data sources** (all read-only in this mode except for Step 9d's verify writes):
+
+- Concept catalog: `~/.claude/skills/gabe-arch/concepts/**/*.md` — every concept file
+- Global state: `~/.claude/gabe-arch/STATE.md` — cross-project verification status
+- History log: `~/.claude/gabe-arch/HISTORY.md` — append-only event log
+- Per-project tags: `.kdbp/KNOWLEDGE.md` Topics table `ArchConcepts` column (optional — arch mode works without a project)
+
+**Lazy bootstrap:** if `~/.claude/gabe-arch/` doesn't exist, create it from templates before any read:
+
+```sh
+mkdir -p ~/.claude/gabe-arch
+[ -f ~/.claude/gabe-arch/STATE.md ]   || cp ~/.claude/templates/gabe/gabe-arch-STATE.md   ~/.claude/gabe-arch/STATE.md
+[ -f ~/.claude/gabe-arch/HISTORY.md ] || cp ~/.claude/templates/gabe/gabe-arch-HISTORY.md ~/.claude/gabe-arch/HISTORY.md
+```
+
+No prompt — silent creation on first use.
+
+#### Step 9a — Dashboard (bare `arch`)
+
+Read all concept files' frontmatter (tier, specialization, id, one_liner) and STATE.md. Render:
+
+```
+ARCHITECTURE MAP — [global, cross-project]
+
+  agent                    ▓▓▓▓▓▓▓░░░  intermediate   (7 foundational + 3 intermediate verified / 12 total)
+  cost                     ▓▓░░░░░░░░  none           (1 foundational verified / 3 total)
+  data                     ░░░░░░░░░░  none           (0 / 3)
+  distributed-reliability  ▓▓▓▓░░░░░░  foundational   (2 verified / 3 total)
+  infra                    ░░░░░░░░░░  none           (0 / 3)
+  security                 ▓░░░░░░░░░  none           (1 foundational / 3 total)
+  web                      ░░░░░░░░░░  none           (0 / 3)
+
+Total concepts:   30   Verified:   11   Pending:   3   Available:  16
+
+Recent (last 5 from HISTORY.md):
+  2026-04-17  VERIFY    retry-with-exponential-backoff   via topic T7 in ai-app
+  2026-04-17  VERIFY    idempotency-keys                 via topic T7 in ai-app
+  ...
+
+Suggested next (project-driven):
+  → circuit-breaker (intermediate · distributed-reliability)
+     Reason: topic T12 in ai-app tagged this but not yet taught.
+
+Commands:
+  /gabe-teach arch browse agent          List agent concepts
+  /gabe-teach arch browse foundational   List foundational concepts across all specs
+  /gabe-teach arch show retry-with-exponential-backoff   Teach this concept
+  /gabe-teach arch verify idempotency-keys               Mark as already-known
+  /gabe-teach arch next                  System picks the next concept (Phase 6)
+```
+
+**Tier derivation rule** (per spec, re-computed on read, no persisted field):
+
+- `foundational` reached: ≥60% of published `foundational` concepts in that spec are `verified`
+- `intermediate` reached: foundational reached AND ≥50% of `intermediate` concepts verified
+- `advanced` reached: intermediate reached AND ≥40% of `advanced` concepts verified
+
+Bar rendering: 10 cells, each cell = 10% of total concepts in the spec that are verified. Shows progress even before a tier is reached.
+
+"Suggested next" in the dashboard is the Phase 6 `arch next` rule applied to give one suggestion without running the full mode. If no project is active or no tagged topics exist, show the first adjacency-rule match instead.
+
+#### Step 9b — Browse (`arch browse [tier|spec]`)
+
+Resolve the argument:
+
+- If it matches a tier (`foundational` / `intermediate` / `advanced`): filter all concepts by tier.
+- If it matches a specialization (`agent` / `cost` / `data` / `distributed-reliability` / `security` / `infra` / `web`): filter by specialization (primary or secondary — glob all `concepts/**/*.md`, filter by frontmatter `specialization` array contains the spec).
+- If empty: list all concepts grouped by spec.
+
+Render, with concept status from STATE.md:
+
+```
+BROWSE — specialization: agent  (12 concepts)
+
+Foundational (6):
+  ✅ pattern-single-agent-pipeline      "One agent + fixed deterministic stages around it — the boring pattern that wins."
+  ✅ structured-output-enforcement      "Never trust prompt instructions to produce valid JSON — enforce at the framework layer."
+  ⏳ input-guardrails                   "Filter adversarial input before it reaches the model — cheaper than filtering output."
+  ○  async-background-processing        "Return a ticket immediately; process in the background; stream progress separately."
+  ...
+
+Intermediate (4):
+  ✅ deterministic-fallback-chain       "When structured output fails, don't raise — degrade through a chain of cheaper guesses."
+  ○  pattern-multi-model-pipeline       "Different models at different stages — cheap for sorting, expensive only for reasoning."
+  ...
+
+Advanced (2):
+  ○  pattern-state-machine              "Nodes + edges + checkpoints — for agents that must survive restarts and pause for humans."
+  ○  pattern-tool-use-loop              "Give the agent tools and a stopping condition — let it decide what to look at."
+
+Status legend: ✅ verified · ⏳ pending · ○ available · ⊘ skipped · △ stale
+```
+
+No LLM calls. Pure frontmatter read + status lookup.
+
+#### Step 9c — Show (`arch show <concept-id>`)
+
+Read the concept file at `~/.claude/skills/gabe-arch/concepts/{specialization}/{id}.md`. If not found, fuzzy-match against all IDs and suggest up to 3 closest.
+
+Render through the existing 6-part lesson template (same as Step 4d), with the following source mapping:
+
+| Lesson section  | Source in concept file |
+|-----------------|------------------------|
+| Header          | `T-arch (<primary-spec>, <tier>) — <name>` |
+| 📍 Code block   | Replaced by **Concept at a glance**: `Tier: <tier> · Specializations: <list> · Prerequisites: <list> · Related: <list>` |
+| What changed    | Replaced by **What the concept solves**: one line derived from `## Primary force`'s first sentence |
+| Analogy         | `## Analogy` body (full; brief mode uses `one_liner` from frontmatter) |
+| Scenario        | Synthesized from `## When it applies` + `## When it doesn't` — pick 1 positive example + 1 negative example, render as before/after framing |
+| Primary force   | `## Primary force` body verbatim |
+| Also            | Top 2 bullets from `## Common mistakes` (select the most concrete) |
+| Q1, Q2          | Generated per session from `## Common mistakes` + `## When it doesn't` via ONE short LLM call. Cached for the session only (not stored in the concept file — questions should rotate) |
+
+Questions-generation LLM call constraints:
+
+- Cheap model (Haiku tier)
+- Context: only the concept file body (not the full catalog)
+- Output: `output_type` with two questions, each ≤2 sentences
+- Each question must reference only artifacts taught in the rendered lesson (same hard rule as Step 4d-lesson rule 1)
+- If the call fails: fall back to two canned questions pulled deterministically from the first two `## Common mistakes` bullets (inverted: "Why is [mistake] a mistake given [Primary force]?")
+
+After Q1/Q2, classify response exactly as Step 4d does: `verified` (score 2/2 or 1/2) / `pending` / `skipped` / `already-known` (sanity-check). The classification writes to STATE.md and HISTORY.md (see Step 9e).
+
+#### Step 9d — Verify (`arch verify <concept-id>`)
+
+The shortcut for humans who already know a concept deeply and don't want to sit through a full teach session. Prompt:
+
+```
+VERIFY SHORTCUT — circuit-breaker (intermediate · distributed-reliability)
+
+  "Stop calling a dead downstream — give it time to recover before the next attempt."
+
+How confident are you?
+
+  [quick-check]  One sanity question to confirm the core idea (recommended)
+  [skip-check]   Mark verified without a question (trust-me mode)
+  [teach]        Actually teach me — fall through to /gabe-teach arch show <id>
+  [cancel]       Back to arch dashboard
+```
+
+- **quick-check:** Generate ONE question via the same LLM path as Step 9c but constrained to "quickest sanity check of the core idea." If answered correctly → `verified` with note `verify-quick` in HISTORY.md, score `1/1`. If wrong → `pending` with note `claimed known, failed quick-check`, and suggest running `/gabe-teach arch show <id>`.
+- **skip-check:** Mark `verified` immediately with note `verify-skip` in HISTORY.md, score `—/—`. Trust-me mode. Appears in STATE.md as `verified` but with a lower confidence signal (reinforcements=0, score blank). Future reinforcement via topic tagging will upgrade the score naturally.
+- **teach:** Redirect to Step 9c.
+- **cancel:** Back to Step 9a.
+
+The two paths are intentionally asymmetric: `quick-check` produces a higher-trust verification; `skip-check` exists to let a busy expert move on without friction but leaves a signal in HISTORY.md that this concept was never actually quizzed.
+
+#### Step 9e — State + history writes
+
+After any arch-mode event that changes verification status (show → verified, verify → verified/pending, skip):
+
+**STATE.md update** (upsert by `Concept ID`):
+
+- If row exists and new status is `verified`: increment `Reinforcements` by 0 for first verify, by 1 for subsequent verifies in different projects; set `Last Reinforced` to today; keep `Verified Date` as first verify date.
+- If row doesn't exist: append new row with `Status`, `Tier`, `Specialization` from the concept file; `Verified Date` = today; `Verified Project` = current project name (or `—` if no `.kdbp/`); `Score` from the quiz; `Reinforcements: 0`; `Last Reinforced` = today.
+
+**HISTORY.md append** — one line per event, grouped by date. Events:
+
+```
+### 2026-04-17 — arch mode
+- SHOW:     circuit-breaker → verified (2/2)
+- VERIFY:   idempotency-keys → verified (quick-check, 1/1)
+- VERIFY:   structured-output-enforcement → verified (skip-check, —/—)
+- SKIP:     progressive-knowledge-disclosure
+```
+
+Deterministic writes — no LLM required.
+
+#### Step 9f — Arch next (Phase 6 placeholder)
+
+When invoked, print:
+
+```
+Arch next picker coming in Phase 6. For now, see the "Suggested next" line in /gabe-teach arch.
+```
+
+Then render the dashboard (Step 9a). Full logic lands in the Phase 6 commit.
 
 ---
 
