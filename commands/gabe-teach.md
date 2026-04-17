@@ -71,10 +71,10 @@ If mode is `status`:
 
    Gravity Wells ([N] defined):
 
-     G1 Guardrails     ▓▓▓▓▓▓░░░░  60% understood  (3/5 topics verified)
-     G2 LLM Pipeline   ▓▓░░░░░░░░  20% understood  (1/5)
-     G3 API Layer      ░░░░░░░░░░   0% understood  (0/2)
-     G4 Frontend       ▓▓▓▓▓░░░░░  50% understood  (1/2)
+     G1 Guardrails     ▓▓▓▓▓▓░░░░  60%  (3/5)  app/agent/guardrails*        · 4 commits <14d
+     G2 LLM Pipeline   ▓▓░░░░░░░░  20%  (1/5)  app/agent/pipeline*          · 0 commits <14d
+     G3 API Layer      ░░░░░░░░░░   0%  (0/2)  app/api/**                   · 2 commits <14d
+     G4 Frontend       ▓▓▓▓▓░░░░░  50%  (1/2)  (paths not set)              · — commits
 
    Total topics: [N]
      verified:      [N] (avg score X.X/2)
@@ -86,6 +86,8 @@ If mode is `status`:
    Weakest wells to address: [list up to 3]
    Staleness: [N stale topics]
    ```
+
+Per-well row shows: well ID + name, understanding bar, percent understood, verified/total, first Paths glob (truncated to 30 chars, "(paths not set)" if empty), commits_14d count (— if Paths empty). Same pathspec-quoted git log as Step 8a #8.
 
 3. **History timeline (deterministic, zero cost)** — embedded after the dashboard:
    ```
@@ -189,13 +191,43 @@ Actions:
   [rename N]  Rename well N (topics stay assigned)
   [redesc N]  Edit description
   [relens N]  Regenerate analogy via gabe-lens oneliner
-  [paths N]   Edit path globs for well N (used by brief activity signals)
+  [paths N]   Edit path globs for well N (used by brief activity signals — see wizard below)
   [merge N M] Merge well N into M (topics reassigned to M)
   [archive N] Archive well N (topics move to G0 or user chooses new well)
   [done]      Exit
 ```
 
 Non-destructive: rename/merge/archive all preserve topic history in the Sessions log.
+
+**`[paths N]` wizard flow:**
+
+```
+G3 API Layer — edit Paths
+
+  Current: app/api/**, tests/api/**
+  
+  Enter new comma-separated globs (or blank line to cancel):
+  > app/api/**, app/routes/**, tests/api/**
+
+  Validation:
+    ✅ app/api/**        (valid glob)
+    ✅ app/routes/**     (valid glob)
+    ✅ tests/api/**      (valid glob)
+
+  STRUCTURE check:
+    ⚠ app/routes/** is not in .kdbp/STRUCTURE.md Allowed Patterns
+      Add to STRUCTURE.md? (recommended — STRUCTURE is the source of truth) [y/n]
+
+  Write changes to KNOWLEDGE.md + re-run activity signals? [y/n]
+```
+
+Validation rules (basic syntax check, no LLM):
+- Each glob must be non-empty after trim
+- Reject absolute paths (must be project-relative)
+- Reject patterns containing `..` (no path traversal)
+- Warn (non-blocking) if a glob has no matching files in the current repo
+
+On confirm: rewrite the well's Paths cell in KNOWLEDGE.md, recompute `commits_14d` + `last_commit` for that well, display refreshed activity line.
 
 ### Step 4: Topics mode (the main teach flow)
 
@@ -248,7 +280,9 @@ Pick up to 3:
   - Skip session:  "skip"
 ```
 
-If user picks `0`: run Step 8 (Brief mode) inline, then re-show this menu. `0` is orientation, not a topic selection — it doesn't consume from the 3-pick cap.
+If user picks `0`: run the **short-brief** variant (Step 8 with `short` flag) inline, then re-show this menu. `0` is orientation, not a topic selection — it doesn't consume from the 3-pick cap.
+
+**Short-brief:** wells block only (≈15 lines), no CONTEXT/OPEN & NEXT/RECENT sections, no COMMANDS footer. Keeps the topics menu flow tight. For the full brief, use `/gabe-teach brief` directly.
 
 **Gate bypass:** When `[0]` is invoked from inside the topics menu, Step 8's foundation gate is SKIPPED (Step 0.5 already passed to reach this menu). The brief runs directly. This is the only case where the gate is bypassed.
 
@@ -492,9 +526,18 @@ COMMANDS
 | Well has empty Paths | Show `paths not set` inline; `last: —`; health falls through to cold/stale using topic signals only |
 | No wells | Foundation gate blocks before Step 8a |
 
-**Step 8e — No persistence (except analogy backfill):**
+**Step 8e — No persistence (except backfills):**
 
-Brief mode is read-only except for one-time analogy backfill in 8b.5. It does NOT write plans, decisions, topics, or activity. Safe to re-run anytime.
+Brief mode is read-only except for one-time Analogy backfill (Step 8b.5) and one-time Paths backfill (Step 8b.6). It does NOT write plans, decisions, topics, or activity. Safe to re-run anytime.
+
+**Step 8f — Short-brief variant (for in-menu invocation):**
+
+When brief is invoked with `short` flag (from `[0]` in topics menu):
+- Render only the GRAVITY WELLS block
+- Skip App/Stack/Maturity/Active header
+- Skip CONTEXT, OPEN & NEXT, RECENT PROJECT ACTIVITY, COMMANDS sections
+- Keep Analogy+Paths backfill logic (they're load-bearing for the wells block itself)
+- Target output: ≤20 lines total
 
 **Note on LLM usage:**
 
