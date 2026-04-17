@@ -423,6 +423,7 @@ Commits covered: [N] since [date]
 Active plan: [plan name], Phase [N] of [M]
 
   [0] BRIEF — Newcomer-onboarding snapshot (app purpose + wells overview + recent activity)
+  [A] ARCH  — Architecture curriculum dashboard (tier × spec map, next-concept suggestion)
 
 Guardrails (G1) — [N] pending
   [1] WHY   — Why guardrails run before the LLM
@@ -437,6 +438,7 @@ Frontend (G4) — [N] pending
 
 Pick up to 3:
   - Brief orient:  "0" (shows brief, then re-prompts for topic picks)
+  - Arch view:     "A" (shows arch dashboard, then re-prompts for topic picks)
   - Individual:    "1,3,5" or just "3"
   - Whole well:    "all G1" or "all G3"
   - All pending:   "all"
@@ -445,9 +447,13 @@ Pick up to 3:
 
 If user picks `0`: run the **short-brief** variant (Step 8 with `short` flag) inline, then re-show this menu. `0` is orientation, not a topic selection — it doesn't consume from the 3-pick cap.
 
+If user picks `A` (case-insensitive, accepts `a` or `arch` too): run the **arch dashboard** (Step 9a) inline, then re-show this menu. Like `0`, `A` is orientation — it doesn't consume from the 3-pick cap. From the dashboard, the human can copy a concept ID and exit back to this menu, or run `/gabe-teach arch show <id>` in a separate invocation. We deliberately do NOT let `A` jump directly into a concept lesson — that would mix project-teach and arch-teach flows in one session, making the 3-pick cap accounting ambiguous.
+
 **Short-brief:** wells block only (≈15 lines), no CONTEXT/OPEN & NEXT/RECENT sections, no COMMANDS footer. Keeps the topics menu flow tight. For the full brief, use `/gabe-teach brief` directly.
 
-**Gate bypass:** When `[0]` is invoked from inside the topics menu, Step 8's foundation gate is SKIPPED (Step 0.5 already passed to reach this menu). The brief runs directly. This is the only case where the gate is bypassed.
+**Short-arch:** dashboard only (Step 9a's rendering, ≈20 lines) — tier progression bars + recent HISTORY.md events + one suggested-next concept. No interactive browse/show/verify from within the menu; those require exiting to `/gabe-teach arch <subcommand>`. Keeps the topics flow tight, same philosophy as short-brief.
+
+**Gate bypass:** When `[0]` or `[A]` is invoked from inside the topics menu, Step 8's foundation gate (for brief) and Step 9's lazy-bootstrap (for arch) run silently. Step 0.5 already passed to reach this menu, so no re-prompting.
 
 Cap: 3 topics per session (prevents quiz fatigue). Same deterministic counting as before.
 
