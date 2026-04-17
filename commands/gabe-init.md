@@ -130,16 +130,45 @@ Non-destructive top-up of an existing `.kdbp/` directory. Never overwrites, neve
    - Any file with existing content
    - Files outside the expected template set
 
-5. **After file top-up, continue to Step 2 (hook check).** The hook check runs for both reset and update paths.
+5. **After file top-up, run Step 1.6 (schema migration) before Step 2.**
 
 6. **After Step 2, skip Steps 3-4** (project type + readiness report). Instead show a condensed Update Report:
    ```
    UPDATE COMPLETE
      Files added:    [list]
      Directories:    [list]
+     Schema migrations: [list or "none"]
      Hooks installed: [N] / [total]
      Preserved:      [count of files left untouched]
    ```
+
+### Step 1.6: Schema migration (non-destructive, only when `update` picked)
+
+Template files can evolve with new columns. Existing `.kdbp/` files predating those changes need column-level top-up (not file replacement — that would destroy user data).
+
+**Current migrations:**
+
+| Target | Old shape | New shape | Detection |
+|--------|-----------|-----------|-----------|
+| `.kdbp/KNOWLEDGE.md` Gravity Wells table | 4 columns: `# \| Name \| Description \| Topics` | 6 columns: `# \| Name \| Description \| Analogy \| Paths \| Topics` | Header row has `Description` followed directly by `Topics` (no `Analogy` or `Paths` between them) |
+
+**Procedure for KNOWLEDGE.md wells migration:**
+
+1. **Backup first:** copy file to `.kdbp/archive/KNOWLEDGE.md.pre-migrate-YYYYMMDD-HHMM.md`
+2. **Preview the change:**
+   ```
+   SCHEMA MIGRATION — .kdbp/KNOWLEDGE.md
+     Wells table: 4 cols → 6 cols (adds Analogy, Paths)
+     Rows affected: [N]
+     Backup: .kdbp/archive/KNOWLEDGE.md.pre-migrate-20260417-1805.md
+   
+     Proceed? (y/n)
+   ```
+3. **On confirm:** rewrite the wells table header AND each row with empty `Analogy` and `Paths` cells inserted in the correct positions. Preserve the `#`, `Name`, `Description`, `Topics` cells exactly.
+4. **On skip/decline:** leave file as-is; warn that `/gabe-teach brief` may show "paths not set" and will backfill Analogy on first run.
+5. **Follow-up hint** after successful migration: `ℹ Run /gabe-teach brief to backfill Analogy (via gabe-lens) and Paths (heuristic) for existing wells.`
+
+**No LLM calls during migration** — purely structural rewrite. Backfill happens later, on first brief run.
 
 ### Step 2: Check hooks
 

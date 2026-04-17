@@ -203,18 +203,21 @@ This is the existing flow, with three changes: wells-aware extraction, wells-gro
 
 **Step 4a — Foundation gate** (Step 0.5 above). Block or fall through to Step 4b.
 
-**Step 4b — Extract candidate topics.** Same deterministic signals as before (LEDGER commits, commit message prefixes, new files, DECISIONS changes). **New step:** assign each candidate a primary well:
+**Step 4b — Extract candidate topics.** Same deterministic signals as before (LEDGER commits, commit message prefixes, new files, DECISIONS changes). **New step:** assign each candidate a primary well using the wells' `Paths` column from KNOWLEDGE.md:
 
 | Signal | Well assignment rule |
 |--------|---------------------|
-| File path matches well's folder pattern (if configured) | Primary well = that well |
-| Commit message mentions a well's name | Primary well = that well |
-| Ambiguous (file touches two wells' folders) | Primary well = first match; add `cross` tag |
-| No match | Primary well = G0 Uncategorized |
+| Changed file matches a well's `Paths` glob (most-specific match wins) | Primary well = that well |
+| Multiple wells' Paths match (ties broken by glob specificity — longer pattern wins) | Primary well = most specific; add `cross` tag if tie is genuine |
+| Commit message explicitly mentions a well's name and no Paths match | Primary well = that well |
+| No Paths match AND no name mention | Primary well = G0 Uncategorized |
+| Well has empty `Paths` column | Skip that well in path-matching; only name-mention rule applies |
+
+Matching rule: parse comma-separated globs from the Paths column, trim, test each changed file against each glob using standard fnmatch-style globbing (`**` = recursive, `*` = single-segment). If a well has no Paths, it's a valid assignment target only via explicit commit-message mention.
 
 Deduplicate against existing `verified` / `already-known` topics (same as before).
 
-Use one short LLM call to **name** topics (unchanged). Wells are assigned deterministically from path signals — no LLM for that.
+Use one short LLM call to **name** topics (unchanged). Wells are assigned deterministically from Paths — no LLM for that.
 
 **Step 4c — Present menu, grouped by well.**
 
@@ -246,6 +249,8 @@ Pick up to 3:
 ```
 
 If user picks `0`: run Step 8 (Brief mode) inline, then re-show this menu. `0` is orientation, not a topic selection — it doesn't consume from the 3-pick cap.
+
+**Gate bypass:** When `[0]` is invoked from inside the topics menu, Step 8's foundation gate is SKIPPED (Step 0.5 already passed to reach this menu). The brief runs directly. This is the only case where the gate is bypassed.
 
 Cap: 3 topics per session (prevents quiz fatigue). Same deterministic counting as before.
 
@@ -356,7 +361,11 @@ Read-only orientation snapshot. A newcomer (dev who knows the language/stack but
 5. `.kdbp/PENDING.md` → open items with status=open, their priority, file, and finding summary
 6. `.kdbp/DECISIONS.md` → last 3 decision entries (date + one-line title)
 7. `git log --since="14 days ago" --oneline` → project-wide commit count
-8. Per well with Paths populated: `git log --since="14 days ago" --oneline -- <globs>` → well-scoped commit count + most recent commit (hash + date)
+8. Per well with Paths populated: parse comma-separated globs, trim, pass each as a **separately quoted git pathspec** to avoid shell expansion:
+   ```
+   git log --since="14 days ago" --oneline -- "app/api/**" "tests/api/**"
+   ```
+   → well-scoped commit count + most recent commit (hash + date). **Never** interpolate unquoted globs (the shell would expand them locally against CWD).
 
 **Step 8b — Per-well signals (deterministic):**
 
@@ -374,6 +383,24 @@ No LLM call for this step. Wells with zero Paths show `commits_14d: —` but sti
 **Step 8b.5 — Backfill missing analogies (one-time per well):**
 
 If a well row has an empty `Analogy` column, generate one on the fly via `gabe-lens` in `oneliner` mode (5-15 words). Write the result back to KNOWLEDGE.md so subsequent briefs are free. One LLM call per missing analogy, one-time cost per well.
+
+**Failure fallback:** If the `gabe-lens` call fails (no network, no API key, rate limit, timeout > 10s), do NOT crash the brief. Instead:
+1. Write the well's existing `Description` as the Analogy (stripped to ≤15 words)
+2. Emit a one-line warning at the top of the brief output: `⚠ Analogy backfill skipped for G[N] (reason: [short cause]) — using description as placeholder`
+3. Continue rendering
+
+This keeps brief mode resilient on first post-schema-change runs in restricted environments.
+
+**Step 8b.6 — Backfill missing Paths (heuristic, no LLM):**
+
+If a well row has an empty `Paths` column, run the Step 2a heuristic deterministically:
+1. Top-level folders whose name contains or is contained by the well's Name (case-insensitive, hyphen/underscore normalized)
+2. STRUCTURE.md Allowed Patterns whose Description text overlaps the well's Description (keyword intersection ≥2 words)
+3. Top 3 most-touched paths from `git log --since="30 days ago" --name-only` whose topics in KNOWLEDGE.md are assigned to this well
+
+Take the union (deduplicated), keep the broadest glob per folder (`app/api/**` beats `app/api/main.py`). Write back to KNOWLEDGE.md as a comma-separated list. Emit: `ℹ Paths backfilled for G[N]: [glob list] — review with /gabe-teach wells → [paths N] if wrong`
+
+If the heuristic produces zero hits, leave Paths empty and emit: `⚠ Could not infer Paths for G[N] — run /gabe-teach wells → [paths N]`
 
 **Step 8c — Output format** (tight, ~50 lines including context blocks):
 
@@ -401,9 +428,15 @@ GRAVITY WELLS ([N] defined)
 CONTEXT
 
   Story so far:
-    [first 1-2 sentences of KNOWLEDGE.md ## Storyline]
+    [first 1-2 sentences of KNOWLEDGE.md ## Storyline — see placeholder rule below]
     (run /gabe-teach story for full narrative)
     — OR — "No storyline yet. Run /gabe-teach story to generate one."
+
+  Placeholder detection: treat the Storyline section as EMPTY if its body (after the `## Storyline` heading, excluding HTML comments) either:
+    - Is whitespace-only
+    - Starts with the literal phrase "No storyline generated yet"
+    - Contains fewer than 80 characters of non-comment content
+  In any of those cases, show the fallback sentence, not the placeholder.
 
   Key decisions:
     [date] — [DECISIONS.md entry title 1]
