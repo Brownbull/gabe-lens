@@ -57,7 +57,7 @@ Run these scripts. No LLM. No token cost. Target: 2-10 seconds total.
 
 **CHECK 7 — Doc Drift** (requires `.kdbp/` directory)
 
-Two layers, both deterministic:
+Three layers, all deterministic:
 
 **Layer 1 — Universal safe cards** (always active when `.kdbp/` exists, no config needed):
 - `.env.example` OR `config.py` changed AND `README.md` NOT in diff → flag README.md (`low`)
@@ -73,6 +73,20 @@ Two layers, both deterministic:
     - Check if Doc Target file appears in the staged diff
     - If Doc Target NOT in diff → create finding at pattern's Priority
 - Deduplicate: one finding per unique Doc Target (use highest priority among matches)
+
+**Layer 3 — Gravity-well docs drift** (active only when `.kdbp/KNOWLEDGE.md` has a Gravity Wells table with at least one row whose Docs column is non-empty):
+- Read wells table from `.kdbp/KNOWLEDGE.md`
+- For each changed file in `git diff --staged --name-only`:
+  - For each well row where `Paths` is non-empty AND `Docs` is non-empty:
+    - Parse comma-separated Paths globs
+    - If any glob matches the changed file:
+      - Check if the well's Docs path appears in the staged diff
+      - If Docs NOT in diff → create finding `low` with text: `Well [G_N] [Name] touched ([matched path]), [Docs path] not updated`
+- Deduplicate: one finding per unique Docs target (keep highest-severity match, but Layer 3 is always `low`)
+- Severity is deterministically `low` (decision 4b — won't block MVP commits; docs lag is the norm during active development)
+- Skip this layer entirely when:
+  - No wells have both Paths AND Docs populated (nothing to check against)
+  - Diff is ONLY the Docs files themselves (don't flag a doc update as missing doc update)
 
 **CHECK 8 — Structure** (requires `.kdbp/STRUCTURE.md`)
 
@@ -118,6 +132,7 @@ Deterministic thresholds, not LLM judgment:
 | Doc drift (DOCS.md high) | Doc target in diff | `high` |
 | Doc drift (DOCS.md medium) | Doc target in diff | `medium` |
 | Doc drift (DOCS.md low) | Doc target in diff | `low` |
+| Doc drift (Layer 3 wells Docs) | Well's Docs file in diff | `low` (always) |
 | Structure (disallowed pattern) | N/A (always fail) | `critical` |
 | Structure (no pattern match) | Match at/below current maturity | `medium` |
 
@@ -236,7 +251,7 @@ DEFERRED: +D8 (coverage classify.py)
 | Coverage | skip | ✅ | ✅ |
 | Shape | skip | ✅ (30 files) | ✅ (20 files) |
 | Deferred | HIGH+ only | MEDIUM+ | All |
-| Doc Drift | safe cards only | safe cards + DOCS.md | safe cards + DOCS.md |
+| Doc Drift | safe cards + wells Layer 3 | safe cards + DOCS.md + wells Layer 3 | safe cards + DOCS.md + wells Layer 3 |
 | Structure | MVP patterns | MVP + E patterns | All patterns |
 
 $ARGUMENTS

@@ -289,6 +289,23 @@ Validation rules (basic syntax check, no LLM):
 
 On confirm: rewrite the well's Paths cell in KNOWLEDGE.md, recompute `commits_14d` + `last_commit` for that well, display refreshed activity line.
 
+**`[opendoc N]` quick lookup:**
+
+```
+G3 API Layer — Docs
+
+  Path:   docs/wells/3-api.md
+  Status: ✅ exists (last modified 2026-04-16, 42 lines)
+
+  Sections:
+    # API Layer — "Reception desk..."
+    ## Purpose            (authored — 2 paragraphs)
+    ## Key Decisions      (authored — 3 entries)
+    ## Topics (auto-appended)  (2 verified topics)
+```
+
+Prints: file path, existence status, line count, last modified date, and the first-heading summary of each `##` section in the file. Deterministic read; no file modification. If the well's Docs column is empty: `ℹ G3 API Layer has no Docs path set. Run [docs N] to assign one.` If the path is set but the file is missing: `⚠ docs/wells/3-api.md not found. Run /gabe-teach init-wells to scaffold, or create manually.`
+
 ### Step 4: Topics mode (the main teach flow)
 
 This is the existing flow, with three changes: wells-aware extraction, wells-grouped menu, enriched session logging.
@@ -488,7 +505,7 @@ Read-only orientation snapshot. A newcomer (dev who knows the language/stack but
 **Step 8a — Gather inputs (all deterministic):**
 
 1. `.kdbp/BEHAVIOR.md` frontmatter → `domain:` (one-liner), `maturity:`, `tech:`
-2. `.kdbp/KNOWLEDGE.md` → Gravity Wells table (Name + Description + Analogy + Paths), Topics table (Well + Class + Topic + Status + Last Touched), Storyline section (if present)
+2. `.kdbp/KNOWLEDGE.md` → Gravity Wells table (Name + Description + Analogy + Paths + Docs), Topics table (Well + Class + Topic + Status + Last Touched), Storyline section (if present)
 3. `.kdbp/PLAN.md` → active plan goal + current phase (N of M) + Review/Commit/Push tick states, if `status: active`
 4. `.kdbp/LEDGER.md` → last 5 entries (dated section headers + first line of each)
 5. `.kdbp/PENDING.md` → open items with status=open, their priority, file, and finding summary
@@ -550,11 +567,13 @@ GRAVITY WELLS ([N] defined)
 
   G1 [Name]: "[gabe-lens oneliner]"  [health icon+label]
      [description] · [paths or "paths not set"] · last: [YYYY-MM-DD hash] or "—"
+     Docs: [Docs path]    (or "⚠ no doc" if Docs column empty, or "⚠ docs/wells/1-x.md missing" if path set but file doesn't exist)
      Pending: "[title 1]", "[title 2]", "[title 3]"        (or "none" if 0 pending)
      [⚠ [stale_count] stale  — only shown if stale_count > 0]
 
   G2 [Name]: "[oneliner]"  [health]
      [description] · [paths] · last: [date hash]
+     Docs: [Docs path]
      Pending: ...
   ...
 
@@ -611,6 +630,8 @@ COMMANDS
 | PENDING.md has ≥ 3 open items | `[N] deferred items backing up → /gabe-review to triage` |
 | No storyline AND ≥ 3 archived plans | `Enough history for a story → /gabe-teach story` |
 | Wells exist but all have empty Paths | `Wells lack path globs (activity signals disabled) → /gabe-teach wells + [paths N]` |
+| ≥ 1 well has empty Docs AND wasn't opted out explicitly | `Wells without docs: [list] → /gabe-teach wells → [docs N]` |
+| PENDING.md has open Layer-3 doc-drift findings | `Doc drift on wells: [list] → /gabe-review` |
 | Nothing above applies | `Looking healthy. Consider /gabe-health for deeper audit.` |
 
 **Step 8d — Missing data graceful degradation:**
@@ -623,6 +644,8 @@ COMMANDS
 | PENDING.md absent or all-closed | `Deferred items: none` |
 | DECISIONS.md absent or empty | `Key decisions: none recorded` |
 | Well has empty Paths | Show `paths not set` inline; `last: —`; health falls through to cold/stale using topic signals only |
+| Well has empty Docs | Show `Docs: ⚠ no doc` inline; OPEN & NEXT rule flags "Wells without docs: [list]" |
+| Well has non-empty Docs but file missing | Show `Docs: ⚠ docs/wells/1-x.md missing` inline; suggest `/gabe-teach init-wells` or manual create |
 | No wells | Foundation gate blocks before Step 8a |
 
 **Step 8e — No persistence (except backfills):**
