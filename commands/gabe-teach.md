@@ -1,11 +1,13 @@
 ---
 name: gabe-teach
-description: "Consolidate the human's architect-level understanding of recent changes. Organizes topics under gravity wells (architectural sections). Detects WHY/WHEN/WHERE topics from commits, explains with analogies, verifies with Socratic questions, tracks in .kdbp/KNOWLEDGE.md. Also offers a cross-project architecture curriculum via /gabe-teach arch. Usage: /gabe-teach [brief|topics|status|wells|init-wells|history|story|arch|free]"
+description: "Consolidate the human's architect-level understanding of recent changes. Organizes topics under gravity wells (architectural sections). Detects WHY/WHEN/WHERE topics from commits, explains with analogies, verifies with Socratic questions, tracks in .kdbp/KNOWLEDGE.md. Teach-first: every invocation renders a lesson by default; config lives under explicit subcommands. Usage: /gabe-teach [brief|topics|status|wells|init-wells|history|story|arch|retro|tour|free]"
 ---
 
 # Gabe Teach
 
 Countermeasure for "the human can't keep up with AI-paced changes." Keeps the human at architect-level understanding: WHY decisions were made, WHEN patterns apply, WHERE files belong. Topics are anchored to **gravity wells** (architectural sections of the app) so the human builds a map before individual details.
+
+**Design principle — teach-first, config-last.** Every bare-ish invocation renders a lesson or narrative, never a dashboard. Dashboards, catalog browsing, wells editing, and history browsing all live behind explicit subcommands (`status`, `arch browse`, `wells`, `history`, `arch dashboard`). When the user invokes `/gabe-teach` with no clear configuration intent, pick the most relevant teaching surface and render it immediately. Ask the same four verbs everywhere so nothing has to be memorized: `[explain]` / `[next]` / `[test]` / `[skip]` — see the **Universal Action Menu** section below.
 
 ## Procedure
 
@@ -13,23 +15,34 @@ Countermeasure for "the human can't keep up with AI-paced changes." Keeps the hu
 
 Parse `$ARGUMENTS`:
 
-| Mode | Purpose |
-|------|---------|
-| `brief` | Newcomer-onboarding snapshot: app purpose + wells overview + recent activity |
-| `topics` (default when `.kdbp/` exists) | Session-aware teach loop over recent changes |
-| `status` | Show KNOWLEDGE.md summary per well + history timeline |
-| `wells` | List/edit wells (rename, merge, archive, view topics per well) |
-| `init-wells` | Run the wizard to define gravity wells |
-| `history` | Full timeline — plans, phases, commits, sessions, topics |
-| `history full` | Unbounded history (default shows last 10 sessions + last 5 plans) |
-| `story` | Show cached Storyline, or generate if missing |
-| `story refresh` | Force regeneration of Storyline |
-| `arch` | Architecture curriculum dashboard — tier × specialization map of verified/pending concepts |
-| `arch browse [tier\|spec]` | List concepts from the `gabe-arch` skill, filterable |
-| `arch show <concept-id>` | Teach one architecture concept via the 6-part lesson template |
-| `arch verify <concept-id>` | Mark a concept as already-known (prompts quick-check or skip-check) |
-| `arch next` | Pick the next concept via progressive-pressure rule (project → adjacency → foundation-gap) — ships in Phase 6 |
-| `free [concept]` | Raw analogy generation (invokes `gabe-lens` skill) |
+| Mode | Kind | Purpose |
+|------|------|---------|
+| _(empty)_ | teach | **Default.** Auto-route: if pending project topics exist → `topics`; else → `arch next`; else → `retro`; else → print "you're current" one-liner. Never shows a dashboard first. |
+| `topics` | teach | Session-aware teach loop over recent project changes |
+| `arch` | teach | Alias for `arch next` — picks and teaches the next concept immediately (NOT the dashboard) |
+| `arch next` | teach | Pick the next concept via progressive-pressure rule (project → adjacency → foundation-gap) and teach it directly |
+| `arch show <id>` | teach | Teach one architecture concept via the 6-part lesson template |
+| `retro` | teach | Retrospective teach: skipped topics + superseded decisions + what-went-wrong lessons |
+| `tour` | teach | Newcomer tour: walks wells → paths → files → key decisions. Answers "how does this app work?" |
+| `story` | teach | Show cached Storyline, or generate if missing (narrative analogy of the whole project) |
+| `story refresh` | teach | Force regeneration of Storyline |
+| `free [concept]` | teach | Raw analogy generation (invokes `gabe-lens` skill) |
+| `brief` | orient | Newcomer-onboarding snapshot: app purpose + wells overview + recent activity |
+| `status` | admin | Show KNOWLEDGE.md summary per well + history timeline (dashboard) |
+| `arch browse [tier\|spec]` | admin | List concepts from the `gabe-arch` skill, filterable (catalog view) |
+| `arch dashboard` | admin | Tier × specialization map of verified/pending concepts (the legacy `arch` rendering) |
+| `arch verify <id>` | admin | Mark a concept as already-known (test-or-skip shortcut) |
+| `wells` | admin | List/edit wells (rename, merge, archive, view topics per well) |
+| `init-wells` | admin | Run the wizard to define gravity wells |
+| `history` | admin | Full timeline — plans, phases, commits, sessions, topics |
+| `history full` | admin | Unbounded history (default shows last 10 sessions + last 5 plans) |
+
+**Routing rules:**
+
+- **`teach` modes** render a lesson body and end with the Universal Action Menu. No dashboards, no config prompts mid-flow (except the foundation gate on first-ever run).
+- **`orient` modes** render a snapshot; prompt with `[teach]` to drop into teach-first auto-routing.
+- **`admin` modes** render a dashboard or editor; no lesson, no 4-verb menu.
+- When ambiguous, prefer teach over admin. A user who wanted a dashboard can say so; a user who typed `/gabe-teach` and got a dashboard has been served the wrong thing.
 
 If `.kdbp/` doesn't exist: fall back to `free` with a note: "No KDBP detected. Running in free mode. Run `/gabe-init` to enable knowledge tracking."
 
@@ -64,6 +77,52 @@ Choice:
 - **abort** → stop cleanly
 
 This gate only fires once per project's lifetime — once wells exist, the gate passes silently.
+
+### Step 0.7: Universal Action Menu
+
+Every teach-mode lesson (project topic, arch concept, retro lesson, tour stop) ends with the same four-verb menu. No mode-specific variants. Humans learn the controls once.
+
+- **[explain]** — Re-teach from a different angle. Cheaper-model call, different analogy or deeper primary force. Does NOT change status. Use when the lesson didn't land.
+- **[next]** — Answer Q1/Q2 now → classify (2/2 = verified, 1/2 = verified weak, 0/2 = pending) → **write-back immediately** (KNOWLEDGE.md, STATE.md, HISTORY.md, Sessions log as applicable per mode) → auto-advance to the next lesson (same mode's next pick) or announce done.
+- **[test]** — Skip the lesson body; jump straight to Q1/Q2 only. For humans who claim prior knowledge — this is the "sanity-check shortcut." 2/2 → `already-known (sanity-checked)` or `verified (verify-quick)` depending on mode. Write-back happens on the same path as `[next]`.
+- **[skip]** — Mark skipped (session-only for arch mode, persistent for project topics) with a one-line write-back, then pick the next lesson. After 3 skips in one session, fall through to `status`.
+
+**Session-loop semantics (D1=C — multi-lesson loop with per-lesson write-back):**
+
+A single `/gabe-teach` invocation may render multiple lessons in sequence. After every lesson's classify step, **write-back runs before the next lesson renders** so mid-session abort (Ctrl-C, context loss, tab close) leaves durable progress on disk. No state is held only in memory across lessons. Concretely:
+
+1. Render lesson N.
+2. User picks a verb (`[next]` or `[test]`).
+3. Classify Q1/Q2 → compute status.
+4. **Write-back now** — update KNOWLEDGE.md Topics row (Status + ArchConcepts), append HISTORY.md row for arch concepts, append Sessions log line. Use the Edit tool's match-replace on exact row content so a stale in-memory view causes a loud failure rather than a silent clobber.
+5. Tick the session counter (topics session-cap = 3 across `[next]` + `[test]`; retro + tour share the same cap).
+6. If cap reached → render "Session complete — N lessons covered." and exit.
+7. Else → render lesson N+1, go to step 2.
+
+If step 4 fails (Edit tool collision because another command modified the row), abort the loop with a clear message — do NOT retry silently. The human re-invokes `/gabe-teach`; the current lesson re-appears as pending.
+
+**Mapping from legacy mode-specific verbs:**
+
+| Legacy verb | Unified verb | Notes |
+|-------------|--------------|-------|
+| `verified` (correct on Q1/Q2) | `[next]` → scores 2/2 or 1/2 | Same write path to KNOWLEDGE.md / STATE.md |
+| `pending` (wrong on Q1/Q2) | `[next]` → scores 0/2 | Same write |
+| `skipped` | `[skip]` | Same write |
+| `already-known` sanity-check | `[test]` | 2/2 classifies `already-known (sanity-checked)` |
+| `quick-check` (Step 9d) | `[test]` | Q1 only, 1/1 → verified |
+| `skip-check` (Step 9d) | `[next]` with no lesson rendered | Auto-scores `—/—`, writes `verified (verify-skip)` |
+| `teach` / `cancel` | _n/a_ | Lesson renders by default; exit = no input |
+| `view N`, `rename N`, `merge N M` | _Remain in `wells` admin only_ | Never in a teach lesson |
+
+**Auto-advance on `[next]`:**
+
+- From `topics` lesson: next pending candidate, else fall through to `arch next`.
+- From `arch next` lesson: re-run Tier 1 → 2 → 3 rule; render new pick.
+- From `arch show <id>` lesson: do NOT auto-advance. End with "Lesson complete. `/gabe-teach` for next."
+- From `retro` lesson: next skipped/superseded, else "Retrospective clear."
+- From `tour` stop: advance to next well, else "Tour complete."
+
+**Shortcut keys:** `e` / `n` / `t` / `s` accepted as single-letter aliases. Case-insensitive.
 
 ### Step 1: Status mode
 
@@ -418,10 +477,18 @@ If the LLM returns IDs that don't exist in the catalog, drop them (deterministic
 
 If both Layer 1 and Layer 2 return 0, the candidate carries `arch_concepts: []` — no tags, Architecture-link section is omitted from its lesson.
 
-**Step 4c — Present menu, grouped by well.**
+**Step 4c — Pick the next lesson (teach-first, no menu by default).**
+
+**Fast path (default — applies to ≥90% of invocations):**
+
+1. Sort pending candidates by recency (newest commit first), then by well with the fewest verified topics (fill in gaps), tiebreak alphabetical by well ID.
+2. Take the top candidate and render its lesson via Step 4d. No menu, no selection prompt, no `[0]`/`[A]` bypass.
+3. After classify + write-back (per Step 0.7), if more pending remain and the session cap (3) isn't reached, auto-advance to the next top candidate. Loop until cap or `[skip]×3`.
+
+**Menu path (only when `/gabe-teach topics --menu` is invoked, OR when >5 pending candidates span ≥3 wells and the user explicitly prefers the menu):**
 
 ```
-TEACH: Topics from recent changes
+TEACH: [N] topics pending across [K] wells
 
 Commits covered: [N] since [date]
 Active plan: [plan name], Phase [N] of [M]
@@ -447,7 +514,10 @@ Pick up to 3:
   - Whole well:    "all G1" or "all G3"
   - All pending:   "all"
   - Skip session:  "skip"
+  - Start now:     press Enter or type "next" to accept the top pick (#1)
 ```
+
+`[0]` and `[A]` are **menu-path-only** orientation shortcuts — they do NOT exist in the fast path. Rationale (D2=B): the fast path is a single lesson stream; orientation hops would break its rhythm. The menu path already implies "I want to choose," so offering orientation there is coherent.
 
 If user picks `0`: run the **short-brief** variant (Step 8 with `short` flag) inline, then re-show this menu. `0` is orientation, not a topic selection — it doesn't consume from the 3-pick cap.
 
@@ -459,7 +529,7 @@ If user picks `A` (case-insensitive, accepts `a` or `arch` too): run the **arch 
 
 **Gate bypass:** When `[0]` or `[A]` is invoked from inside the topics menu, Step 8's foundation gate (for brief) and Step 9's lazy-bootstrap (for arch) run silently. Step 0.5 already passed to reach this menu, so no re-prompting.
 
-Cap: 3 topics per session (prevents quiz fatigue). Same deterministic counting as before.
+Cap: 3 topics per session, counted across `[next]` + `[test]` auto-advances in the fast path, or across numeric picks in the menu path. Same deterministic counting either way. On reaching the cap: `Session complete — 3 topics covered. /gabe-teach to continue tomorrow.`
 
 **Step 4d — Teach each selected topic.** Flow per topic:
 
@@ -512,11 +582,16 @@ Q2: [Socratic question referencing only What-changed, Scenario, Primary force, o
 7. **Architecture link and Further reading are zero-LLM.** Both sections are rendered deterministically — `Architecture link` from concept frontmatter, `Further reading` from well `Docs` path + DOCS.md doc-drift mappings. No model calls at teach time.
 8. **Questions must be answerable from sections 1-5 alone.** The `Further reading` section is a pointer for humans who want more depth *after* answering, not a crutch that excuses under-explaining. If a question requires the reader to open an external doc to answer, the lesson is broken — fix the lesson, not the link.
 
-**Further reading construction** (zero-LLM, deterministic):
+**Further reading construction** (zero-LLM, deterministic, **always rendered** for project topics):
 
-1. If the topic's assigned well has a non-empty `Docs` path in `.kdbp/KNOWLEDGE.md`: emit a line `→ {Docs}  (well doc — N verified topics, last updated YYYY-MM-DD)`. Read the file's mtime for the date, count `### T[N] —` headings under `## Topics (auto-appended)` for N. If the file doesn't exist at that path, degrade to `→ {Docs}  (⚠ not found — run /gabe-teach init-wells to scaffold)`.
-2. If `.kdbp/DOCS.md` maps any of the topic's changed files to documentation paths (existing drift-check mapping used by `/gabe-commit` CHECK 7): emit one line per mapped doc `→ {doc_path}#{section}  ({human-readable-label})`. Cap at 2 additional lines so the section stays tight.
-3. If neither (1) nor (2) yields a line: omit the `Further reading:` header entirely — don't render an empty section.
+Per user feedback: lessons should always surface relevant support docs so the reader knows where to look for more depth. The section is load-bearing — it must render on every project topic lesson, even if content is sparse, so the human can navigate the documentation surface and see where gaps live.
+
+1. **Well doc (always first, always present):** Look up the topic's assigned well in `.kdbp/KNOWLEDGE.md`:
+   - Docs column non-empty AND file exists → emit `→ {Docs}  (well doc — N verified topics, last updated YYYY-MM-DD)`. Read mtime for date; count `### T[N] —` headings under `## Topics (auto-appended)` for N.
+   - Docs column non-empty but file missing → emit `→ {Docs}  (⚠ not found — run /gabe-teach init-wells to scaffold)`.
+   - Docs column empty → emit `→ (⚠ G[M] has no Docs path set — run /gabe-teach wells → [docs N] to assign one)`.
+2. **DOCS.md mappings (up to 2 extra lines):** If `.kdbp/DOCS.md` maps any of the topic's changed files to documentation paths: emit one line per mapped doc `→ {doc_path}#{section}  ({human-readable-label})`. Cap at 2 additional lines.
+3. **Never omit the header.** The `Further reading:` section always renders for project topics (Step 4d). For arch-concept lessons (Step 9c), the section is optional — the concept file's own `related:` frontmatter already provides cross-references.
 
 **Empty-section detection** (required, applies to both well docs and DOCS.md-mapped paths):
 
@@ -1058,7 +1133,18 @@ Whenever `/gabe-teach` surfaces a concept that a newcomer or fatigued operator m
 
 ### Step 9: Arch mode (architecture curriculum)
 
-Enters when `$ARGUMENTS` starts with `arch`. Parse the subcommand: `arch` (dashboard), `arch browse [tier|spec]`, `arch show <id>`, `arch verify <id>`, `arch next` (Phase 6 — stub for now: print "coming soon" and fall through to `arch`).
+Enters when `$ARGUMENTS` starts with `arch`. Subcommand routing (teach-first):
+
+| Subcommand | Routes to | Kind |
+|------------|-----------|------|
+| `arch` (bare) | Step 9f — pick next concept via progressive-pressure rule and **teach it immediately** | teach |
+| `arch next` | Same as bare `arch` — pick + teach | teach |
+| `arch show <id>` | Step 9c — teach specified concept | teach |
+| `arch verify <id>` | Step 9d — test-or-skip shortcut (uses Universal Action Menu `[test]` / `[next]`) | admin |
+| `arch browse [tier\|spec]` | Step 9b — catalog view, no teaching | admin |
+| `arch dashboard` | Step 9a — tier × spec map with bars, no teaching | admin |
+
+**Breaking change vs legacy:** bare `arch` used to show the dashboard. It now teaches. The dashboard moved to `arch dashboard`. Rationale: teaching is the common case; the dashboard was a landing page the user had to get past.
 
 **Data sources** (all read-only in this mode except for Step 9d's verify writes):
 
@@ -1077,9 +1163,9 @@ mkdir -p ~/.claude/gabe-arch
 
 No prompt — silent creation on first use.
 
-#### Step 9a — Dashboard (bare `arch`)
+#### Step 9a — Dashboard (`arch dashboard`, admin mode)
 
-Read all concept files' frontmatter (tier, specialization, id, one_liner) and STATE.md. Render:
+_Admin surface, no teaching._ Used when the human explicitly wants the catalog status at a glance. Read all concept files' frontmatter (tier, specialization, id, one_liner) and STATE.md. Render:
 
 ```
 ARCHITECTURE MAP — [global, cross-project]
@@ -1184,27 +1270,22 @@ After Q1/Q2, classify response exactly as Step 4d does: `verified` (score 2/2 or
 
 #### Step 9d — Verify (`arch verify <concept-id>`)
 
-The shortcut for humans who already know a concept deeply and don't want to sit through a full teach session. Prompt:
+The shortcut for humans who already know a concept deeply. Renders a one-line header followed by the Universal Action Menu — no asymmetric verb set.
 
 ```
-VERIFY SHORTCUT — circuit-breaker (intermediate · distributed-reliability)
+VERIFY — circuit-breaker (intermediate · distributed-reliability)
 
   "Stop calling a dead downstream — give it time to recover before the next attempt."
 
-How confident are you?
-
-  [quick-check]  One sanity question to confirm the core idea (recommended)
-  [skip-check]   Mark verified without a question (trust-me mode)
-  [teach]        Actually teach me — fall through to /gabe-teach arch show <id>
-  [cancel]       Back to arch dashboard
+  [explain]  Teach me anyway — full Step 9c lesson
+  [next]     Mark verified without a quiz (trust-me mode). Writes `verify-skip`, score —/—.
+  [test]     One sanity question. 1/1 → verified (`verify-quick`); 0/1 → pending with suggestion to run `/gabe-teach arch show <id>`.
+  [skip]     Do nothing; return to caller.
 ```
 
-- **quick-check:** Generate ONE question via the same LLM path as Step 9c but constrained to "quickest sanity check of the core idea." If answered correctly → `verified` with note `verify-quick` in HISTORY.md, score `1/1`. If wrong → `pending` with note `claimed known, failed quick-check`, and suggest running `/gabe-teach arch show <id>`.
-- **skip-check:** Mark `verified` immediately with note `verify-skip` in HISTORY.md, score `—/—`. Trust-me mode. Appears in STATE.md as `verified` but with a lower confidence signal (reinforcements=0, score blank). Future reinforcement via topic tagging will upgrade the score naturally.
-- **teach:** Redirect to Step 9c.
-- **cancel:** Back to Step 9a.
+Writes the same STATE.md + HISTORY.md entries as before (see Step 9e) — only the verb labels change. Mapping: `[next]` = legacy `skip-check`; `[test]` = legacy `quick-check`; `[explain]` = legacy `teach`; `[skip]` = legacy `cancel`.
 
-The two paths are intentionally asymmetric: `quick-check` produces a higher-trust verification; `skip-check` exists to let a busy expert move on without friction but leaves a signal in HISTORY.md that this concept was never actually quizzed.
+Rationale: a human who wants to verify has already decided they know it. `[next]` means "move on, I've got it." `[test]` means "prove it to yourself first." `skip-check` and `quick-check` were confusing asymmetric labels that required memorization.
 
 #### Step 9e — State + history writes
 
@@ -1287,21 +1368,28 @@ Options:
 Total verified: [N] concepts across [M] specializations.
 ```
 
-**Rendering the pick:**
+**Rendering the pick (teach-first — no pick prompt):**
 
-Print one line before Step 9c takes over:
+Print ONE header line, then **immediately** render the lesson via Step 9c. No `[teach]/[skip]/[cancel]` prompt — the Universal Action Menu (Step 0.7) at the end of the lesson handles everything.
 
 ```
 ARCH NEXT — picked by [project-driven|adjacency|foundation-gap] rule
-
   → retry-with-exponential-backoff (intermediate · distributed-reliability)
      Reason: topic T12 "Why we added tenacity" in ai-app tagged this but not yet taught.
      Prerequisites verified: idempotency-keys ✓
-
-  [teach] Start lesson       [skip] Pick a different concept       [cancel] Back to dashboard
 ```
 
-If the human picks `skip`, re-run Step 9f excluding the just-skipped concept for this session (in-memory; doesn't write to STATE.md). After 3 skips, fall through to the dashboard — something about the progression heuristic isn't matching; the human knows best and should browse manually.
+Then the Step 9c lesson renders directly underneath. Skip accounting: `[skip]` at the menu counts against a session skip-budget of 3. After 3 skips without a `[next]`, the command exits to `arch dashboard` with the hint: `3 concepts skipped this session — heuristic may be off. Browse the catalog to pick manually: /gabe-teach arch browse [spec].`
+
+**Empty-state collapse:** if STATE.md has zero verified entries AND no ArchConcepts tags in the current project's KNOWLEDGE.md (the degenerate case), Step 9f falls into Tier 2 with alphabetical-by-id-within-foundational ordering. Instead of explaining the degeneracy across multiple paragraphs, render ONE line and proceed:
+
+```
+ARCH NEXT — picked by adjacency (seed pick — STATE empty)
+  → async-background-processing (foundational · agent)
+     Reason: first foundational candidate with no prereqs. Verify a few concepts to unlock ranked picks.
+```
+
+Then the Step 9c lesson renders. No alternative-listing, no tier-rule explanation. The point is to start teaching; ranking quality improves naturally once STATE has a few rows.
 
 **Enhanced dashboard (Step 9a refinement):**
 
