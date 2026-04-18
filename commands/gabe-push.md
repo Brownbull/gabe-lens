@@ -174,7 +174,76 @@ If the Edit fails due to a concurrent writer (shouldn't happen — push is the s
 | P8 | 2026-04-17 15:08 | fix/ci-typo → main | #43 | ❌ 1/3 (12s) — failed: lint | auto-fix applied: lint; CI re-run after fix | — |
 ```
 
-**Sub-check 7.5b (operational decisions) — ships in Phase 5/6.** For now, the `Decisions` column stays empty. No LLM calls yet.
+**Sub-check 7.5b — Operational Decision Detection (Phase 5/6 of doc-lifecycle work):**
+
+Only runs when Step 7.5a appended a row AND the BEHAVIOR.md frontmatter doesn't set `push_operational_classifier: never`. Otherwise skip silently.
+
+**Trigger layer** (zero-cost, all fire-independently; ≥1 hit → proceed to classifier):
+
+| Trigger | Signal |
+|---------|--------|
+| CI-config modified | Diff for this push (use `git diff HEAD~N..HEAD` where N = commits being pushed) modifies any file under `.github/workflows/**`, `.gitlab-ci.yml`, `.circleci/**`, `azure-pipelines.yml` |
+| Infra-as-code change | Diff modifies any file under `infra/**`, `terraform/**`, `pulumi/**`, `k8s/**`, `helm/**` |
+| Deployment config | Diff modifies `docker-compose*.yml`, `Dockerfile*`, `fly.toml`, `railway.toml`, `render.yaml`, `vercel.json`, `netlify.toml` |
+| Auto-fix config change | Step 6 auto-fix path fired AND it modified a config file (lint config, type config, CI workflow) |
+| Rollback/revert | Any commit in the pushed range has a subject starting with `revert:` or `rollback:` |
+| Trunk-first push | Push target is the repo's default branch AND PUSH.md promotion chain has `trunk-based: true` AND this is the first such push in LEDGER.md (rare — captures the "why direct to main" moment) |
+| Promotion skipped when chain existed | Step 7 prompted to promote and user chose `n` (deliberate non-advance — worth capturing why) |
+
+**Classifier layer** (LLM, cheap model, fires only when trigger hits AND no `operational`-tagged DECISIONS.md row covers this event):
+
+- **Model:** Haiku-tier
+- **Context:** trigger reason(s), commit subject(s) in pushed range, top 5 changed files in the triggered category, last 3 operational DECISIONS.md rows (dedup awareness)
+- **Max tokens:** 200
+- **Structured output** (`output_type` enforced — user value U4):
+  ```
+  OperationalDecisionCandidate:
+    is_operational_decision: bool   # false → drop, no proposal
+    title: str                      # one-line, <80 chars
+    rationale: str                  # 2-3 sentences
+    alternatives: list[str]         # 0-2 alternatives considered
+    review_trigger: str             # when to revisit
+  ```
+- If `is_operational_decision == false`: drop silently.
+
+**Interactive triage** (output block):
+
+```
+### Operational Decision Candidate
+
+  Detected: [trigger reason]
+  Proposed DECISIONS.md entry (tagged `operational`):
+
+    Date:           2026-04-17
+    Decision:       [title]
+    Rationale:      [rationale]
+    Alternatives:   [alt 1]
+                    [alt 2]
+    Status:         active,operational
+    Review Trigger: [review_trigger]
+
+  [accept]  Append to .kdbp/DECISIONS.md as D[next_id] with `operational` tag
+  [note]    Write one-liner to today's DEPLOYMENTS.md Decisions column instead (lighter weight)
+  [drop]    Don't record
+```
+
+**Action handlers:**
+
+| Action | Behavior |
+|--------|----------|
+| `accept` | Append to DECISIONS.md using same mechanism as review 5b. `Status` column = `active,operational`. Dedup: existing DECISIONS.md row with matching title case-insensitively → drop instead of append. |
+| `note` | Find today's DEPLOYMENTS.md row (the one Step 7.5a just wrote, by `Date` and `PR` match). Update its `Decisions` column from `—` to a one-liner of `title`. Never appends a new row; updates the one already written. |
+| `drop` | No write. Session-scoped dedup on title. |
+
+**BEHAVIOR.md opt-out flag:**
+
+Humans can disable the classifier entirely by adding `push_operational_classifier: never` to `.kdbp/BEHAVIOR.md` frontmatter. When present:
+
+- Trigger layer still runs but no LLM call is made.
+- No output rendered for 7.5b.
+- Step 7.5a (DEPLOYMENTS.md capture) still runs normally — the opt-out is only for the classifier.
+
+**Race handling with `/gabe-review` 5b:** both commands append to DECISIONS.md. Dedup is by case-insensitive title match. Edit-tool collisions retry with fresh read. `operational` tag in Status column lets downstream readers (notably `/gabe-teach` Loop L6) filter cleanly.
 
 **Explicit non-goal:** this step NEVER touches `docs/architecture.md`, `docs/AGENTS_USE.md`, `docs/SCALING.md`, `docs/api.md`, `README.md`, `docs/wells/*.md`, `KNOWLEDGE.md`, or `STRUCTURE.md`. Push is operational-only. If deployment issues trigger code fixes, those flow through a separate `/gabe-commit` invocation that runs CHECK 7 normally.
 
