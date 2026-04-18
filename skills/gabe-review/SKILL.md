@@ -245,6 +245,105 @@ Score: 62 / 100
 
 The confidence score appears BEFORE the verdict — it informs the verdict but doesn't replace it.
 
+### Step 4.75: Plan Alignment (NEW — Phase 2/6 of doc-lifecycle work)
+
+Before triage, run plan-compliance + stale-topic checks. Both are deterministic (zero LLM). The block only renders in **full mode** — skipped in `brief`, `deferred`, `fix`, `post-review` modes to keep those paths tight.
+
+**Skip conditions (silent exit):**
+
+- `.kdbp/` doesn't exist
+- `.kdbp/PLAN.md` doesn't exist OR doesn't contain `status: active`
+- Current diff is empty (nothing to align against)
+
+#### Sub-check 5a — Phase Compliance
+
+Purpose: "Does this diff accomplish what the current plan phase says it should?"
+
+Procedure (deterministic):
+
+1. Read `.kdbp/PLAN.md`. Extract `## Current Phase` section → phase number N + phase name.
+2. Extract phase row N from `## Phases` table → `Description` column.
+3. Extract `## Scope` section if present → explicit file list.
+4. Build **expected change set** from:
+   - Files named in Scope (exact paths)
+   - Files matching globs mentioned in Description (keyword extraction — folder names, file suffixes, component names)
+5. Compare against `git diff --name-only HEAD`:
+   - On-scope files changed: count + list
+   - Off-scope files changed: count + list (cap at 5)
+   - Scope files NOT touched: count + list (cap at 5)
+6. Classify alignment:
+
+| Alignment | Condition |
+|-----------|-----------|
+| `ALIGNED` | All changed files are on-scope, no off-scope changes |
+| `DRIFTED` | ≥70% of changed files on-scope, some off-scope |
+| `MISALIGNED` | <70% of changed files on-scope (majority drift) |
+| `SKIP` | Diff empty or Scope section missing (no basis for comparison) |
+
+7. Render output block:
+
+```
+### Plan Alignment
+
+Goal:         [Plan Goal from PLAN.md]
+Phase [N/M]:  [name] — [description, truncated 120 chars]
+
+Alignment: DRIFTED
+  On-scope files changed:    3 / 7
+  Off-scope files changed:   2 (frontend/src/lib/api.ts, docs/wells/3-api.md)
+  Scope files not touched:   4 (tests/test_guardrails.py, app/db/models.py, ...)
+
+Suggestion: this diff mixes plan scope with unrelated changes.
+Consider `git reset` + split the commit, or update PLAN.md scope via /gabe-plan.
+```
+
+Informational only — no auto-action. Does NOT write to PLAN.md.
+
+#### Sub-check 5c — Stale Verified Topic Detection
+
+Purpose: "Are verified KNOWLEDGE.md topics now stale because the code they reference changed?"
+
+Skip silently if `.kdbp/KNOWLEDGE.md` doesn't exist OR has no verified topics.
+
+Procedure (deterministic, no LLM):
+
+1. Read `.kdbp/KNOWLEDGE.md`. Parse Gravity Wells table → `{well_id: paths_globs}`. Parse Topics table → collect rows with `Status: verified`.
+2. For each verified topic:
+   - Extract `Well` column → look up well's Paths globs.
+   - Extract `Source` column → if it contains a commit hash (7-40 hex chars), keep it; else skip.
+   - For each changed file in `git diff --name-only HEAD`:
+     - Does the file match any of the well's Paths globs? (fnmatch with `**` recursive support)
+     - If yes: run `git log --follow -1 --format=%H -- <file>` → get most recent commit on this file.
+     - If that commit is LATER than the topic's `Source` commit (via `git merge-base --is-ancestor topic_source file_latest`) → mark topic as **stale candidate**.
+3. If stale candidates found, render output block:
+
+```
+### Stale Topic Candidates
+
+Topics whose verified material may no longer match the code:
+
+  T1 — Why guardrails run before the LLM (well G1, verified 2026-04-15)
+       Changed since verification: app/agent/guardrails.py
+  T5 — Why 202 Accepted + BackgroundTask (well G3, verified 2026-04-10)
+       Changed since verification: app/api/main.py, app/api/tasks.py
+
+  [mark-stale]  Flag these topics `stale` in KNOWLEDGE.md (re-surface in /gabe-teach)
+  [skip]        Ignore this session
+```
+
+On `mark-stale`:
+
+- Use Edit tool on `.kdbp/KNOWLEDGE.md` Topics table.
+- For each stale candidate row: find the row by `# T[N]` prefix, replace `verified` in the Status column with `stale`. Preserve all other columns (Tags, ArchConcepts, Last Touched, Verified Date, Score, Source) exactly.
+- Idempotent: re-running on already-`stale` rows is a no-op.
+- This is the ONE place review writes KNOWLEDGE.md. Surface narrow (status column only). No row creation, no deletion, no topic text change.
+
+On `skip`: no write. Stale candidates re-surface next `/gabe-review` until addressed.
+
+#### Plan Alignment summary block
+
+If 5a produced output OR 5c produced output, wrap in a single "Plan Alignment" block under Step 4.75's heading. If neither produced output, skip the block entirely (don't render an empty heading).
+
 ### Step 5: Triage
 
 After the verdict and session estimate, present the triage prompt. This closes the gap between "here's what's wrong" and "let's fix it."
@@ -520,6 +619,7 @@ After triage completes (Final Verdict produced), tick the Review column of the c
 - Final Verdict is APPROVE or WARNING (not BLOCK)
 - No unresolved CRITICAL findings (deferred = OK; deferred CRITICAL cannot exist per guardrail)
 - No unresolved HIGH findings ABOVE the maturity gate (deferred = OK)
+- **Step 4.75 Sub-check 5a did NOT return `MISALIGNED`** (added Phase 2/6 of doc-lifecycle work — a MISALIGNED diff shouldn't auto-advance the phase just because code review passed). `ALIGNED`, `DRIFTED`, and `SKIP` all satisfy this condition. If MISALIGNED, silently skip the tick and log `ℹ PLAN: phase tick skipped (diff MISALIGNED with current phase scope)` to the output.
 
 Follow the shared procedure documented in `/gabe-plan` under "Shared: auto-tick phase column":
 - Target column: `Review`
