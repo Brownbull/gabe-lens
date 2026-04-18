@@ -489,6 +489,10 @@ Architecture link:                         (only if arch_concepts is non-empty, 
   ↪ [concept-id] ([tier] · [primary-spec]) — "[one_liner from concept file frontmatter]"
   ↪ [concept-id] ([tier] · [primary-spec]) — "[one_liner]"   (one line per tagged concept, max 3)
 
+Further reading:                           (always shown if any applicable doc exists; omit section entirely when none)
+  → [well's Docs path]                     (well doc — [N] verified topics, last updated [date])
+  → [additional doc path matched via DOCS.md if any]   (optional — see below)
+
 Q1: [Socratic question referencing only What-changed, Scenario, Primary force, or Also]
 Q2: [Socratic question referencing only What-changed, Scenario, Primary force, or Also]
 ```
@@ -497,11 +501,20 @@ Q2: [Socratic question referencing only What-changed, Scenario, Primary force, o
 
 1. **No artifact in a question that wasn't taught above.** If Q references `{safe: bool, reason: str}`, that shape must appear in the `What changed: Before:` line. If Q references a `list[tuple[name, regex]]`, that shape must appear somewhere in steps 1-5. No "introduce new code in the question."
 2. **Jargon gloss on first use.** Any domain term a new reader might not know gets a 3-5 word parenthetical on first mention: `prompt injection (attacker hijacks instructions)`, `SQL probe (malformed query testing injection)`. Applies to: jailbreak, prompt injection, SQL injection/probe, role impersonation, token marker, XML role tag, circuit breaker, idempotency key, etc. If in doubt, gloss it.
-3. **Word cap: 150 words total for sections 1-5.** Questions don't count. **Architecture link does NOT count against the cap** (it's reference material, not taught content — the teaching for those concepts happens when the human invokes `/gabe-teach arch show <id>`). If over cap, cut secondary forces first, then shorten the Primary force. Overflow belongs in the well doc (Step 4d.1 auto-append), not the live lesson.
+3. **Word cap: 150 words total for sections 1-5.** Questions don't count. **Neither `Architecture link` NOR `Further reading` counts against the cap** — both are pointers to external depth, not taught content. The teaching for arch concepts happens via `/gabe-teach arch show <id>`; the extra project context happens by opening the well doc. If over cap, cut secondary forces first, then shorten the Primary force. Overflow content belongs in the well doc (Step 4d.1 auto-append), not the live lesson.
 4. **Scenario is required.** If a change has no user-visible before/after, the Scenario describes a developer-visible before/after (debugging trace, test output, review diff). A change with genuinely no observable difference at any level rarely deserves a teach topic; surface a different topic instead.
 5. **Primary force is singular.** Pick ONE reason. If three forces feel equally important, the topic is too broad — split it into two topics. `Also:` bullets are secondary, not co-primary.
 6. **Questions test inversion or application, not recall.** Good: "If we'd kept [before], what operational question becomes impossible?" Bad: "Which three forces drove the change?"
-7. **Architecture link is zero-LLM.** The section is rendered from the concept file's frontmatter `one_liner` + `tier` + `specialization[0]` — no model call at teach time. The concept's deeper content is reached via `/gabe-teach arch show <id>`.
+7. **Architecture link and Further reading are zero-LLM.** Both sections are rendered deterministically — `Architecture link` from concept frontmatter, `Further reading` from well `Docs` path + DOCS.md doc-drift mappings. No model calls at teach time.
+8. **Questions must be answerable from sections 1-5 alone.** The `Further reading` section is a pointer for humans who want more depth *after* answering, not a crutch that excuses under-explaining. If a question requires the reader to open an external doc to answer, the lesson is broken — fix the lesson, not the link.
+
+**Further reading construction** (zero-LLM, deterministic):
+
+1. If the topic's assigned well has a non-empty `Docs` path in `.kdbp/KNOWLEDGE.md`: emit a line `→ {Docs}  (well doc — N verified topics, last updated YYYY-MM-DD)`. Read the file's mtime for the date, count `### T[N] —` headings under `## Topics (auto-appended)` for N. If the file doesn't exist at that path, degrade to `→ {Docs}  (⚠ not found — run /gabe-teach init-wells to scaffold)`.
+2. If `.kdbp/DOCS.md` maps any of the topic's changed files to documentation paths (existing drift-check mapping used by `/gabe-commit` CHECK 7): emit one line per mapped doc `→ {doc_path}  ({human-readable-label})`. Cap at 2 additional lines so the section stays tight.
+3. If neither (1) nor (2) yields a line: omit the `Further reading:` header entirely — don't render an empty section.
+
+Sorting: well doc first (highest relevance), DOCS.md mappings after in the order they appear in DOCS.md.
 
 **Worked example** (the T1 from the ai-app screenshot, rewritten to follow the template):
 
@@ -671,6 +684,65 @@ For each confirmed concept ID:
 
 Deterministic writes only; no LLM calls in 4d.2 or 4d.3.
 
+**Step 4d.4 — Well-doc freshness check (after Step 4d.1 append, prompt-first, session-scoped).**
+
+After a verified topic is auto-appended to `docs/wells/{n}-{slug}.md` via Step 4d.1, inspect the well doc to see whether the `## Purpose` or `## Key Decisions` sections are still placeholder-only (contain only HTML comments / whitespace, no prose).
+
+Trigger rules (all must hold to prompt):
+
+1. At least one section (`## Purpose` or `## Key Decisions`) is placeholder-only.
+2. The well now has ≥3 verified topics (counted via `### T[N] —` headings under `## Topics (auto-appended)`). Three verified topics is the minimum signal that there's enough accumulated understanding to distill into Purpose/Decisions prose.
+3. No `teach_docs_refresh: never` flag is set in `.kdbp/BEHAVIOR.md` frontmatter (human opted out previously).
+4. Not already prompted for this specific well in this session (session-scoped dedupe).
+
+When all trigger rules pass, prompt exactly once per session per well:
+
+```
+ℹ docs/wells/3-api.md has [N] verified topics but its Purpose section is empty.
+
+  The human (you) know the why — the lesson we just finished summarized one of them.
+  Want to draft Purpose + Key Decisions now based on what's been verified?
+
+  [y]      Draft now — uses one gabe-lens call to distill the [N] verified topics
+           into a Purpose paragraph and a first Key Decision. Reviewed before write.
+  [n]      Not this time (will re-prompt next session when another topic is verified)
+  [never]  Never prompt for doc refresh in this project
+           (writes teach_docs_refresh: never to BEHAVIOR.md frontmatter)
+```
+
+**On `y`:**
+
+1. Read all verified topic summaries under `## Topics (auto-appended)` in the well doc.
+2. Run one LLM call (cheap model, Haiku-tier) with:
+   - Context: well name + analogy + paths + the verified topic summaries
+   - Output: `output_type`-enforced schema `{ purpose: str (2-3 sentences), first_decision: { title: str, rationale: str (1-2 paragraphs) } }`
+   - Max tokens: 400
+3. Show the draft inline:
+   ```
+   DRAFT — docs/wells/3-api.md
+
+   ## Purpose
+   [proposed 2-3 sentence Purpose paragraph]
+
+   ## Key Decisions
+
+   ### [today's date] — [first_decision.title]
+   [proposed rationale]
+
+   [accept] Write to file
+   [edit]   Let me revise before writing
+   [cancel] Drop the draft
+   ```
+4. On `accept`: replace the placeholder `## Purpose` comment-only block with the drafted prose; append the first decision under `## Key Decisions` (preserving existing decisions if any). Never overwrite human-authored prose — if the section already has real content, skip it and only fill what's still empty.
+5. On `edit`: show the draft as editable text; write after user confirms.
+6. On `cancel`: drop the draft; re-prompt next session per trigger rules.
+
+**On `never`:**
+
+Write `teach_docs_refresh: never` to the project's `.kdbp/BEHAVIOR.md` frontmatter. Future verified topics still auto-append to the well doc (Step 4d.1 unchanged), but the freshness prompt never fires again for this project. Human can revert by editing BEHAVIOR.md and removing the flag.
+
+**Rationale.** The feedback that surfaced this step: `/gabe-teach` lessons are self-contained but well docs were staying empty because writing Purpose/Decisions by hand is friction nobody gets around to. After 3 verified topics, there's enough material to distill — and the human just spent a teach session with fresh context, so it's the right moment to ask. Skipped once → re-prompt next session; `never` → respected persistently.
+
 **Step 4e — Update KNOWLEDGE.md.** Writes rows with the `Well` column populated. `Tags` column populated with `cross` if flagged. `ArchConcepts` column populated with the confirmed concept IDs from Step 4d.2 (comma-separated, or empty if no tags).
 
 **Step 4f — Log session** (enriched):
@@ -683,6 +755,7 @@ Deterministic writes only; no LLM calls in 4d.2 or 4d.3.
 - Verified: T1 (2/2)
 - Skipped: T2
 - Docs appended: T1 → docs/wells/1-guardrails.md  (only when Step 4d.1 succeeded)
+- Docs refreshed: docs/wells/3-api.md (Purpose + 1 Key Decision drafted)  (only when Step 4d.4 wrote prose)
 - Arch tags: T1 → retry-with-exponential-backoff, idempotency-keys  (only when Step 4d.2 confirmed non-empty tags)
 - Arch state updates: 2 new verified, 1 reinforcement  (counts from Step 4d.3; omitted if zero)
 ```
