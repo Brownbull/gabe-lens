@@ -1,6 +1,6 @@
 ---
 name: gabe-commit
-description: "Commit quality gate — deterministic checks, interactive triage, defer/accept/fix per finding. Usage: /gabe-commit [commit message]"
+description: "Commit quality gate — deterministic checks, interactive triage, defer/accept/fix per finding. Also retroactive `docs-audit` mode for accumulated documentation drift. Usage: /gabe-commit [commit message] | /gabe-commit docs-audit"
 ---
 
 # Gabe Commit
@@ -8,6 +8,15 @@ description: "Commit quality gate — deterministic checks, interactive triage, 
 Deterministic commit quality gate. Runs checks, shows findings, lets you act on each one. Most actions cost zero tokens — LLM involvement is explicit and opt-in.
 
 ## Procedure
+
+### Step 0: Subcommand dispatch
+
+Parse `$ARGUMENTS`:
+
+- If `$ARGUMENTS` starts with `docs-audit` → jump to **Step A: Docs-Audit Mode** (at end of this file). Skip Steps 1-6.
+- Otherwise → treat `$ARGUMENTS` as commit message, proceed to Step 1 (normal commit flow).
+
+The `docs-audit` subcommand is explicit only — NOT automatically chained. It's for retroactive catch-up on accumulated drift that per-diff CHECK 7 missed. Read-only git operations; any file changes it proposes remain unstaged for the human to `/gabe-commit` normally.
 
 ### Step 1: Validate context
 
@@ -253,5 +262,133 @@ DEFERRED: +D8 (coverage classify.py)
 | Deferred | HIGH+ only | MEDIUM+ | All |
 | Doc Drift | safe cards + wells Layer 3 | safe cards + DOCS.md + wells Layer 3 | safe cards + DOCS.md + wells Layer 3 |
 | Structure | MVP patterns | MVP + E patterns | All patterns |
+
+---
+
+## Step A: Docs-Audit Mode (subcommand `docs-audit`)
+
+Retroactive tree-wide audit against `.kdbp/DOCS.md` + wells' `Docs` paths. Runs only when invoked explicitly via `/gabe-commit docs-audit`. Skips Steps 1-6 entirely — no diff, no commit, no tests. Read-only git; any proposed file changes remain unstaged.
+
+**Preconditions:**
+
+- `.kdbp/` directory exists. If not → print `⚠ No .kdbp/ — run /gabe-init first.` and exit.
+- At least ONE of: `.kdbp/DOCS.md` has non-skip mappings OR `.kdbp/KNOWLEDGE.md` Gravity Wells table has ≥1 well with a non-empty `Docs` column. If neither → print `ℹ Nothing to audit against. Populate DOCS.md mappings or run /gabe-teach init-wells with Docs paths.` and exit.
+
+### Step A1: Gather universe
+
+1. Source files: `git ls-files` (respects .gitignore, excludes untracked)
+2. Tracked doc files: files under `docs/**/*.md` and `README.md` at project root
+3. DOCS.md mappings: parse `.kdbp/DOCS.md` mapping table, filter out rows where `Doc Target` is `skip`, collect `(Source Pattern, Doc Target, Section, Priority)` tuples
+4. Well Docs paths: parse `.kdbp/KNOWLEDGE.md` Gravity Wells table, collect rows where `Paths` AND `Docs` are both non-empty
+
+### Step A2: DOCS.md audit
+
+For each mapping `(pattern, target, section, priority)`:
+
+1. **Mapped source files exist?** Glob `pattern` against `git ls-files` output. If 0 matches → skip this mapping (nothing to document against).
+2. **Target file exists?** If `target` doesn't exist on disk → finding `Doc target missing: {target} (mapped from {pattern}, {N} source files)`, severity = `priority`.
+3. **Target section exists + non-empty?** If `section` is non-empty, extract content between `## {section}` and next heading (or EOF):
+   - No `## {section}` heading found → finding `Doc section missing: {target}#{section} (mapped from {pattern})`, severity = `priority`.
+   - Section found but <80 non-comment/non-whitespace chars → finding `Doc section empty: {target}#{section} ({N} source files mapped)`, severity = `priority`.
+   - Otherwise → no finding for this row.
+
+### Step A3: Well Docs audit
+
+For each well with non-empty `Paths` AND non-empty `Docs`:
+
+1. **Docs file exists?** If not → finding `Well doc missing: {Docs} (well {G_N} {name})`, severity = `low`.
+2. **`## Topics (auto-appended)` section present?** If missing → finding `Missing ## Topics (auto-appended) section: {Docs} (teach Step 4d.1 can't append)`, severity = `medium`.
+3. **Purpose still placeholder AND ≥3 verified topics?** Count `### T[N] —` headings under `## Topics (auto-appended)`. Count non-comment/non-whitespace chars in `## Purpose` section. If topics ≥3 AND Purpose <80 chars → finding `Well Purpose empty despite {N} verified topics: {Docs}`, severity = `low` (info: teach Step 4d.4 will offer to draft next time).
+
+### Step A4: Orphaned doc detection
+
+List all `.md` files under `docs/` (recursive). Subtract:
+
+- Files mapped in DOCS.md (Doc Target column, dedup)
+- Files in any well's Docs column
+- Whitelist: `README.md` at docs root, `CHANGELOG.md`, `CONTRIBUTING.md`, `LICENSE.md`
+
+Remaining files → finding `Orphaned doc: {path} (not in DOCS.md mappings, not tracked by any well)`, severity = `low`.
+
+### Step A5: Source-coverage gap detection
+
+For each tracked source file, check if it matches ANY DOCS.md Source Pattern (including `skip` rows — those are intentional excludes) OR ANY well's Paths glob.
+
+Files matching NOTHING, excluding standard skip patterns (`tests/**`, `.kdbp/**`, `node_modules/**`, `__pycache__/**`, `.git/**`, `*.pyc`, `*.lock`, binary files) → finding `Uncovered by DOCS.md or wells: {path}`, severity = `low`.
+
+Cap at 10 findings — if more exist, emit `… and {N} more uncovered files` as an info line at the end of this section. Prevents spam on brand-new projects with no mappings yet.
+
+### Step A6: Render audit report + interactive triage
+
+```
+GABE COMMIT — docs-audit
+
+Universe: [N source files] | [N doc files] | [N wells] | [N DOCS.md mappings]
+
+| # | Sev    | Finding                                                              | Actions                               |
+|---|--------|----------------------------------------------------------------------|---------------------------------------|
+| 1 | high   | Doc target missing: docs/architecture.md#Data Model (4 mapped)       | [create] [skip] [defer]               |
+| 2 | medium | Doc section empty: docs/AGENTS_USE.md#Prompts (3 mapped, 42 chars)   | [update-docs] [skip] [defer]          |
+| 3 | medium | Missing ## Topics section: docs/wells/2-llm-pipeline.md              | [insert-heading] [skip] [defer]       |
+| 4 | low    | Orphaned doc: docs/legacy/old-routing.md                             | [archive] [map] [skip]                |
+| 5 | low    | Well Purpose empty despite 4 verified topics: docs/wells/3-api.md    | [defer-to-teach] [skip]               |
+
+ℹ … and 3 more uncovered files. Run with `full` flag to see all.
+
+→ Actions? (e.g., "1:create 2:update-docs 3:insert-heading") or "all:defer":
+```
+
+### Step A7: Action handlers
+
+Execute each user action in order:
+
+| Finding Type | Action | Behavior | LLM? |
+|---|---|---|---|
+| Doc target missing | `create` | Write new file with `# {filename-derived}` H1 + required `## {Section}` subheadings from all DOCS.md mappings pointing at this target + the standards marker `<!-- Standards: see ~/.claude/skills/gabe-docs/SKILL.md -->`. Leave section bodies as HTML-comment placeholders identical to `/gabe-init` doc stubs. | No |
+| | `skip` | One-time dismissal (session-scoped) | No |
+| | `defer` | Append row to PENDING.md: `{today} \| docs-audit \| Create {target} \| {target} \| large \| {priority} \| high \| 0 \| open` | No |
+| Doc section missing | `create-section` (new action) | Append `## {Section}\n\n<!-- TODO: populate from DOCS.md mapping {pattern} -->\n` to the target file | No |
+| | `skip` / `defer` | as above | No |
+| Doc section empty | `update-docs` | Invoke the existing per-diff `update-docs` triage action but scoped to (a) the specific section and (b) recent commits that touched source files mapped to this section. Seeds from `git log --oneline -10 -- {glob from mapping}` and the current file content of the section. LLM edits proposed, human confirms. | **Yes** |
+| | `skip` / `defer` | as above | No |
+| Missing ## Topics heading | `insert-heading` | Append `\n## Topics (auto-appended)\n\n<!-- /gabe-teach topics appends verified topic summaries here on first run. -->\n<!-- Do not edit the structure below this line; edit individual entries freely. -->\n` to end of well doc | No |
+| | `skip` / `defer` | as above | No |
+| Orphaned doc | `archive` | `mkdir -p docs/archive` then `git mv {path} docs/archive/{today}-{basename}` (unstaged) | No |
+| | `map` | Interactive prompt: `Source Pattern for {path}? (e.g., app/legacy/**)` then `Priority? [critical/high/medium/low]` then append row to DOCS.md mapping table: `\| {pattern} \| {path} \| - \| {priority} \|` | No |
+| | `skip` | One-time dismissal | No |
+| Well Purpose empty | `defer-to-teach` | Print `ℹ docs/wells/{N}-{slug}.md: Purpose will be drafted on next /gabe-teach topics session (Step 4d.4 freshness prompt fires at ≥3 verified topics).` | No |
+| | `skip` | One-time dismissal | No |
+| Uncovered source file | `map` | Same interactive prompt as orphaned-doc `map` but target defaults to a DOCS.md row with appropriate doc (prompt for doc + section too). Writes to DOCS.md. | No |
+| | `skip` | One-time dismissal | No |
+
+**Important constraints:**
+
+- `create`, `create-section`, `insert-heading`, `archive`, `map` all leave changes UNSTAGED. The human runs `/gabe-commit` normally afterwards to stage + commit what they want.
+- `update-docs` uses the existing per-diff triage action (see Step 5 triage table row "Doc drift"). In audit mode, the action accepts an explicit `section` scope parameter so the LLM only edits between `## {Section}` and the next heading.
+- `defer` writes to PENDING.md; source column recorded as `docs-audit` so the human can filter later.
+- No automatic chaining to Step 1. Audit is a dead-end: it reports, triages, and exits. Human decides when to commit the proposed changes.
+
+### Step A8: Log to LEDGER.md
+
+Always (even if no actions taken):
+
+```
+## {YYYY-MM-DD HH:MM} — docs-audit
+UNIVERSE: {N} files, {N} docs, {N} wells, {N} mappings
+FINDINGS: {total} ({critical_count} critical, {high_count} high, {medium_count} medium, {low_count} low)
+ACTIONS: {1:create 2:update-docs 3:insert-heading 4:archive 5:skip}
+DEFERRED: {count} (→ PENDING.md)
+```
+
+### Step A9: Closing summary
+
+```
+✅ docs-audit complete.
+   {N} findings triaged.
+   {M} files modified (unstaged — run /gabe-commit to stage + commit).
+   {K} items deferred to PENDING.md.
+```
+
+If `{M} > 0`, print: `→ Next: run /gabe-commit "docs(audit): apply accumulated doc-drift fixes" to commit.`
 
 $ARGUMENTS
