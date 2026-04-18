@@ -338,7 +338,11 @@ This is the existing flow, with three changes: wells-aware extraction, wells-gro
 
 **Step 4a — Foundation gate** (Step 0.5 above). Block or fall through to Step 4b.
 
-**Step 4b — Extract candidate topics.** Same deterministic signals as before (LEDGER commits, commit message prefixes, new files, DECISIONS changes). Each candidate carries a structured record used later by Step 4d:
+**Step 4b — Extract candidate topics.** Same deterministic signals as before (LEDGER commits, commit message prefixes, new files, DECISIONS changes). Each candidate carries a structured record used later by Step 4d.
+
+**DECISIONS.md filter (Loop L6, Phase 3/6 of doc-lifecycle work):** when scanning `.kdbp/DECISIONS.md` changes as a topic source, skip rows whose `Status` column contains the `operational` tag (format: `active,operational` or `operational`). These operational decisions are written by `/gabe-push` Phase 5/6 of the doc-lifecycle work and describe infra/deploy choices (blue/green cutover, env var added, CI workflow change) that aren't load-bearing product understanding. The human can still force-surface them via interactive topic selection, but they're not auto-proposed. Rationale: teach is about "why the product works the way it works"; operational decisions are about "how it gets shipped", a different knowledge domain.
+
+
 
 ```
 Candidate {

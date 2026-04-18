@@ -340,9 +340,83 @@ On `mark-stale`:
 
 On `skip`: no write. Stale candidates re-surface next `/gabe-review` until addressed.
 
+#### Sub-check 5b — Architectural Decision Detection (Phase 3/6)
+
+Purpose: "Did significant architectural decisions happen in this diff that should be captured in DECISIONS.md?"
+
+**Trigger layer** (zero-cost, always runs; fires when ≥1 hits):
+
+A diff is flagged as "potentially architectural" when ANY of these conditions hold:
+
+| Trigger | Signal |
+|---------|--------|
+| New top-level folder | `git diff --name-only HEAD` shows a new path whose first segment didn't exist in HEAD~1 |
+| Dependency churn | ≥2 of: `pyproject.toml dependencies section`, `package.json dependencies/devDependencies`, `Gemfile`, `go.mod require block` show non-whitespace changes |
+| Config/routes/schemas | Changes a file matching `**/config*.{py,ts,yaml}`, `**/{routes,models,schemas,entities}/**`, `**/__init__.py` at a package root, `docker-compose*.yml`, `alembic/env.py` |
+| Well-concentrated large change | Modifies files matching exactly one well's `Paths` globs AND diff is >50 lines total |
+| Architectural commit prefix | Commit subject starts with `feat:`, `refactor:`, or `breaking:` AND touches ≥1 file mapped at `critical` or `high` in `.kdbp/DOCS.md` |
+| Explicit ADR marker | Diff introduces a new `# Decision:` or `# ADR:` comment in any source file (grep signal) |
+
+**Classifier layer** (LLM, cheap model, fires only when trigger hits):
+
+Precondition: trigger hit AND no row in `.kdbp/DOCS.md` references any file in the diff by exact path (dedup — avoid re-proposing the same decision).
+
+- **Model:** Haiku-tier (cheap; per user value U6 — route by task)
+- **Context:** commit subject + body, top 10 changed files with line deltas, the trigger reason(s) from the trigger layer, the last 5 rows of DECISIONS.md (dedup awareness)
+- **Max tokens:** 200
+- **Structured output** (PydanticAI `output_type` or equivalent — user value U4):
+  ```
+  ArchitecturalDecisionCandidate:
+    is_architectural: bool       # false → drop, no proposal
+    title: str                   # one-line, <80 chars
+    rationale: str               # 2-3 sentences
+    alternatives: list[str]      # 0-2 alternatives considered
+    review_trigger: str          # when to revisit (e.g., "when we add 3rd integration")
+  ```
+- If `is_architectural == false`: drop silently, no proposal rendered.
+
+**Dedup + caps:**
+
+- Max ONE candidate per review run. If multiple triggers hit, the classifier picks the strongest.
+- Session-scoped dedup: if user picks `drop` on a candidate this session, do not re-propose the same title.
+- If the classifier's proposed `title` case-insensitively matches any existing DECISIONS.md row: drop silently.
+
+**Output block** (renders inside the Plan Alignment section, below 5c if both fired):
+
+```
+### Architectural Decision Candidate
+
+  Detected: [trigger reason]
+  Proposed DECISIONS.md entry:
+
+    Date:           2026-04-17
+    Decision:       [title]
+    Rationale:      [rationale]
+    Alternatives:   [alt 1]
+                    [alt 2]
+    Status:         active
+    Review Trigger: [review_trigger]
+
+  [accept]  Append to .kdbp/DECISIONS.md as D[next_id]
+  [edit]    Revise fields before writing
+  [defer]   Add reminder to PENDING.md (source=gabe-review)
+  [drop]    Don't write (one-time dismissal this session)
+```
+
+**Action handlers:**
+
+| Action | Behavior |
+|--------|----------|
+| `accept` | Read DECISIONS.md → compute next `D[N]` (max existing + 1) → append row with today's date, title, rationale, alternatives joined by `<br>`, `active` status, review_trigger. Use Edit tool to append before the closing fence if DECISIONS uses a frontmatter fence, else append at EOF. |
+| `edit` | Show each field inline-editable (prompt per field, default = proposed value). On confirm, proceed to `accept`. |
+| `defer` | Append to PENDING.md: `\| today \| gabe-review \| Propose DECISIONS entry: [title] \| - \| small \| medium \| low \| 0 \| open`. Source column = `gabe-review`. |
+| `drop` | No write. Session-scoped dedup set to this title (same title won't re-propose this run). |
+
+**Race handling:** DECISIONS.md may be appended by `/gabe-push` too (starting in Phase 5). Dedup is by title case-insensitive match. If two writers race on `D[N]` computation, Edit tool's match-and-replace will fail on one of them — the losing writer retries with fresh read.
+
 #### Plan Alignment summary block
 
-If 5a produced output OR 5c produced output, wrap in a single "Plan Alignment" block under Step 4.75's heading. If neither produced output, skip the block entirely (don't render an empty heading).
+If 5a produced output OR 5c produced output OR 5b produced a candidate, wrap in a single "Plan Alignment" block under Step 4.75's heading. Order: 5a, 5c, 5b. If all three are empty, skip the block entirely (don't render an empty heading).
 
 ### Step 5: Triage
 
