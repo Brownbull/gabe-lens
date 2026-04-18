@@ -117,6 +117,67 @@ The stupidest way to ship. Push, PR, watch CI, promote. First run auto-detects y
      - Repeat Step 6 for the new PR
    - If no: "Promotion skipped. When ready, merge the PR and run `/gabe-push` from [current-target]."
 
+### Step 7.5: Capture deployment event → `DEPLOYMENTS.md` (Phase 4/6 of doc-lifecycle work)
+
+Only runs when Step 4 (push) completed successfully. Otherwise skip silently — nothing to record about a failed push.
+
+**Preconditions:**
+
+- `.kdbp/` exists (required for all of push anyway).
+- If `.kdbp/DEPLOYMENTS.md` doesn't exist: copy it from `~/.claude/templates/gabe/DEPLOYMENTS.md` before appending. Never overwrite existing.
+
+**Assemble the row** (pure deterministic aggregation of data push already collected — zero LLM):
+
+| Column | Source |
+|--------|--------|
+| `#` | Next `P[N]` — read DEPLOYMENTS.md, find max existing `P` ID, add 1 |
+| `Date` | Current timestamp `YYYY-MM-DD HH:MM` (local time) |
+| `Branch → Target` | Current branch (from Step 1) → PR base branch (from Step 5) |
+| `PR` | PR number from Step 5 (format `#N`) or `—` if no PR (e.g., direct push to branch without PR) |
+| `CI Result` | Code from Step 6 outcome (see table below) |
+| `Notes` | Event summary (see table below) |
+| `Decisions` | `—` (Phase 5 will populate this via Step 7.5b operational note action) |
+
+**CI Result codes** (pick one, in order of precedence):
+
+| Code | Condition |
+|------|-----------|
+| `✅ N/N (Ms)` | All checks passed in M seconds |
+| `⚠ N/M (Ms)` | M-N warnings or soft-failing checks, no hard failures |
+| `❌ X/M (Ms) — failed: <name>` | X hard failures; name from the first failing check |
+| `⏳ timeout` | CI still running when 75s cap hit |
+| `—` | CI provider is `none` in PUSH.md (no CI configured) |
+
+**Notes codes** (concat with `; ` when multiple apply):
+
+| Code | When to include |
+|------|-----------------|
+| `promoted [from] → [to]` | Step 7 promotion succeeded, include target chain |
+| `promotion skipped` | Step 7 prompt returned `n` or no next target |
+| `auto-fix applied: [lint\|format\|type]` | Step 6 auto-fix path fired; list fix categories |
+| `CI re-run after fix` | Auto-fix path triggered a second push |
+| `PR merged before push` | Pre-existing merged PR detected (rare) |
+| `—` | None of the above |
+
+**Append the row** using the Edit tool:
+
+1. Read `.kdbp/DEPLOYMENTS.md`.
+2. Find the last `| P[N] |` row (or the header's separator line if table is empty).
+3. Append the new row on a new line directly after it.
+
+If the Edit fails due to a concurrent writer (shouldn't happen — push is the sole writer — but defensive), re-read and retry once.
+
+**Example rendering:**
+
+```
+| P7 | 2026-04-17 14:22 | feature/add-auth → main | #42 | ✅ 3/3 (47s) | promoted main → prod | — |
+| P8 | 2026-04-17 15:08 | fix/ci-typo → main | #43 | ❌ 1/3 (12s) — failed: lint | auto-fix applied: lint; CI re-run after fix | — |
+```
+
+**Sub-check 7.5b (operational decisions) — ships in Phase 5/6.** For now, the `Decisions` column stays empty. No LLM calls yet.
+
+**Explicit non-goal:** this step NEVER touches `docs/architecture.md`, `docs/AGENTS_USE.md`, `docs/SCALING.md`, `docs/api.md`, `README.md`, `docs/wells/*.md`, `KNOWLEDGE.md`, or `STRUCTURE.md`. Push is operational-only. If deployment issues trigger code fixes, those flow through a separate `/gabe-commit` invocation that runs CHECK 7 normally.
+
 ### Step 8: Record to ledger
 
 Append to `.kdbp/LEDGER.md`:
@@ -125,6 +186,7 @@ Append to `.kdbp/LEDGER.md`:
 PR: [url]
 CI: [all passed | N failed | skipped | no CI]
 PROMOTION: [promoted to X | skipped | N/A]
+DEPLOYMENTS: P[N]  (added row to .kdbp/DEPLOYMENTS.md)
 ```
 
 ### Step 9: Suggest /gabe-teach (if applicable)
