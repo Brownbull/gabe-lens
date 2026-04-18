@@ -1,6 +1,6 @@
 ---
 name: gabe-push
-description: "Push, create PR, watch CI, promote branches — the post-commit shipping workflow. Usage: /gabe-push"
+description: "Push, create PR, watch CI, promote branches — the post-commit shipping workflow. Captures deployment events in .kdbp/DEPLOYMENTS.md and proposes operational DECISIONS.md entries when infra/CI/deploy configs change. Usage: /gabe-push"
 ---
 
 # Gabe Push
