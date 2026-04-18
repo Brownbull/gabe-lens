@@ -511,8 +511,36 @@ Q2: [Socratic question referencing only What-changed, Scenario, Primary force, o
 **Further reading construction** (zero-LLM, deterministic):
 
 1. If the topic's assigned well has a non-empty `Docs` path in `.kdbp/KNOWLEDGE.md`: emit a line `→ {Docs}  (well doc — N verified topics, last updated YYYY-MM-DD)`. Read the file's mtime for the date, count `### T[N] —` headings under `## Topics (auto-appended)` for N. If the file doesn't exist at that path, degrade to `→ {Docs}  (⚠ not found — run /gabe-teach init-wells to scaffold)`.
-2. If `.kdbp/DOCS.md` maps any of the topic's changed files to documentation paths (existing drift-check mapping used by `/gabe-commit` CHECK 7): emit one line per mapped doc `→ {doc_path}  ({human-readable-label})`. Cap at 2 additional lines so the section stays tight.
+2. If `.kdbp/DOCS.md` maps any of the topic's changed files to documentation paths (existing drift-check mapping used by `/gabe-commit` CHECK 7): emit one line per mapped doc `→ {doc_path}#{section}  ({human-readable-label})`. Cap at 2 additional lines so the section stays tight.
 3. If neither (1) nor (2) yields a line: omit the `Further reading:` header entirely — don't render an empty section.
+
+**Empty-section detection** (required, applies to both well docs and DOCS.md-mapped paths):
+
+A pointer that leads to emptiness is worse than no pointer — it spends reader attention and teaches "docs don't have anything." Annotate each Further-reading line based on the target's content density:
+
+For **well docs**, check the `## Purpose` and `## Topics (auto-appended)` sections:
+- If both sections are placeholder-only (only HTML comments / whitespace, 0 verified topic entries): annotate ` (⚠ stub — run /gabe-teach to populate)`
+- If `## Topics` has entries but `## Purpose` is still placeholder: annotate ` (N topics, Purpose empty)` — signals "run Step 4d.4 to draft Purpose"
+- Otherwise: normal annotation as in rule 1
+
+For **DOCS.md-mapped paths**, the mapping includes a `Section` column (e.g., `Safety`, `Data Model`). Inspect that section specifically:
+- Extract the content between `## {Section}` and the next heading (or EOF).
+- Count non-comment, non-whitespace characters.
+- If <80 chars: annotate ` (⚠ section empty)` — render the line but warn the reader.
+- If 80-500 chars: annotate ` (brief — {N} chars)`.
+- If >500 chars: no annotation (healthy content).
+- If the section heading doesn't exist in the target file: skip the line entirely (broken mapping; don't mislead).
+
+Example Further reading block showing the range of outcomes:
+
+```
+Further reading:
+  → docs/wells/1-guardrails.md  (well doc — 3 verified topics, last updated 2026-04-17)
+  → docs/AGENTS_USE.md#Safety  (⚠ section empty — from DOCS.md high-priority mapping)
+  → docs/architecture.md#Data Model  (brief — 180 chars)
+```
+
+The empty-section annotation gives the human useful signal two ways: (a) "don't click that yet, there's nothing there," and (b) "the team has work to do here." DOCS.md stays the source of truth for *which* docs should exist; Further reading adds the reality check of *how much is actually written*.
 
 Sorting: well doc first (highest relevance), DOCS.md mappings after in the order they appear in DOCS.md.
 
@@ -545,6 +573,14 @@ Also:
 - Future policy gradients: "SQL injection" can block hard while "jailbreak" is log-and-allow.
 - Error copy: legit users hitting a false-positive can see which pattern tripped and rephrase.
 
+Architecture link:
+  ↪ input-guardrails (foundational · agent) — "Filter adversarial input before it reaches the model — cheaper than filtering output."
+  ↪ input-validation-at-boundary (foundational · security) — "Trust internal code, validate external input — never the reverse."
+
+Further reading:
+  → docs/wells/1-guardrails.md  (well doc — 1 verified topic, Purpose empty)
+  → docs/AGENTS_USE.md#Safety  (⚠ section empty — from DOCS.md high-priority mapping)
+
 Q1: If you'd kept the old {safe: bool, reason: str} shape, what specific question
     from the Scenario's "After" block becomes impossible to answer cheaply?
 Q2: The patterns are stored as list[tuple[name, regex]]. Given the Scenario,
@@ -552,7 +588,11 @@ Q2: The patterns are stored as list[tuple[name, regex]]. Given the Scenario,
     r"(ignore previous|you are now|...)" wouldn't?
 ```
 
-Notice: Q1's artifact (`{safe: bool, reason: str}`) appears in `What changed: Before:`. Q2's artifact (`list[tuple[name, regex]]`) needs to be introduced in sections 1-5 before the question — in this example it would go as a one-liner in the Primary force or Also section. If Q2 can't be made self-contained, replace it.
+Notice three things:
+
+1. **Q1's artifact** (`{safe: bool, reason: str}`) appears in `What changed: Before:`. **Q2's artifact** (`list[tuple[name, regex]]`) needs to be introduced in sections 1-5 before the question — in this example it would go as a one-liner in the Primary force or Also section. If Q2 can't be made self-contained, replace it.
+2. **Architecture link** shows concept IDs + one-liners; the reader can run `/gabe-teach arch show input-guardrails` if they want the deeper dive. Zero-LLM at render time.
+3. **Further reading** tells the reader exactly what state the docs are in: the well doc exists but has only 1 verified topic and an empty Purpose (they'll find some material but should run another teach session or Step 4d.4 to enrich); the DOCS.md-mapped section is empty (pointer exists but content doesn't). The annotations prevent the reader from clicking into dead space.
 
 **Why this template.** A new reader needs the diff before the reasoning, a grounded scenario before the abstract force, and questions that test what was actually taught. The six-part shape forces every one of those or else fails the hard rules.
 
