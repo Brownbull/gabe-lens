@@ -533,10 +533,15 @@ Cap: 3 topics per session, counted across `[next]` + `[test]` auto-advances in t
 
 **Step 4d — Teach each selected topic.** Flow per topic:
 
-1. **Topic header** — `T[N] (G[M] <Well>, <CLASS>) — <title>`
+1. **Topic header** — two-line format that names the origin of the change:
+   ```
+   T[N] (G[M] <Well>, <CLASS>) — <title>
+        ← Plan: "<plan goal>" · Phase <N>/<M>: <phase name> · Commit <sha-short>
+   ```
+   Lineage lookup (deterministic, no LLM): for each commit SHA in the candidate record, match commit-date against PLAN.md (active) first, then `.kdbp/archive/*.md` (completed plans) by date range. Pick the plan+phase that owns that commit. If no match, render `← Plan: (unmapped) · Commit <sha-short>`.
 2. **📍 Code block** — where the work landed (deterministic, from the candidate record captured in Step 4b). See format below.
 3. **Lesson body** — six-part structured template (see Step 4d-lesson below).
-4. **Classify response** — verified / pending / skipped / already-known (with sanity check).
+4. **Classify response** — Universal Action Menu (Step 0.7). `[next]` → Q1/Q2 → classify; `[explain]` → re-teach; `[test]` → skip to Q1/Q2; `[skip]` → mark and move on.
 
 **Step 4d-lesson — Structured lesson template (enforced, not optional).**
 
@@ -1427,6 +1432,151 @@ Derivation rule (unchanged from Phase 4, now rendered explicitly):
 - `advanced` reached: intermediate reached AND verified ≥40% of advanced concepts
 
 Computed live on every dashboard render — no persisted tier field, no drift risk.
+
+---
+
+### Step 10: Retro mode (`retro`) — what went wrong, what was reversed
+
+**Teach mode.** Surfaces the retrospective lessons that are otherwise buried: skipped topics with their reason, decisions that were reversed (DECISIONS.md rows with `superseded` status), and "we built it, then removed it" moments (topics marked skipped with code-removal commits in their lineage).
+
+**Why this matters.** Users said they wanted to learn "what went well, what went wrong, the reasons why we took some architectural decisions." Verified topics cover what went well. Retro mode covers everything else: the false starts, the over-engineering that got walked back, the speculative code that proved unnecessary. These are the highest-signal lessons in any codebase — the team paid for them in commits-and-reverts — but today they're scattered across the KNOWLEDGE.md Sessions log, DECISIONS.md Status column, and commit history.
+
+**Step 10a — Gather retro candidates (deterministic):**
+
+1. **Skipped topics** from `.kdbp/KNOWLEDGE.md` Topics table: rows where `Status` = `skipped`. Pull the Source column (which often contains the reason — e.g., T4's "Lesson was speculative for current single-caller codebase. Decision recorded as D1; trigger logged in PENDING.md. Pipeline-side check removed.").
+2. **Superseded decisions** from `.kdbp/DECISIONS.md`: rows where `Status` = `superseded`. **L6 operational filter (D3=A):** skip rows whose `Status` column contains the `operational` tag (format: `superseded,operational` or `operational,superseded`). Operational rollbacks are push-owned and surfaced in `.kdbp/DEPLOYMENTS.md` — retro covers architectural supersessions only. Include the supersede reason (typically a new decision ID that replaced it).
+3. **Reversal commits** (optional, heuristic, tightened per D6=B): run `git log --all --oneline -E --grep='^revert!?: ' --grep='^fix: rollback' --since="90 days ago"` and cross-reference against topic commits. Surface commits that removed code introduced by a verified topic. Cap at 5 to avoid noise. Free-text grep (`remove`, `simpler`) was dropped — too many false positives from routine refactors.
+
+**Step 10b — Pick + render (same shape as Step 9f):**
+
+Sort candidates by recency (most recent first). Pick the top one. Render ONE header line then the lesson via a 6-part template variant tuned for retrospectives:
+
+```
+RETRO — picked by [skipped-topic|superseded-decision|reversal-commit] rule
+  → T4: Why guardrails also run inside the pipeline (skipped 2026-04-18)
+     Origin: Plan "Phase 1 Level 2a", Phase 2 · Decision D1 · Files removed: app/agent/pipeline.py
+
+What we built:
+  Before: guardrails ran at both the API boundary AND inside run_triage_pipeline.
+  After:  guardrails run only at the API boundary; pipeline trusts its caller.
+
+Analogy: Like having a bouncer at the door and another at every table —
+worth it only if multiple hallways feed the room. One hallway = one bouncer.
+
+Scenario (the moment we noticed):
+  Before: review question surfaced — "why is this check here twice?"
+  After:  roadmap audit showed no upcoming phase adds a second caller of
+          run_triage_pipeline. Deleted the duplicate. Coverage stayed green;
+          latency dropped by the cost of one compiled regex pass.
+
+Primary force: Defense-in-depth is load-bearing across *trust domains*
+(firewall + OS + app auth), not within one Python process. Duplicating the
+check in the same trust domain creates drift risk — two return shapes to
+keep in sync, dead-code rot in the unreachable branch, cognitive load on
+every future reader ("which check is authoritative?").
+
+Also:
+- Speculative defense-in-depth imports future requirements that may never ship.
+- "Remove unless" beats "keep just in case" when the caller graph is auditable.
+
+Revisit trigger: When a second caller of run_triage_pipeline is added
+(retry worker, admin replay, cron reprocess, queue consumer), MOVE the
+check into the pipeline — don't duplicate again. See PENDING D1-trigger.
+
+Further reading:
+  → .kdbp/DECISIONS.md#D1  (the decision record — rationale + alternatives)
+  → .kdbp/PENDING.md       (the D1-trigger entry that'll fire re-surface)
+
+Q1: If we'd kept both checks, what specific review question becomes
+    uncomfortable to answer every time a new engineer joins?
+Q2: The pipeline's internal boundary isn't a trust boundary. What would
+    have to change in the architecture for the duplicate check to start
+    earning its keep?
+```
+
+Then the Universal Action Menu (Step 0.7). `[next]` auto-advances to the next retro candidate. When retro candidates are exhausted: `Retrospective clear. /gabe-teach to continue with project topics.`
+
+**Step 10c — Write-back.** Retro doesn't change topic status (skipped stays skipped); it just teaches the lesson and appends a note to the `Sessions` log:
+
+```
+### YYYY-MM-DD — /gabe-teach retro
+- Retrospective: T4 (skipped, verified-as-retro 2/2)
+- Decisions taught: D1 (superseded)
+```
+
+No STATE.md arch write (retro lessons are project-specific, not catalog concepts).
+
+**Step 10d — Empty state:** if no skipped topics, no superseded decisions (after L6 filter), no reversal commits → `Nothing to retro yet. When you skip a topic or supersede a decision, it'll surface here.`
+
+---
+
+### Step 11: Tour mode (`tour`) — how this app works
+
+**Teach mode.** Walks the project well-by-well, explaining file paths + what each file contains + key decisions per well. Answers the newcomer question "how does this app work?" in one continuous flow — the piece that was scattered across wells, `STRUCTURE.md`, `DOCS.md`, and well docs.
+
+**Why this matters.** Users said: "if someone else asks how this application works, we should know how it works, like why we do what we do, the paths for the files, what the files contain, and so on." The existing `brief` mode summarizes; the existing `topics` mode teaches individual changes. Neither walks the tree top-to-bottom. Tour does.
+
+**Step 11a — Scan inputs (deterministic):**
+
+1. `.kdbp/KNOWLEDGE.md` Gravity Wells table — iterate in ID order (G1, G2, … G_N).
+2. For each well: read Name, Description, Analogy, Paths, Docs.
+3. For each Paths glob: run `git ls-files -- "<glob>"` and collect the file list. Dedupe across globs. Sort by depth then alphabetical.
+4. For each file, extract a one-sentence "what it contains" signal (deterministic, no LLM, first match wins):
+   - Python: first docstring (`"""…"""` at module top).
+   - TypeScript/JavaScript: first `/** … */` jsdoc comment at module top, else first single-line `//` comment.
+   - Markdown: first heading line (`# …`).
+   - Otherwise: first non-blank non-shebang line (truncate to 80 chars).
+   - If nothing extractable: `(no header comment)`.
+5. For each well, read the well's Docs file (if present) and pull up to 3 entries from `## Key Decisions` section — just the `### <date> — <title>` lines, not full rationale.
+
+**Step 11b — Render one well per "stop":**
+
+```
+TOUR — stop 3 of 6: G3 API Layer
+
+Analogy: Reception desk: takes the package, hands a receipt, processes behind the counter.
+
+Purpose: HTTP surface, multipart handling, background tasks.
+
+Path: app/api/**
+
+Files ([N] under this path):
+  app/api/__init__.py           (no header comment)
+  app/api/main.py               FastAPI app — multipart incident endpoint + background triage dispatch.
+  app/api/dependencies.py       Dependency-injection wiring for DB session + settings.
+  ... and 2 more files (use /gabe-teach wells → [opendoc 3] for the full list)
+
+Key decisions for this well (from docs/wells/3-api-layer.md):
+  2026-04-18 — Guardrails enforced at the API boundary only, not inside pipeline.
+  2026-04-17 — 202 Accepted + BackgroundTask for async triage (avoid 30s HTTP hold).
+
+Why it's here (from the well's Purpose section): [first paragraph of `## Purpose` from the Docs file, or if empty: "(Purpose not yet authored — run /gabe-teach to populate)"]
+```
+
+Then the Universal Action Menu:
+- `[explain]` → re-render this stop with a different angle (different one-liner extraction).
+- `[next]` → advance to the next well.
+- `[test]` → ask two Socratic questions synthesized from this well's Key Decisions + file list. Example: "Which file in G3 owns the policy decision about when to return 400 vs 202?"
+- `[skip]` → skip this well, advance to the next.
+
+**Step 11c — Tour bounds:**
+
+- File list capped at 5 rows per well. `… and N more` if more. User runs `wells → [opendoc N]` for the complete list.
+- Wells with empty Paths are skipped silently (no anchor).
+- Wells with empty Docs render the decision section as `(no well doc — run /gabe-teach wells → [docs N] to assign one)`.
+- On reaching the last well: `Tour complete — walked [K] wells. You now have the map. /gabe-teach for the next lesson.`
+
+**Step 11d — Persistence:**
+
+Tour is read-only. Appends one line to the Sessions log on completion:
+
+```
+### YYYY-MM-DD — /gabe-teach tour
+- Walked: G1, G2, G3, G4, G5, G6 (6/6)
+- Quizzes taken: 2 (G1 pass, G3 pass)
+```
+
+**Step 11e — No active plan needed.** Tour runs on the project's static structure (wells + paths + decisions). A newcomer to the repo runs `/gabe-teach tour` as their first command and gets oriented.
 
 ---
 
