@@ -1330,8 +1330,8 @@ Render through the unified 7-section lesson template (same as Step 4d), with the
 | Primary force   | `## Primary force` body verbatim |
 | When to reach for it | `## When to reach for it` bullets (top 3) |
 | When NOT to reach for it | `## When NOT to reach for it` bullets (top 4) |
+| Where this lives in your project | **Always rendered** — deterministic read from `.kdbp/KNOWLEDGE.md` Topics table. See "Where-this-lives construction" below. Absorbs what used to be a separate `Further reading` section for arch (D2=C). |
 | Architecture link | Omitted for arch concepts (redundant with the footer's `related:` list) |
-| Further reading | Optional for arch concepts (the concept file's `related:` frontmatter already provides cross-references; render only if the catalog has external doc mappings) |
 | Q1, Q2          | Generated per session from `## When NOT to reach for it` + `## Primary force` via ONE short LLM call. Cached for the session only (not stored in the concept file — questions should rotate) |
 | Footer (context) | Single line after Universal Action Menu: `Context: <tier> · <specializations joined with +> · prereqs: <list-or-"none"> · related: <list-or-"none">` |
 
@@ -1362,7 +1362,133 @@ Render through the unified 7-section lesson template (same as Step 4d), with the
 - Each question must reference only artifacts taught in the rendered lesson (same hard rule as Step 4d-lesson rule 1)
 - If the call fails: fall back to two canned questions pulled deterministically from the first two `## When NOT to reach for it` bullets (inverted: "If you applied this pattern to [anti-pattern case], what specific problem from [Primary force] re-emerges and why?")
 
-After Q1/Q2, classify response exactly as Step 4d does: `verified` (score 2/2 or 1/2) / `pending` / `skipped` / `already-known` (sanity-check). The classification writes to STATE.md and HISTORY.md (see Step 9e).
+After Q1/Q2, classify response exactly as Step 4d does: `verified` (score 2/2 or 1/2) / `pending` / `skipped` / `already-known` (sanity-check). The classification writes to STATE.md and HISTORY.md (see Step 9e). On `verified` or `already-known` (with a `.kdbp/` project present), Steps 9c.1 and 9c.2 run to persist the learning into project docs.
+
+**Where-this-lives construction** (zero-LLM, deterministic, always rendered for arch concepts):
+
+Connects the abstract concept to the concrete project — the single most important link for making arch lessons land beyond "interesting reading."
+
+1. **Project topics touching this concept:** Filter `.kdbp/KNOWLEDGE.md` Topics table for rows whose `ArchConcepts` column contains the current concept ID (comma-split, trim). Group by `Well`. Sort wells by ID (G1, G2, …). Within each well, sort topics by ID ascending.
+2. **Render format (one line per well, up to 5 wells, topics capped at 5 per well with overflow hint):**
+   ```
+   Where this lives in your project:
+     G3 API Layer       →  T2 (verified), T7 (pending) — docs/wells/3-api-layer.md
+     G1 Guardrails      →  T4 (skipped) — docs/wells/1-guardrails.md
+     G5 Workers         →  T12 (verified), T15, T19 — docs/wells/5-workers.md
+   ```
+   Well-doc path comes from the `Docs` column in KNOWLEDGE.md's Gravity Wells table. If empty, render `(no Docs path — run /gabe-teach wells → [docs N])` in place of the path.
+3. **Project-level architecture doc:** If `docs/architecture-patterns.md` exists AND contains a `## <concept-id>` section, append a final line:
+   ```
+     docs/architecture-patterns.md#<concept-id>  →  project rationale + decisions around this pattern
+   ```
+4. **Empty state (concept not yet applied in this project):**
+   ```
+   Where this lives in your project:
+     (no topics touch this concept yet — add ArchConcepts: <concept-id> to a topic
+     row in KNOWLEDGE.md, or run /gabe-teach topics and tag during verify)
+   ```
+   The empty state is itself teaching: it signals "go find work that'll use this" instead of pretending the absence is OK.
+5. **No `.kdbp/` present:** render `Where this lives in your project: (no KDBP — teach mode is cross-project).` Skip the well enumeration entirely.
+
+The section replaces what used to be a separate `Further reading` block for arch concepts (D2=C). One unified section pointing to topics + doc paths at once.
+
+#### Step 9c.1 — Auto-append verified concept to well docs (prompt-first)
+
+Triggered when Step 9c or Step 9d classifies an arch concept as `verified` or `already-known` AND `.kdbp/` is present AND the concept has at least one matching row in KNOWLEDGE.md's `ArchConcepts` column.
+
+**Scope:** For EACH well that has topics tagged with this concept, check the well's Docs file and offer to append a project-adoption record.
+
+**Append format** — inserts/updates a section under `## Architecture patterns` in the well's Docs file (creating the heading if absent, always as the last top-level section before the existing `## Topics (auto-appended)` section):
+
+```markdown
+## Architecture patterns
+
+### async-background-processing (foundational · agent, web)
+
+**Verified:** 2026-04-19 via /gabe-teach arch (score 2/2)
+**Used in this well's topics:** T2, T7
+**Why we use it:** Decouple client wait from server work — return 202, stream progress via SSE.
+```
+
+- The `**Why we use it:**` line is sourced from the concept's `one_liner` frontmatter, rewritten in first-person-plural. For arch concepts without a tailored project rationale, fallback is the literal `one_liner`.
+- If a section with the same concept-id heading already exists in the well doc, update the `**Verified:**` line (latest date wins), refresh the `**Used in this well's topics:**` list, and leave the `**Why we use it:**` line untouched (humans may have edited it; don't clobber).
+
+**Prompt behavior** (respects BEHAVIOR.md frontmatter key `teach_arch_append_well: prompt | always | never`, default `prompt`):
+
+- `always` → append/update silently across all affected wells, show one-line summary: `✅ Recorded in 2 well docs: docs/wells/3-api-layer.md, docs/wells/5-workers.md`
+- `never` → skip silently
+- `prompt`:
+  ```
+  Concept "async-background-processing" verified. Record in well docs?
+    Affected: docs/wells/3-api-layer.md (G3 — 2 topics)
+              docs/wells/5-workers.md    (G5 — 1 topic)
+
+    [y]      Append to both this once
+    [n]      Skip this once
+    [pick]   Let me choose per-well
+    [always] Always record; don't prompt again
+    [never]  Never prompt again; don't record
+  ```
+  `always` and `never` write `teach_arch_append_well: always|never` to BEHAVIOR.md frontmatter.
+  `pick` → interactive per-well `[y]/[n]` loop.
+
+**Degraded cases:**
+
+- Well's Docs column empty → skip that well silently (well opted out of doc tracking).
+- Well's Docs file doesn't exist → skip with one-line warning: `⚠ Can't record in docs/wells/3-api.md (not found). Run /gabe-teach wells → [docs N] to fix path.`
+- Gravity Well has `Docs` but no write permission → abort for that well with a warning; don't retry.
+
+#### Step 9c.2 — Auto-append verified concept to docs/architecture-patterns.md (prompt-first)
+
+Triggered alongside Step 9c.1, but targets the project-level architecture-patterns ledger instead of per-well docs. This gives new contributors a single "what patterns does this project use and why?" surface they can find without knowing KDBP exists.
+
+**Target file:** `docs/architecture-patterns.md` (scaffolded by `/gabe-init` Step 3 for agent-app and web-app project types; humans can opt in for other project types by creating the file manually).
+
+If `docs/architecture-patterns.md` doesn't exist, Step 9c.2 offers to scaffold it on first trigger (prompt: `docs/architecture-patterns.md not found. Create it now? [y/n]`). A `[n]` response falls through to "skip silently for this project" and writes `teach_arch_append_patterns: never` to BEHAVIOR.md.
+
+**Append format** — inserts/updates a section keyed by concept id:
+
+```markdown
+## async-background-processing (foundational · agent, web)
+
+**Verified:** 2026-04-19 via /gabe-teach arch (score 2/2)
+**Applied in:** G3 API Layer (T2, T7), G5 Workers (T12)
+**Why we use it:** Decouple client wait from server work — return 202, stream progress via SSE.
+
+### Decisions around this pattern
+
+<!-- Auto-populated from DECISIONS.md rows whose Title or Rationale cites this concept-id. -->
+<!-- If no matching decision rows, this block reads: "(no DECISIONS rows cite this concept yet)" -->
+```
+
+- `**Applied in:**` aggregates across ALL wells (vs Step 9c.1 which shows only the current well).
+- The `### Decisions around this pattern` block is auto-populated: scan `.kdbp/DECISIONS.md` for rows whose Title or Rationale mentions the concept ID (case-insensitive substring match), include up to 3 most-recent rows as bullets with the decision's Title + Date. Skip the `operational`-tagged rows (L6 filter, same as retro).
+- If a section with the same concept-id heading already exists, update the `**Verified:**` line (latest date wins), refresh `**Applied in:**`, rebuild the decisions block, and leave `**Why we use it:**` alone.
+
+**Prompt behavior** (respects BEHAVIOR.md key `teach_arch_append_patterns: prompt | always | never`, default `prompt`):
+
+- `always` / `never` — as in 9c.1.
+- `prompt`:
+  ```
+  Record "async-background-processing" in docs/architecture-patterns.md?
+
+    This file is the project's human-readable "patterns we use" ledger.
+    Appending here makes the adoption visible to anyone reading docs/.
+
+    [y]      Append this once
+    [n]      Skip this once
+    [always] Always record; don't prompt again
+    [never]  Never prompt again; don't record
+  ```
+
+**Relationship between 9c.1 and 9c.2:**
+
+- Step 9c.1 writes project-specific "this well uses this pattern for these topics" — per-well scope.
+- Step 9c.2 writes project-global "here are all the patterns we've adopted with full decision lineage" — project-wide scope, human-facing single file.
+
+A user can opt into one without the other (e.g., `teach_arch_append_well: always, teach_arch_append_patterns: prompt`).
+
+**Ordering:** 9c.1 runs first (per-well updates), then 9c.2 (project-level aggregate). Both are idempotent — re-running gives the same result modulo verified-date updates.
 
 #### Step 9d — Verify (`arch verify <concept-id>`)
 

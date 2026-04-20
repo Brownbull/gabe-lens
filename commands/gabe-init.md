@@ -227,10 +227,12 @@ For ALL project types, create doc stubs if they don't already exist. **Every stu
   - `docs/architecture.md` with headings: `# Architecture`, `## Data Model`, `## API Contracts`, `## API Endpoints`, `## Integrations`
   - `docs/AGENTS_USE.md` with headings: `# Agent Documentation`, `## Agent Design`, `## Tools`, `## Prompts`, `## Safety`, `## Context Engineering`
   - `docs/SCALING.md` with headings: `# Scaling`, `## Observability`
+  - `docs/architecture-patterns.md` — copy from `~/.claude/templates/gabe/architecture-patterns.md`. This is the project's "patterns we use and why" ledger; `/gabe-teach arch` auto-appends to it on concept verify (Step 9c.2).
   - Add U4-U8 to project VALUES.md + show agent blueprint checklist (see below)
 
 - **Web app**:
   - `docs/architecture.md` with headings: `# Architecture`, `## Data Model`, `## API Contracts`, `## API Endpoints`
+  - `docs/architecture-patterns.md` — copy from `~/.claude/templates/gabe/architecture-patterns.md`. See "Agent app" above for purpose.
 
 - **CLI**:
   - Ensure README.md has sections: `## Usage`, `## Installation`, `## Commands`
