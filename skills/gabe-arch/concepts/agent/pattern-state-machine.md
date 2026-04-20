@@ -9,35 +9,46 @@ related: [pattern-tool-use-loop, agent-observability]
 one_liner: "Nodes + edges + checkpoints — for agents that must survive restarts and pause for humans."
 ---
 
-## Analogy
+## The problem
 
-A manufacturing line with inspection checkpoints: the product stops at each station, gets stamped, and the line can resume from the last stamp if the power goes out. Compare to Pattern A (one worker) — here every station is a named node with persisted state.
+A 90-second multi-stage agent fails two minutes in — right after the expensive model call, before the final one. Without checkpointing, you re-run from the top at full cost, and there's no single place to pause the flow for a human approval that the compliance team requires.
 
-## When it applies
+## The idea
 
-- Long-running multi-stage agent tasks (>60s end-to-end)
-- Workflows that must survive process restarts (checkpoint/recovery is load-bearing)
-- Human-in-the-loop approvals at specific stages
-- Auditable pipelines where "which node produced which intermediate" is a required question
-- Enterprise systems with compliance/traceability requirements
+Model the agent as named nodes connected by edges with durable checkpoints, so you can resume from the last good state and pause at designated nodes for humans.
 
-## When it doesn't
+## Picture it
 
-- MVP agent apps (Pattern A is 10x faster to ship)
-- High-throughput, low-latency paths (state machine overhead is real)
-- Teams without LangGraph (or equivalent) expertise on the team
-- Tasks that don't naturally decompose into stable named stages
+A manufacturing line with inspection checkpoints. The product stops at each station, gets stamped, and if the power goes out the line resumes from the last stamp — not from raw materials.
+
+## How it maps
+
+```
+Each inspection station    →  a named node in the graph
+The stamp on the product   →  the checkpoint write (durable state transition)
+The conveyor routing       →  edges (conditional or straight-through)
+The emergency pause button →  human-in-the-loop interrupt at a node
+Resuming after power-out   →  restart from last checkpoint, not from scratch
+The station manifest       →  the audit trail of which node produced what
+The spec sheet             →  the StateGraph definition (typed, inspectable)
+```
 
 ## Primary force
 
 Complex multi-stage agents fail in the middle — after the expensive step, before the final one. Without checkpointing, a failure forces a full re-run at full cost. A state machine with persisted transitions lets the system resume from the last good state, pause for human approval at specific nodes, and produce a complete audit trail of what happened where.
 
-## Common mistakes
+## When to reach for it
 
-- Reaching for LangGraph before you need it — if you don't know why you want checkpoints, you don't yet
-- 30-node graphs where 5 would do — more nodes = more debugging surface, not more correctness
-- Persisting state in memory only (defeats the point)
-- No human-approval pattern even though the framework supports it — you're paying the complexity tax without collecting the benefit
+- Long-running multi-stage agent tasks where end-to-end runtime exceeds 60 seconds.
+- Workflows that must survive process restarts — checkpoint/recovery is load-bearing.
+- Enterprise systems requiring human-in-the-loop approval at specific stages, with full audit trail.
+
+## When NOT to reach for it
+
+- MVP agent apps — Pattern A is 10x faster to ship and you don't yet know your stage boundaries.
+- High-throughput, low-latency paths — state machine overhead is real and persistence is not free.
+- 30-node graphs where 5 would do — more nodes mean more debugging surface, not more correctness.
+- Paying the complexity tax without collecting the benefit — no human-in-loop, in-memory state only, no audit consumers.
 
 ## Evidence a topic touches this
 

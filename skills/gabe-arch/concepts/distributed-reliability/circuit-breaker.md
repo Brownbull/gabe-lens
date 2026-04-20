@@ -9,35 +9,46 @@ related: [deterministic-fallback-chain, token-budget-caps]
 one_liner: "Stop calling a dead downstream — give it time to recover before the next attempt."
 ---
 
-## Analogy
+## The problem
 
-A home electrical circuit breaker: when current spikes dangerously, it trips and cuts power. You check the wiring before flipping it back on. Without the breaker, the house burns down. Your software equivalent: trip when failures spike, block calls for a cooldown, test recovery with a single "half-open" probe.
+A downstream service goes down and every caller keeps retrying. The service can't recover while being hammered, your threads fill with stuck calls, and the outage cascades into your own system.
 
-## When it applies
+## The idea
 
-- Calls to external services (payment, email, LLM providers) with known failure modes
-- Downstream dependencies that, when down, should cause fast fails rather than stalled calls
-- Production systems where cascading failure is a real risk
-- Any caller that currently retries endlessly against a dead service
+Track the failure rate; when it crosses a threshold, stop calling for a cooldown, then probe once to decide whether to resume.
 
-## When it doesn't
+## Picture it
 
-- In-process calls (overhead > benefit)
-- Services where you have no sensible degraded-mode fallback (what do you do when the breaker's open?)
-- Tiny systems where the extra state machine isn't worth the complexity
-- When the downstream owns its own rate limits and handles overload correctly (rare)
+A home electrical panel. Current spikes, the breaker trips with a clack, the room goes dark. You wait, check the wiring, flip the switch back — if it trips again, you stop flipping.
+
+## How it maps
+
+```
+Current spike             →  rising failure rate on a downstream call
+Breaker trips             →  state goes "open"; calls fail fast
+Dark room                 →  caller short-circuits to a fallback (or fast error)
+Waiting before flipping   →  cooldown timer
+Test-flip the switch      →  "half-open" state: one probe call allowed
+Leaves on → closed        →  success closes the breaker; traffic resumes
+Trips again → back off    →  failure reopens the breaker; longer cooldown
+```
 
 ## Primary force
 
-Retrying against a down service makes the outage worse — the service can't recover while being hammered. Circuit breakers track failure rate; when it exceeds a threshold, the breaker "opens" and all calls fail fast (typically routing to a fallback). After a cooldown, the breaker "half-opens" and allows one probe call; success closes it, failure reopens it. This turns a flood of doomed calls into a controlled trickle that actually lets recovery happen.
+Retrying against a down service makes the outage worse — the service can't recover while being hammered, and your threads pile up waiting on doomed calls. A circuit breaker turns a flood of failures into a controlled trickle: open fails fast, half-open probes recovery with one call, closed resumes normal traffic. That's how you stop the caller from becoming an unintentional denial-of-service attack against its own dependency.
 
-## Common mistakes
+## When to reach for it
 
-- Threshold too sensitive (breaker trips on transient noise)
-- No half-open state (breaker stays open or you manually reset it)
-- No fallback when open (you've traded "slow failure" for "instant failure")
-- Shared breaker across unrelated operations (one bad endpoint trips all of them)
-- No observability on breaker state transitions (you can't debug what you can't see)
+- Calls to external services (payment, email, LLM providers) with known failure modes.
+- Downstream dependencies where stalled calls would exhaust your thread/connection pool.
+- Production paths where cascading failure from one sick dependency is a real risk.
+
+## When NOT to reach for it
+
+- In-process calls — the state-machine overhead outweighs the protection.
+- No sensible degraded-mode fallback — "instant failure" may be worse than "slow failure".
+- Shared breaker across unrelated endpoints — one bad call trips all of them; scope per-dependency.
+- No observability on state transitions — you can't debug a trip you can't see.
 
 ## Evidence a topic touches this
 

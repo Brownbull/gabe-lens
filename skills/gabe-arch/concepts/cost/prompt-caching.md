@@ -9,34 +9,45 @@ related: [progressive-knowledge-disclosure, model-routing-by-task]
 one_liner: "Pay once for the stable prefix; reuse it on every call within TTL."
 ---
 
-## Analogy
+## The problem
 
-A coffee shop that pre-grinds beans once per hour instead of per cup. The grind is the same for every order, so grinding per-cup is waste. Prompt caching is the same idea: the system prompt doesn't change every turn, so pay to process it once and reuse.
+Every turn of a chatty agent resends the same 8K-token system prompt and tool definitions, and you pay full price to process them every single time. That fixed prefix can be 80% of the tokens on each call with zero new information.
 
-## When it applies
+## The idea
 
-- System prompts or instructions shared across many requests
-- RAG contexts where the same document subset recurs within a session
-- Multi-turn conversations where early turns stay stable
-- High-volume systems where even 50% cache savings is material
+Mark the stable prefix as cacheable so the provider processes it once and bills later calls at ~10% for the cached portion within TTL (Time To Live).
 
-## When it doesn't
+## Picture it
 
-- Prompts that change every request (no reusable prefix)
-- Low-volume systems where cache warmup never pays back
-- Anthropic's specific 5-minute TTL doesn't fit your traffic pattern (slow-burn apps)
-- When prefix stability would force bad abstractions (don't contort design to hit the cache)
+A coffee shop that pre-grinds beans once an hour, not once per cup. The grind is identical for every order, so grinding per-cup is pure waste — do it once, keep the hopper warm, scoop from it.
+
+## How it maps
+
+```
+Pre-ground beans in hopper   →  cached prefix sitting in provider memory
+Grinding once per hour       →  one full-price process pass
+Scooping per cup             →  cache hit at ~10% of full price
+The hour the grind stays     →  the cache TTL (Anthropic: 5 minutes)
+Variable order (oat, vanilla) →  the variable suffix appended per call
+Grinder sits cold all night  →  cache miss after TTL expires
+```
 
 ## Primary force
 
-Most tokens in a typical agent call are context setup (system prompt, tool definitions, retrieved docs) that doesn't change turn-to-turn. Prompt caching lets the provider process that prefix once and bill subsequent calls at ~10% cost for the cached portion. In a chatty agent, that's often 50-80% cost reduction with zero architectural change beyond ordering the prompt correctly (stable content first, variable content last).
+Most tokens in a typical agent call are context setup (system prompt, tool definitions, retrieved docs) that does not change turn-to-turn. Caching lets the provider process that prefix once and bill subsequent calls at roughly 10% for the cached portion. In a chatty agent that is often 50-80% cost reduction with zero architectural change beyond ordering the prompt correctly — stable content first, variable content last.
 
-## Common mistakes
+## When to reach for it
 
-- Putting variable content in the middle of the prompt (defeats the cache)
-- Not measuring cache hit rate — you don't know if you're actually saving
-- TTL-ignorance — Anthropic's 5-minute window means bursty traffic caches well, slow-drip doesn't
-- Caching tiny prefixes where the cache-miss penalty exceeds the cache-hit win
+- System prompts or instructions shared across many requests in a short window.
+- RAG (Retrieval-Augmented Generation) contexts where the same document subset recurs within a session.
+- Multi-turn conversations where early turns stay identical across calls.
+
+## When NOT to reach for it
+
+- Prompts that change every request — no reusable prefix means nothing to cache.
+- Slow-drip traffic where calls arrive farther apart than the TTL (5 min for Anthropic).
+- Tiny prefixes where the cache-miss penalty exceeds the cache-hit win.
+- Contorting prompt design to hit the cache — don't let the tail wag the dog.
 
 ## Evidence a topic touches this
 

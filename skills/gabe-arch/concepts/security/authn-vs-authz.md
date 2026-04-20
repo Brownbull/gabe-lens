@@ -9,34 +9,46 @@ related: [input-validation-at-boundary]
 one_liner: "Authn proves who you are; authz decides what you're allowed to do — two problems, two layers."
 ---
 
-## Analogy
+## The problem
 
-Authentication = the bouncer checking your ID at the nightclub door ("yes, you're Alex"). Authorization = the VIP rope inside ("Alex is allowed in the main room but not the VIP lounge"). Same person, two separate decisions, made by different systems for different reasons.
+"If they're logged in, let them through" is how production breaches happen — any authenticated user ends up able to read any other user's data because nobody checked per-resource permissions. Conflating identity with permission is a top source of access-control bugs.
 
-## When it applies
+## The idea
 
-- Any multi-user system (literally every one)
-- APIs that distinguish between users or roles
-- Systems with admin/user/guest tiers
-- Services accessing downstream resources on behalf of a user (delegation)
+Authn (Authentication) proves who the caller is; authz (Authorization) decides what that caller may do — keep them in separate layers that evolve independently.
 
-## When it doesn't
+## Picture it
 
-- Single-user local scripts
-- Systems where every caller has identical permissions (rare; often masks a future requirement)
-- Pre-auth health check endpoints (but those should be explicitly marked)
+A nightclub. The bouncer at the door checks your ID and decides you're really Alex. Inside, a separate velvet rope at the VIP lounge decides whether Alex — now known — gets past. Same person, two independent gates, different staff, different rules.
+
+## How it maps
+
+```
+Bouncer at the door     →  authn middleware (OAuth, JWT, session cookie)
+Your ID / passport      →  the credential being presented
+"Yes, you're Alex"      →  the authenticated identity attached to the request
+VIP rope inside         →  authz check at each protected resource
+"Alex is on the list"   →  the policy/role/ACL lookup for this specific action
+Bouncer swap at 10pm    →  swapping SSO provider without touching permissions
+Rope moved to new room  →  changing permission rules without re-authenticating users
+```
 
 ## Primary force
 
-Conflating identity and permissions is a top source of production security bugs. Authn happens once per request (or once per session), using standards like OAuth, JWT, or session cookies. Authz happens on every resource access, using role checks, policy engines, or ACLs. Keeping them in separate layers means you can change how users log in (SSO rollout, password policy) without touching permissions, and you can refactor permissions (RBAC → ABAC) without re-authenticating users.
+Conflating identity and permissions is a top source of production security bugs. Authn happens once per request (or session) via standards like OAuth, JWT (JSON Web Token), or session cookies. Authz happens on every resource access via role checks, policy engines, or ACLs (Access Control Lists). Keeping them in separate layers means you can change how users log in (SSO rollout, password policy) without touching permissions, and refactor permissions (RBAC → ABAC) without re-authenticating users.
 
-## Common mistakes
+## When to reach for it
 
-- Using "authentication" to decide what a user can do ("if logged in, allowed" — misses per-resource checks)
-- Role checks scattered throughout handlers instead of centralized policy
-- Admin endpoints protected only by obscurity (`/admin-panel-9a8f`)
-- Trusting client-supplied user IDs in a request (use the authenticated session, not a body field)
-- JWT payload trusted as authoritative (anyone can forge a JWT; you verify signature AND re-fetch authoritative data)
+- Any multi-user system — literally every one, from day one.
+- APIs distinguishing roles, tiers, or per-resource ownership.
+- Services acting on behalf of a user against downstream resources (delegation flows).
+
+## When NOT to reach for it
+
+- Don't let authn alone gate action — "logged in" is not the same as "allowed to do X."
+- Don't trust client-supplied user IDs in request bodies — use the authenticated session identity.
+- Don't trust a JWT payload as authoritative — verify signature AND re-fetch authoritative data.
+- Don't protect admin endpoints with obscurity (`/admin-panel-9a8f`) — that's not authz, that's hope.
 
 ## Evidence a topic touches this
 

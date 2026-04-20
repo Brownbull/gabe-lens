@@ -9,34 +9,46 @@ related: [prompt-caching, request-response-lifecycle]
 one_liner: "Cache invalidation is hard — pick the right wrongness rather than chasing correctness."
 ---
 
-## Analogy
+## The problem
 
-A bulletin board with announcements. Tear old ones off immediately when news changes? (expensive, real-time). Replace daily? (stale for a day, cheap). Mark "expires 5pm"? (bounded staleness). Each trade-off suits different kinds of news.
+A cache makes reads fast until the underlying data changes — and then the cache serves wrong answers until you do something about it. Every invalidation strategy trades one flavor of wrongness (staleness, slow writes, complexity) for another; there is no free option.
 
-## When it applies
+## The idea
 
-- Any system with a cache layer (Redis, Memcached, CDN, HTTP cache, LLM response cache)
-- High-read workloads where cache hit rate dominates cost/latency
-- Read-heavy views over write-heavy data
-- Distributed systems where cache coherence across nodes matters
+Pick the invalidation trade-off — TTL, write-through, write-behind, or event-driven — that matches which wrongness your workload can tolerate.
 
-## When it doesn't
+## Picture it
 
-- Systems with no meaningful read repetition (cache doesn't help)
-- Strict consistency requirements where any staleness is unacceptable (skip cache, accept latency)
-- Tiny scale where the DB handles full load unassisted
+A bulletin board in a busy lobby. You can tear old notices down the instant news changes (constant work, always current), refresh the whole board daily (stale all day, almost no work), or stamp every notice with "expires 5pm" (bounded staleness, lazy cleanup). Each suits a different kind of news.
+
+## How it maps
+
+```
+Tear down on every update    →  write-through — update cache + DB atomically
+Refresh whole board nightly  →  TTL — bounded staleness, simple, no eventing
+"Expires 5pm" stamp          →  per-key TTL with lazy expiry on read
+Wire-report alarm bell       →  event-driven invalidation (pub/sub on writes)
+Post-it in back, file later  →  write-behind — cache immediately, DB flush async
+Everyone reading at 9am      →  cache stampede when many miss simultaneously
+Pre-posting tomorrow's news  →  cache warming to avoid cold-start latency
+```
 
 ## Primary force
 
-There is no free invalidation strategy — each trades staleness, cost, or complexity. **TTL:** simple, bounded staleness, but cache can be stale up to TTL. **Write-through:** write updates cache + DB atomically; correct but slow writes. **Write-behind:** writes go to cache, flush to DB async; fast but risk of loss. **Event-driven invalidation:** pub/sub invalidates on write events; correct but requires infrastructure. Pick based on which wrongness you can tolerate: stale reads, slow writes, or operational complexity.
+There is no free invalidation strategy — each trades staleness, cost, or complexity. TTL (Time To Live) is simple and bounded-stale. Write-through is correct but slows every write. Write-behind is fast but risks data loss on crash. Event-driven is correct but requires a pub/sub infrastructure and discipline. Pick based on which wrongness you can tolerate for this workload: stale reads, slow writes, lost writes, or operational complexity.
 
-## Common mistakes
+## When to reach for it
 
-- Default TTL of "forever" (cache never invalidates; new data never appears)
-- No cache warming (cold cache after deploy = latency spike)
-- Cache stampede: many callers simultaneously miss, all hit DB at once
-- Inconsistent keys (the same logical query produces different cache keys, killing hit rate)
-- Caching based on request instead of response (you cache empty-results unnecessarily)
+- Any system with a cache layer — Redis, Memcached, CDN, HTTP cache, LLM response cache.
+- High-read workloads where cache hit rate dominates cost or latency.
+- Read-heavy views over write-heavy data where the DB can't carry full read load.
+
+## When NOT to reach for it
+
+- No meaningful read repetition — cache doesn't help, skip it.
+- Strict consistency requirements where any staleness is unacceptable — skip cache, eat latency.
+- Default TTL of "forever" — that's not caching, that's stale data with extra steps.
+- No cache-stampede protection (single-flight, jittered TTL) — one miss becomes a DB pileup.
 
 ## Evidence a topic touches this
 

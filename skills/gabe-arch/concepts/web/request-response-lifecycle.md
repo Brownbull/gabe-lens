@@ -9,33 +9,50 @@ related: [stateful-vs-stateless-services, input-validation-at-boundary]
 one_liner: "Every HTTP request passes through the same phases — know them or debug blind."
 ---
 
-## Analogy
+## The problem
 
-An airport security line: boarding pass check → ID verification → bag scan → walkthrough → gate agent. Each step can reject you; if all pass, you board. Debugging requests without knowing the stages is like trying to find your lost bag without knowing which conveyor carried it.
+A request misbehaves — wrong status, missing header, mysterious latency — and you don't know which part of the stack owns the bug. Without a mental model of the phases, debugging is guessing by timestamp.
 
-## When it applies
+## The idea
 
-- Any HTTP-based service (virtually every web app)
-- Debugging "why did this request behave like that" — stage-by-stage tracing is the answer
-- Adding cross-cutting concerns (auth, logging, rate-limit, compression) — they attach to specific phases
-- Framework onboarding — understanding where your code runs in the lifecycle
+Every HTTP request walks the same ordered stages from connection to response; knowing which stage owns a symptom tells you where to look.
 
-## When it doesn't
+## Picture it
 
-- Non-HTTP protocols (gRPC, WebSockets, raw TCP have different models)
-- Pure function code with no network surface
+An airport security line: boarding pass check, ID verification, bag scan, walkthrough, gate agent. Each station can reject you; if all pass, you board. Any lost item has to be somewhere along that specific conveyor.
+
+## How it maps
+
+```
+Arriving at the terminal       →  TCP accept + TLS handshake
+Boarding pass scan             →  HTTP parse (method, path, headers)
+Checkpoint line assignment     →  routing (match URL → handler)
+Pre-checkpoint inspectors      →  request-direction middleware (auth, rate-limit,
+                                 logging, body parse)
+Gate agent checking the        →  the handler — your business logic
+  specific flight
+Post-boarding cleanup          →  response-direction middleware (compression,
+                                 response logging, CORS headers)
+Jet bridge back out            →  response serialization + connection close/keepalive
+Lost bag on conveyor 3         →  the symptom lives in one specific phase — look there
+```
 
 ## Primary force
 
-Requests don't hit your handler directly. They pass through (typical order): connection accept → TLS handshake → HTTP parse → routing → middleware stack (request direction) → handler → middleware stack (response direction) → response serialization → connection close. Each phase has failure modes, timing characteristics, and observability surfaces. Knowing which phase a problem lives in is the difference between a 10-minute fix and a 4-hour search.
+Requests do not hit your handler directly. They pass through accept, TLS, parse, route, request-middleware, handler, response-middleware, serialize, close — each with its own failure modes, timing, and observability surface. Knowing which phase owns the bug is the difference between a ten-minute fix and a four-hour search. Auth belongs in middleware, not the handler. Headers have to be set before the body. Malformed-body logs belong before the parser, not after.
 
-## Common mistakes
+## When to reach for it
 
-- Adding authentication in the handler instead of middleware (runs after parsing; misses early rejection)
-- Logging request bodies after deserialization (misses malformed requests that failed to parse)
-- Setting response headers after writing the body (no-op; headers must come first)
-- Expecting middleware to run both directions when it's written for one
-- Forgetting timeouts — long-running handlers tie up connection slots
+- Debugging "why did this request behave that way" — phase-by-phase tracing is the answer.
+- Adding cross-cutting concerns (auth, logging, rate-limit, compression) at the right stage.
+- Onboarding to a new framework — understanding where your code actually runs.
+
+## When NOT to reach for it
+
+- Non-HTTP protocols (gRPC streaming, WebSockets, raw TCP) — different lifecycles, different phases.
+- Auth logic placed in the handler instead of middleware — rejections happen too late.
+- Setting response headers after writing the body — no-op; headers are already on the wire.
+- No handler timeouts — a single slow request ties up the connection slot indefinitely.
 
 ## Evidence a topic touches this
 

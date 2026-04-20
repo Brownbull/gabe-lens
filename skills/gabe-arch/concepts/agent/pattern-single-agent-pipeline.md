@@ -9,33 +9,45 @@ related: [pattern-multi-model-pipeline, pattern-tool-use-loop, structured-output
 one_liner: "One agent + fixed deterministic stages around it — the boring pattern that wins."
 ---
 
-## Analogy
+## The problem
 
-An assembly line with one skilled worker in the middle. Conveyor belts do the routine parts (guard, classify, notify); the worker makes the one decision machines can't. Predictable, inspectable, cheap to run.
+Teams reach for LangGraph or multi-agent swarms before they have one working pipeline, and ship nothing for weeks. The task at hand — triage, routing, moderation — usually needs one reasoning step bolted onto a fixed flow, and the extra framework complexity buys only more ways for non-determinism to bite on every layer.
 
-## When it applies
+## The idea
 
-- Most agent MVPs and production apps with clear input/output
-- Incident triage, support routing, content moderation — any task with a fixed flow and one reasoning step
-- Teams that need to ship in days, not weeks
-- Any scenario where latency matters (5-15s typical)
+Wrap one LLM call in deterministic pre- and post-stages (guard, classify, notify) — the model does the one hard decision, everything else is plain code.
 
-## When it doesn't
+## Picture it
 
-- Agent needs to choose its own investigation path (use Pattern D instead)
-- Multi-step reasoning where each step spawns sub-tasks (use Pattern C)
-- Cost optimization via model staging is critical (use Pattern B)
+An assembly line with one skilled worker in the middle. Conveyor belts handle the routine parts; the worker makes the single decision machines can't. Predictable, inspectable, cheap to run.
+
+## How it maps
+
+```
+The conveyor in              →  input validation + guardrails (deterministic)
+The skilled worker           →  the single LLM call with a structured output type
+The conveyor out             →  notification / side-effect / response shaping
+The foreman's checklist      →  the fixed flow — no branching on model whim
+The one worker, not ten      →  one non-deterministic stage, easy to debug
+The assembly-line log        →  structured trace per stage, per request
+```
 
 ## Primary force
 
-Deterministic pipelines fail predictably. When only one stage uses a model, you can reason about, test, and debug the system without tripping over non-determinism at every layer. The #1 finalist across 12 production agent teams used Pattern A — architecture complexity is not maturity.
+Deterministic pipelines fail predictably. When only one stage uses a model, you can reason about, test, and debug the system without tripping over non-determinism at every layer. Across a survey of production agent teams, Pattern A was the most common shipped-and-running architecture — complexity is not maturity.
 
-## Common mistakes
+## When to reach for it
 
-- Reaching for LangGraph before you have one working pipeline
-- Making the single agent stage too broad (it becomes a god-function; split into classify + act)
-- Skipping guardrails because "it's just one agent" — pre-agent validation is cheaper than post-agent cleanup
-- Not streaming progress — 10+ second waits with no UI feedback kill user trust
+- Most agent MVPs and production apps with clear input/output contracts.
+- Incident triage, support routing, content moderation — fixed flow plus one reasoning step.
+- Teams that need to ship in days, not weeks, with 5-15s acceptable latency.
+
+## When NOT to reach for it
+
+- Agent needs to choose its own investigation path — reach for Pattern D (tool-use loop).
+- Multi-step reasoning where each step spawns sub-tasks — reach for Pattern C (state machine).
+- Making the single agent stage too broad — split it into classify + act before it becomes a god-function.
+- Skipping guardrails or progress streaming because "it's just one agent" — pre-agent validation is cheaper than post-agent cleanup, and 10s of silence kills user trust.
 
 ## Evidence a topic touches this
 

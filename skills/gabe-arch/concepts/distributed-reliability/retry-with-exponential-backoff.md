@@ -9,35 +9,46 @@ related: [circuit-breaker, deterministic-fallback-chain]
 one_liner: "Wait longer between each retry so the failing system can recover."
 ---
 
-## Analogy
+## The problem
 
-A polite guest who knocks once, waits longer after each no-answer, and eventually leaves a note — instead of pounding the door forever and making the situation worse.
+A downstream service flakes for a few seconds. Every client retries instantly, in lockstep, and keeps the service pinned under load. A 2-second blip becomes a 5-minute outage because the callers won't let it breathe.
 
-## When it applies
+## The idea
 
-- Transient failures: network blips, rate limits, 503s, temporary overload
-- Downstream systems with known recovery times (seconds, not hours)
-- Idempotent operations (so retries are safe)
-- Any HTTP client talking to a remote service with occasional flakiness
+On each retry, wait exponentially longer, and add random jitter so callers don't sync up.
 
-## When it doesn't
+## Picture it
 
-- Permanent failures (4xx that aren't 429 or 408) — retry is pointless
-- Non-idempotent operations without an idempotency key (double-charge risk)
-- Synchronous user-facing paths with <1s latency budget
-- When the caller has no ability to tolerate the retry's added latency
+A polite guest at a closed door. Knock once, wait a beat, knock again a little later, wait longer, eventually leave a note. Nobody pounds the door forever; nobody arrives at the same second as every other guest.
+
+## How it maps
+
+```
+The closed door           →  the failing downstream (timeout, 503, rate limit)
+Knocking                  →  a retry attempt
+Waiting longer each time  →  exponential delay: 1s, 2s, 4s, 8s
+Not all guests knock at   →  jitter (±25% random) spreads the retry herd
+  the same second
+Giving up after N knocks  →  bounded attempts; don't retry forever
+Leaving a note            →  surface the failure to the caller / fallback path
+```
 
 ## Primary force
 
-Retries without backoff amplify outages. Every caller hammering a failing service keeps it failing — it's a denial-of-service attack your own clients are executing against you. Exponential backoff with jitter lets the target breathe, so the system self-heals instead of thrashing. The 1s/2s/4s schedule is the classic; jitter (random ±25%) prevents thundering herds on recovery.
+Retries without backoff amplify outages — every client hammering a failing service keeps it failing. It's a self-inflicted denial-of-service where your own clients execute the attack. Exponential delay gives the target room to recover; jitter prevents the thundering herd that otherwise shows up the instant the cooldown ends. The system self-heals instead of thrashing.
 
-## Common mistakes
+## When to reach for it
 
-- Fixed-delay retries (retry storm the moment the service comes back)
-- No jitter (thundering herd on recovery spike)
-- Unbounded retries (infinite spend on permanent failures)
-- Retrying non-idempotent writes (double-charge, duplicate records)
-- Retrying 4xx errors that aren't rate limits (you're just making noise)
+- Transient failures: network blips, 429 rate limits, 503s, temporary overload.
+- Idempotent operations (safe to replay) or writes protected by an idempotency key.
+- Any HTTP client talking to a remote service with known occasional flakiness.
+
+## When NOT to reach for it
+
+- Permanent failures — 4xx that aren't 429 or 408 won't change on retry; surface the error.
+- Non-idempotent writes with no key — retries double-charge or duplicate records.
+- Sub-second user-facing paths — backoff adds latency the user can't absorb.
+- Fixed-delay retries or no jitter — thundering herd hits the service the moment it recovers.
 
 ## Evidence a topic touches this
 

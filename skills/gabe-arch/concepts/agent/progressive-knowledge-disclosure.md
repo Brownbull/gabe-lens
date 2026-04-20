@@ -9,33 +9,46 @@ related: [prompt-caching]
 one_liner: "Announce what exists; load content only when relevance is proven."
 ---
 
-## Analogy
+## The problem
 
-A library card catalog: you see every book's title + one-line description (cheap), but you only pull the book off the shelf when you decide it's relevant (expensive). The catalog stays in your working memory; the books don't.
+An agent with hundreds of skills or tools burns its context budget on descriptions before it even reads the user's message. Load everything upfront and every first turn is slow and expensive; load nothing and the model can't find the capability it needs. Both fail, differently.
 
-## When it applies
+## The idea
 
-- Systems with many available capabilities (skills, tools, docs, past sessions)
-- Agent harnesses where the set of things the model could do is far larger than what it will do this turn
-- Multi-skill/multi-tool ecosystems (Claude Code, agent frameworks) where upfront loading is unaffordable
-- Any system at scale that's hit "token budget exceeded" during normal operation
+Expose each capability as a compact name + summary at all times, and fetch the full body only when the model asks for it.
 
-## When it doesn't
+## Picture it
 
-- Small, bounded agents with 3-5 tools (upfront loading is cheaper than indirection)
-- Latency-critical paths where the extra "announce then fetch" round-trip matters
-- When the user expects everything available to be visible upfront (configuration tools, admin UIs)
+A library card catalog. Every book's title and one-line description is on a card you can flip through in seconds; you pull the actual book off the shelf only when a card earns it.
+
+## How it maps
+
+```
+The card catalog           →  the skill / tool listing (names + summaries)
+Each card                  →  one capability announcement (cheap, cache-friendly)
+The stacks on the shelf    →  full tool schemas, skill bodies, doc pages
+Pulling a book             →  a lookup call (ToolSearch, resolve-skill, fetch-doc)
+Working memory             →  the context window — only the catalog lives here
+The librarian's sub-agent  →  memory side-query (facts fetched out of band)
+The acquisitions budget    →  fixed upfront cost for the catalog, variable for pulls
+```
 
 ## Primary force
 
-Context windows are finite but the universe of capabilities is unbounded. Progressive disclosure (announce names + summaries, fetch bodies on request) scales to thousands of skills/tools without token inflation. Claude Code announces skills by name + truncated description (1% of context budget), defers tool schemas behind ToolSearch, side-queries memory via a sub-agent. Each layer trades a small fixed upfront cost for an unbounded capacity.
+Context windows are finite but the universe of capabilities is unbounded. Progressive disclosure — announce names and summaries, fetch bodies on request — scales to thousands of skills and tools without token inflation. Claude Code announces skills by name plus truncated description (about 1% of the context budget), defers tool schemas behind ToolSearch, and side-queries memory via a sub-agent. Each layer trades a small fixed upfront cost for unbounded capacity.
 
-## Common mistakes
+## When to reach for it
 
-- Announcing everything eagerly and wondering why the first turn is slow/expensive
-- Disclosing so lazily that the model can't find capabilities (under-announcement is as bad as over)
-- Not caching the "announced" layer — it should be stable across turns
-- Treating announcement and body as the same artifact instead of distinct formats
+- Systems with many capabilities — skills, tools, doc corpora, long session history.
+- Agent harnesses where the set of available actions is far larger than what any turn will use.
+- Any system at scale that has already hit "token budget exceeded" during normal operation.
+
+## When NOT to reach for it
+
+- Small bounded agents with 3-5 tools — upfront loading is cheaper than the indirection round-trip.
+- Latency-critical paths where the extra announce-then-fetch hop is load-bearing.
+- Disclosing so lazily the model can't find capabilities — under-announcement is as bad as over.
+- Treating announcement and body as the same artifact — they need distinct formats and cache tiers.
 
 ## Evidence a topic touches this
 

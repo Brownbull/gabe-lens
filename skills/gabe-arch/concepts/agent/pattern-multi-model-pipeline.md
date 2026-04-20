@@ -9,33 +9,46 @@ related: [pattern-state-machine, structured-output-enforcement]
 one_liner: "Different models at different stages — cheap for sorting, expensive only for reasoning."
 ---
 
-## Analogy
+## The problem
 
-A hospital intake: a nurse checks you in (cheap), a triage nurse decides urgency (cheaper), a specialist sees you only when needed (expensive). You never pay a surgeon to take your temperature.
+Sending every request through one expensive model is the wrong answer when 90% of those requests only need a cheap classifier. At thousands of incidents a day the bill scales linearly with volume when it should scale with complexity — a $0.05-per-incident agent that could have cost $0.007.
 
-## When it applies
+## The idea
 
-- Per-incident cost is load-bearing (high volume, thin margin)
-- Task decomposes cleanly into cheap-to-classify + expensive-to-reason-about stages
-- You have measured costs of each stage and the split is 10x+ favorable
-- Production systems processing thousands of items/day
+Route each pipeline stage to the minimum-capability model that can handle it — cheap for classification and sorting, expensive only for the stage that actually reasons.
 
-## When it doesn't
+## Picture it
 
-- MVPs where cost isn't yet a concern (Pattern A is faster to ship)
-- Tasks where the cheap model routinely misroutes and you end up re-processing
-- Latency budget <5s (stage-to-stage overhead adds up)
+A hospital intake. A receptionist checks you in, a triage nurse scores urgency, a specialist sees you only when the case warrants it. Nobody pays a surgeon to take a temperature.
+
+## How it maps
+
+```
+The receptionist            →  a rule-based or keyword filter (near-zero cost)
+The triage nurse            →  a cheap classifier model (Haiku, small LLM)
+The specialist              →  the expensive reasoning model (Sonnet, Opus)
+The intake form             →  structured schema passed between stages
+The triage decision         →  routing label that selects next stage
+The billing department      →  per-stage cost metric, not per-request
+Escalation to the specialist →  only complex cases invoke the expensive model
+```
 
 ## Primary force
 
-One expensive model per request is the wrong answer when 90% of requests only need a cheap classifier. Multi-model pipelines route each stage to the minimum-capability model that can do the job, so cost scales with complexity rather than volume. Team #2's production system ran at $0.007/incident using 5 models where a single Claude call would have cost $0.05+.
+One expensive model per request is the wrong answer when 90% of requests only need a cheap classifier. Multi-model pipelines route each stage to the minimum-capability model that can do the job, so cost scales with complexity rather than volume. A measured production system ran at $0.007/incident using five models where a single Claude call would have cost $0.05+.
 
-## Common mistakes
+## When to reach for it
 
-- Routing to the cheap model for everything and hoping it generalizes (it doesn't)
-- Not measuring per-stage cost/accuracy — you can't optimize what you don't measure
-- Splitting into more stages than needed (each boundary is a serialization + overhead cost)
-- Hard-coding model choices; prefer config so routing can evolve
+- Per-incident cost is load-bearing — high volume, thin margin, measured spend.
+- Task decomposes cleanly into cheap-to-classify plus expensive-to-reason stages.
+- You have measured per-stage cost and accuracy, and the cheap/expensive split is 10x+ favorable.
+
+## When NOT to reach for it
+
+- MVPs where cost isn't yet a concern — Pattern A is faster to ship.
+- The cheap model routinely misroutes and you end up re-processing on the expensive one.
+- Latency budget under 5s — stage-to-stage serialization overhead adds up.
+- Hard-coded model choices with no per-stage metrics — you can't optimize what you don't measure.
 
 ## Evidence a topic touches this
 

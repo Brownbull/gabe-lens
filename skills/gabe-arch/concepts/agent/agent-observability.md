@@ -9,33 +9,45 @@ related: [sse-streaming-progress, token-budget-caps]
 one_liner: "If you can't see what the agent did, you can't improve it — trace every call, name every metric."
 ---
 
-## Analogy
+## The problem
 
-A dashcam in a car. You don't watch the footage daily, but the one time something crashes, you need to know exactly what was in front of you two seconds earlier. Traces are the footage; metrics are the odometer.
+The same prompt produced a $0.40 run today and a $0.02 run last week, and nobody can say why. Without structured traces and named metrics, agent regressions — cost drift, silent model swaps, latency creep — are invisible until a finance review or a customer complaint surfaces them.
 
-## When it applies
+## The idea
 
-- Any production agent system (user value U8 — mandatory)
-- Debugging cost regressions (which model, which prompt, which token?)
-- Regulated industries that require auditability
-- Teams with >1 engineer (shared understanding of what the agent actually does)
+Record every run as a structured trace plus per-stage metrics, so you can replay any incident and track cost, latency, and tokens per pipeline.
 
-## When it doesn't
+## Picture it
 
-- One-off scripts, hackathon prototypes (the cost of instrumentation exceeds the investigation win)
-- When instrumenting would leak PII into third-party services — solve privacy first
-- Tiny internal tools with zero production traffic
+A dashcam in a car. You don't watch the footage daily, but the one time something crashes, you need the two seconds before impact on tape — plus the odometer reading to know how fast you were going.
+
+## How it maps
+
+```
+The dashcam footage    →  the named trace / span tree (Langfuse, LangSmith)
+Each captured frame    →  a span for one model call or tool invocation
+The odometer reading   →  the metric (cost_per_run, latency_p95, token_usage)
+Time-stamped playback  →  replaying a run to see prompt, output, and cost at each step
+Crash review           →  post-incident drill-down into the run that misbehaved
+The crash detector     →  alerts on metric thresholds (cost regression, p95 spike)
+```
 
 ## Primary force
 
-Agents fail in ways no other software fails: the same prompt produces different outputs, costs drift over time, model versions change behavior silently. Named traces (Langfuse, LangSmith) and structured metrics (Prometheus: cost-per-run, latency-p95, token-usage) let you see those failures instead of guessing. Boolean success/failure is not enough; you need the full run recorded and per-pipeline-run metrics to answer "what changed since last week?"
+Agents fail in ways no other software fails — the same prompt produces different outputs, costs drift silently, model versions change behavior without warning. Named traces plus structured metrics (cost-per-run, latency-p95, token-usage) let you see those failures instead of guessing. Boolean success/failure is not enough; you need the full run recorded and per-pipeline-run metrics to answer "what changed since last week?"
 
-## Common mistakes
+## When to reach for it
 
-- Logging text but not structured spans — searchable traces beat grep-able logs
-- Measuring latency but not cost (or vice versa) — they're the two axes that matter
-- No per-stage breakdown — you see total latency but not where it's spent
-- Sending traces synchronously — a slow trace store becomes your new SLO
+- Any production agent system — auditability and cost tracking are table stakes.
+- Debugging cost regressions where you need to see which model, prompt, or token caused the jump.
+- Teams with more than one engineer who need shared ground truth about what the agent actually does.
+
+## When NOT to reach for it
+
+- One-off scripts and hackathon prototypes — instrumentation cost exceeds the investigation win.
+- Traces would leak PII (Personally Identifiable Information) into a third-party service — solve privacy first.
+- Logging text but not structured spans — grep-able logs are not searchable traces.
+- Sending traces synchronously to a slow store — the trace pipeline becomes your new SLO (Service Level Objective).
 
 ## Evidence a topic touches this
 

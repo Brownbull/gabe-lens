@@ -9,34 +9,48 @@ related: [stateful-vs-stateless-services, health-checks-liveness-readiness]
 one_liner: "One address, many instances behind it — the front door that distributes traffic."
 ---
 
-## Analogy
+## The problem
 
-A maître d' at a busy restaurant: guests arrive at one door, the maître d' decides which table has open capacity and seats them there. Customers never see the tables; the maître d' never cooks. Separating the concerns is what lets the restaurant scale to many tables without chaos at the door.
+You want to scale a service by running more instances. Clients want one stable address to call. Something has to sit in front and decide which instance each request goes to — and stop routing to instances that are broken.
 
-## When it applies
+## The idea
 
-- Any service running on more than one instance for scale or availability
-- Multi-region deployments
-- Blue/green or canary deployment strategies (LBs route traffic splits)
-- Services behind a public address with private backends
+Put a dedicated router at a single public address; it health-checks a pool of backends and distributes incoming traffic across the healthy ones.
 
-## When it doesn't
+## Picture it
 
-- Single-instance deployments (LB adds overhead without benefit)
-- Peer-to-peer systems (no central distribution point)
-- Internal service-to-service communication already handled by service mesh
+A maître d' at a busy restaurant. Guests arrive at one door. The maître d' glances at the room, sees which tables have capacity, and seats each party there. Guests never see the tables; the maître d' never cooks.
+
+## How it maps
+
+```
+One restaurant door           →  the public VIP (virtual IP) / DNS name
+The maître d'                 →  the load balancer process (nginx, HAProxy, ALB)
+Tables with open capacity     →  healthy backend instances
+Glancing around the room      →  active health checks against each backend
+Seating strategy              →  algorithm: round-robin, least-connections, hash
+Reading the reservation       →  L7 (layer 7) routing on path/header/cookie
+  card to pick a table
+Just pointing to any table    →  L4 (layer 4) routing on TCP — fast, dumb, agnostic
+Crossing tables off           →  dropping an unhealthy backend from the pool
+```
 
 ## Primary force
 
-You want to scale by adding instances. Clients want one address. A load balancer resolves that tension — it holds the stable address and distributes incoming traffic across healthy backends. Two main layers: **L4 (TCP/UDP)** — fast, protocol-agnostic, dumb routing; **L7 (HTTP)** — smarter, can inspect paths/headers/cookies and route accordingly. Most web systems want L7; high-throughput non-HTTP traffic wants L4.
+Scaling means adding instances; clients want one address. A load balancer resolves that tension — it owns the stable address and hides the pool behind it. L4 is fast and protocol-agnostic, good for raw throughput; L7 reads HTTP and can route on path, header, or cookie, which is what most web systems actually want. Without a load balancer, every client has to know every instance, and one dead backend becomes every client's problem.
 
-## Common mistakes
+## When to reach for it
 
-- Load balancer with no health checks (traffic routed to dead instances)
-- Sticky sessions as a default instead of a migration step (ties you to stateful architecture)
-- Rate limiting at the app instead of the LB (each instance applies its own limit; caller gets N× the intended rate)
-- Single LB as a single point of failure (need a pair, DNS-level failover, or managed LB)
-- SSL termination only at the LB with plaintext between LB and backends (fine for internal nets; not for zero-trust architectures)
+- Any service running on more than one instance for scale or availability.
+- Blue/green or canary deployments where traffic needs to shift between pools.
+- Public endpoints that must hide a private backend fleet behind one address.
+
+## When NOT to reach for it
+
+- Single-instance deployment — the LB adds a hop and a failure point for no gain.
+- No health checks configured — you've just built a faster way to hit dead instances.
+- Sticky sessions used as a default instead of a migration step — locks you into stateful architecture.
+- Single LB with no pair or DNS failover — the front door itself becomes the outage.
 
 ## Evidence a topic touches this
 

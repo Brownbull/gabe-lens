@@ -9,33 +9,45 @@ related: [retry-with-exponential-backoff, circuit-breaker]
 one_liner: "When structured output fails, don't raise — degrade through a chain of cheaper guesses."
 ---
 
-## Analogy
+## The problem
 
-An ATM that prefers to dispense twenties but falls back to tens, then fives, then prints a receipt telling you where the nearest working ATM is. It never shrugs and locks your card — it has a sequence.
+Structured LLM output fails in a dozen small ways — schema mismatch, timeout, rate limit, half-parsed JSON — and every caller downstream has to handle the shape being wrong. Left unhandled, one 1% failure mode becomes a 2 AM page about nulls in the notifications table.
 
-## When it applies
+## The idea
 
-- Agent API that must always return a response shape, even when the model misbehaves
-- User-facing flows where "error" is worse than "partial answer"
-- Downstream systems that can't handle nulls but can handle a safe default
-- Structured-output parsers that occasionally fail to validate
+On primary-output failure, try the next-cheapest step in an ordered chain that still returns the caller's expected shape — never raise, always degrade.
 
-## When it doesn't
+## Picture it
 
-- Critical correctness paths (payments, medical) — prefer explicit error over silent degradation
-- When the fallback quality is indistinguishable from the primary — you're hiding a bug
-- Simple synchronous APIs where raising is the right answer
+An ATM that prefers to dispense twenties, falls back to tens, then fives, and if the cash drawer is empty prints a receipt pointing to the nearest working machine. It never shrugs and locks your card.
+
+## How it maps
+
+```
+Dispense twenties          →  structured output from the primary model
+Fall back to tens          →  retry with a stricter schema prompt
+Fall back to fives         →  extract with regex / cheap parser
+Print a location receipt   →  return a named safe-default response
+The ATM never locks up     →  the caller always receives the expected shape
+The transaction ledger     →  structured log of which fallback step fired
+```
 
 ## Primary force
 
 Production LLM systems fail in many small ways — schema mismatches, timeouts, rate limits, partial JSON. A fallback chain converts a class of scattered failures into a single predictable response shape, which is what every caller actually wants. The chain is deterministic: same input → same fallback step → same output.
 
-## Common mistakes
+## When to reach for it
 
-- Silent fallback with no logging — you never learn the primary is broken
-- Fallbacks that are themselves LLM calls with the same fragility (recursive risk)
-- No SLO on the depth of fallback used — when fallback-3 becomes the norm, the primary is dead
-- Swallowing exceptions instead of classifying them (schema error vs. rate limit vs. timeout have different right fallbacks)
+- Agent API that must always return the same response shape, even when the model misbehaves.
+- User-facing flows where "partial answer" beats "error screen."
+- Downstream systems that cannot handle nulls but can handle a safe, named default.
+
+## When NOT to reach for it
+
+- Critical correctness paths — payments, medical, legal — prefer explicit error over silent degradation.
+- Fallback quality is indistinguishable from the primary — you're hiding a bug, not degrading gracefully.
+- No logging of which step fired — you never learn the primary is broken.
+- Fallbacks that are themselves LLM calls with the same fragility — recursive risk, not a fallback.
 
 ## Evidence a topic touches this
 

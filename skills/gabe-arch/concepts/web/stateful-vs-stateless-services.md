@@ -9,33 +9,48 @@ related: [request-response-lifecycle]
 one_liner: "Stateless servers scale horizontally; stateful servers scale operationally."
 ---
 
-## Analogy
+## The problem
 
-Stateless = a drive-through window: every car gets a fresh order, no one remembers you. Easy to add more windows. Stateful = your regular barber who knows exactly how you like it. Impossible to clone — you need that specific person.
+Capacity is tight, so you add a second instance behind the load balancer. Users start getting logged out at random, carts empty mid-checkout — because instance A holds session data instance B has never heard of.
 
-## When it applies
+## The idea
 
-- Any HTTP service you want to scale by adding instances behind a load balancer
-- Serverless deployment models (Lambda, Cloud Run) which force statelessness
-- Horizontal scaling scenarios where identical instances must handle any request
-- Multi-region deployments where session affinity is a liability
+Keep per-request state out of instance memory; store it somewhere shared (database, cache, signed token) so any instance can handle any request.
 
-## When it doesn't
+## Picture it
 
-- WebSocket / long-lived connection servers (inherently stateful per connection)
-- Stream-processing or session-local computation where state colocation beats the network cost
-- When you've measured that "stateful and scaled vertically" is cheaper than "stateless + external cache"
+A drive-through window versus your regular barber. Every car at the window gets a fresh order from whoever's on shift — no memory needed, just add windows. Your barber knows exactly how you like it — impossible to clone; you need that specific person.
+
+## How it maps
+
+```
+Drive-through window           →  stateless HTTP instance
+Any staffer can take the       →  load balancer routes freely across instances
+  order
+"May I take your order?"       →  request carries everything the handler needs
+Order ticket stuck to cup      →  signed token / session ID the client presents
+Shared kitchen and POS         →  external state store: Redis, DB, JWT
+Your regular barber            →  stateful instance holding in-memory session
+Can't swap barbers mid-cut     →  sticky sessions required; loses the routing freedom
+Cloning the barber             →  state sync / replication — expensive and fragile
+```
 
 ## Primary force
 
-State is the enemy of horizontal scale. If instance A knows something instance B doesn't, the load balancer can't freely route requests — you need sticky sessions, state sync, or complex coordination. Moving state out of instances (to DB, Redis, signed client tokens) makes every instance interchangeable, which turns capacity from an operational puzzle into a dial. Stateful services aren't wrong; they're just a tradeoff that should be made consciously.
+State is the enemy of horizontal scale. If instance A knows something instance B doesn't, the load balancer can't route freely — you're forced into sticky sessions, cross-instance sync, or manual coordination. Moving state out of the instance (to Redis, to the DB, to a signed client token) makes every instance interchangeable, which turns capacity from an operational puzzle into a dial you turn. Stateful services aren't wrong, but the tradeoff should be conscious, not accidental.
 
-## Common mistakes
+## When to reach for it
 
-- Holding user session in instance memory because it's "fast" (it is; until you scale and it disappears)
-- Pushing all state to the DB without caching (correct but slow)
-- Using sticky sessions as a long-term crutch instead of a migration step
-- Mistaking in-memory caches for state (they're fine if they're non-authoritative and repopulate from source)
+- Any HTTP service you want to scale by adding instances behind a load balancer.
+- Serverless runtimes (Lambda, Cloud Run) where instances die and respawn constantly.
+- Multi-region deployments where session affinity becomes a liability at the edge.
+
+## When NOT to reach for it
+
+- WebSocket / long-lived connection servers — per-connection state is inherent; plan for affinity.
+- Stream-processing where colocated state beats the network cost of fetching every message.
+- In-instance session memory used "because it's fast" — fine until you scale and it vanishes.
+- Sticky sessions used as a long-term architecture instead of a temporary migration step.
 
 ## Evidence a topic touches this
 

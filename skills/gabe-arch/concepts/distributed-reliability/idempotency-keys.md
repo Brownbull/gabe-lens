@@ -9,35 +9,46 @@ related: [retry-with-exponential-backoff, async-background-processing]
 one_liner: "Tag each write so replays don't double-charge — the price of retry-safety."
 ---
 
-## Analogy
+## The problem
 
-A concert ticket with a unique serial number. Scan it once — enter. Scan it again — already used, bounced. The door doesn't let the same person in twice, no matter how many times they try the same ticket.
+A client retries a POST because the response never arrived — but the server already processed the first one. Now the customer has two charges, two orders, two emails. Retries are necessary; duplicates from retries are catastrophic.
 
-## When it applies
+## The idea
 
-- Every non-read API endpoint (POST, PUT, PATCH, DELETE) facing unreliable networks
-- Payment systems, order placement, any write where duplicates cost money
-- Webhook receivers (providers routinely re-deliver)
-- Background job enqueue operations
-- Any system where retries are allowed
+The client stamps each logical write with a unique key; the server remembers the key and returns the original response instead of processing again.
 
-## When it doesn't
+## Picture it
 
-- Pure read operations (inherently idempotent)
-- Write operations where duplicates are harmless and cheap (rare — usually a false belief)
-- Systems where you've built a full distributed transaction log instead (e.g., event sourcing)
+A concert ticket with a serial number. Scan it once — doors open. Scan the same ticket again — the scanner beeps red and the bouncer waves you off. Same ticket, same seat, no matter how many times it's scanned.
+
+## How it maps
+
+```
+Unique serial on ticket   →  client-generated UUID (the idempotency key)
+First scan at the door    →  first request: server processes, stores {key → response}
+Scanner's memory          →  server-side key store with TTL (time-to-live)
+Repeat scan → beep red    →  retry arrives: server returns the stored response
+Ticket stub kept on file  →  response cached for the retention window
+Different concert, new    →  key is scoped per-user or per-endpoint, not global
+  serial
+```
 
 ## Primary force
 
-Retries are necessary. Duplicates from retries are catastrophic. Idempotency keys let the server recognize "I saw this exact request already" and return the original response rather than processing a second time. The caller generates a UUID per logical operation, server stores {key: response} for a retention window, replays are safe. Without this, retry logic is a bug waiting to happen.
+Networks fail after the server has already committed the write — the client never sees the 200 and retries. Without a key, that retry is a brand-new request: a second charge, a second order. Idempotency keys let the server recognize "I've seen this exact operation" and replay the original response. The caller gets the same answer whether it retried once or five times, and the underlying write happens exactly once.
 
-## Common mistakes
+## When to reach for it
 
-- Using the request body hash as the key (collisions when two different users happen to submit the same content)
-- No TTL on the key store (unbounded growth)
-- Keys scoped globally when they should be per-user (privacy leak)
-- Client generates the key but forgets to send it on retry (treated as new request)
-- Server stores success response but not errors — retry of a legitimately-failed request succeeds the second time through a bug
+- Every non-read endpoint (POST, PUT, PATCH, DELETE) exposed over an unreliable network.
+- Payment, order, and transfer flows where a duplicate costs real money.
+- Webhook receivers — providers routinely redeliver the same event.
+
+## When NOT to reach for it
+
+- Pure reads — GETs are naturally idempotent; a key adds no value.
+- Body-hash as the key — two users submitting the same content collide into one response.
+- No TTL on the key store — unbounded growth until the table eats the database.
+- Storing only success responses — a retry of a legitimately-failed request "succeeds" next time.
 
 ## Evidence a topic touches this
 

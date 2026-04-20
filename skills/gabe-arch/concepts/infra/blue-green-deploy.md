@@ -9,34 +9,47 @@ related: [schema-evolution-expand-contract]
 one_liner: "Two identical production environments — deploy to the inactive one, flip traffic when green."
 ---
 
-## Analogy
+## The problem
 
-Two rooms prepared for a dinner party: the current one (blue) has guests eating; the second (green) is set up fresh with the new menu. You move guests over when green is ready. If something's wrong with the new menu, guests move back to blue instantly — you didn't tear down blue.
+A bad deploy lands in production and rollback takes minutes while old and new instances run side by side under a rolling update. Every minute costs users; you need a rollback that's measured in seconds, not deploy cycles.
 
-## When it applies
+## The idea
 
-- Production services where downtime during deploys is unacceptable
-- Rollback requirements (pre-deploy state must be recoverable in seconds)
-- Deploy verification windows (run smoke tests on green before flipping)
-- Teams with mature infra (two environments double the cost when idle)
+Run two full copies of production; deploy to the idle one, verify it, then flip traffic at the load balancer in a single step.
 
-## When it doesn't
+## Picture it
 
-- Budget-constrained systems where idle green is too expensive (use rolling deploy instead)
-- Stateful systems where the two environments can't easily share state (DB migrations in flight)
-- Systems with external integrations that assume one environment (webhook sources, etc.)
+Two dining rooms set for the same party. Blue has guests mid-meal with the old menu. Green is fully prepped with the new menu — tables set, candles lit, food ready. When green looks right, you walk guests across. If the new menu goes badly, they walk straight back to blue.
+
+## How it maps
+
+```
+Blue dining room              →  current production environment serving traffic
+Green dining room             →  parallel environment running the new version
+Setting green's tables        →  deploy new code to green; wait for readiness
+Tasting before seating        →  smoke tests / synthetic checks on green
+Walking guests across         →  LB traffic switch from blue → green (atomic)
+Guests walk back to blue      →  rollback = flip the LB back; blue was never torn down
+Tearing down blue later       →  decommission old environment after a hold period
+Shared kitchen across rooms   →  shared database — needs expand/contract migrations
+```
 
 ## Primary force
 
-Rolling deploys update instances one at a time — fast rollback is hard because old and new code run simultaneously for the whole deploy window. Blue/green keeps two complete environments: old (blue) serves traffic; new (green) is deployed, smoke-tested, and flipped atomically at the LB. Rollback is just flipping back, so the blast radius of a bad deploy is seconds, not minutes. The cost is doubled infrastructure during the deploy window.
+Rolling deploys mix old and new code across the fleet during the deploy window, which makes rollback slow and messy — you have to un-roll whatever you already rolled. Blue/green keeps two complete environments and flips atomically at the load balancer. Rollback becomes a single flip back, so the blast radius of a bad deploy is seconds. The price is doubled infrastructure during the deploy window — you're paying for two production-grade environments to get instant reversibility.
 
-## Common mistakes
+## When to reach for it
 
-- Shared database without expand/contract migrations (blue breaks when green adds a column)
-- No smoke tests on green before the flip (you discover the bug after traffic arrives)
-- Keeping blue running for hours "just in case" (pay for double capacity indefinitely)
-- Flipping traffic all at once instead of canarying (blue/green + canary is the gold standard)
-- No plan for stateful connections (WebSockets on blue don't gracefully migrate)
+- Production services where any user-visible downtime during deploys is unacceptable.
+- Deploys that need a verification window — run smoke tests on green before the cutover.
+- Strict rollback SLOs — pre-deploy state must be recoverable in seconds, not minutes.
+
+## When NOT to reach for it
+
+- Budget-constrained systems — idle green is too expensive; prefer a rolling deploy.
+- Shared DB without expand/contract migrations — blue breaks the moment green adds a column.
+- No smoke tests on green before the flip — you'll find the bug after real traffic lands.
+- Stateful connections (WebSockets, long polls) with no graceful migration plan on blue.
 
 ## Evidence a topic touches this
 

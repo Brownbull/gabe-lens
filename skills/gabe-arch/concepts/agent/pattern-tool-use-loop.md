@@ -9,34 +9,46 @@ related: [pattern-state-machine, progressive-knowledge-disclosure]
 one_liner: "Give the agent tools and a stopping condition — let it decide what to look at."
 ---
 
-## Analogy
+## The problem
 
-A detective given a case file and full access to records. They don't follow a script — they read, hypothesize, pull more records, revise, and stop when they have enough evidence. The system prompt is the case assignment; tools are the records room; the stopping condition is "solved or budget exhausted."
+Some tasks — incident forensics, codebase exploration, research synthesis — can't be served by a fixed pipeline. The right next step depends on what the last step uncovered, so a pre-wired flow either over-investigates cheap cases or under-investigates complex ones. And handing the model open tools without bounds means an infinite loop with an open wallet.
 
-## When it applies
+## The idea
 
-- Investigation/research agents where the right next step depends on what was just learned
-- Deep-analysis tasks where a fixed pipeline would over-investigate cheap cases and under-investigate complex ones
-- Codebase exploration, incident forensics, research synthesis
-- When adaptability beats predictability
+Give the model a bounded tool set, a clear stopping condition, and an iteration budget — then let it choose the next call based on what it just saw.
 
-## When it doesn't
+## Picture it
 
-- Production request-response with latency SLO <30s (loops can take minutes)
-- Cost-sensitive paths (each loop iteration is a model call)
-- Tasks with known-good fixed pipelines (don't re-earn adaptability you don't need)
-- When you cannot write a tight stopping condition (infinite loop risk)
+A detective handed a case file and full access to the records room. They read, hypothesize, pull more records, revise, and close the file when the evidence is sufficient or the shift ends.
+
+## How it maps
+
+```
+The case assignment        →  the system prompt (goal + stopping criteria)
+The records room           →  the vetted tool set the agent can call
+Reading a record           →  a tool call + result observation
+Forming a hypothesis       →  the model's reasoning step between tool calls
+"Do I have enough?"        →  explicit evidence-budget check in the loop
+The shift ending           →  the hard iteration cap (max_iter)
+Filing the final report    →  the structured output when stop condition trips
+```
 
 ## Primary force
 
-Some tasks genuinely require "decide what to look at next based on what you just saw." Pipelines can't do that — they're fixed. A tool-use loop lets the model drive investigation but requires you to define bounded tool surfaces, strict stopping conditions, and iteration budgets. Without those three, you have an open wallet and a cliff.
+Some tasks genuinely require "decide what to look at next based on what you just saw." Pipelines can't do that — they're fixed. A tool-use loop lets the model drive investigation, but it requires you to define bounded tool surfaces, strict stopping conditions, and iteration budgets. Without those three, you have an open wallet and a cliff.
 
-## Common mistakes
+## When to reach for it
 
-- No hard iteration cap → infinite loops on edge cases
-- Tools that return unbounded data (the context blows up on iteration 3)
-- No evidence-budget check ("enough evidence?" is the key stop signal — make it explicit)
-- Letting the model invent its own tools instead of constraining to a vetted set
+- Investigation and research agents where the next step depends on what was just learned.
+- Deep-analysis tasks where a fixed pipeline would mis-size the effort across cases.
+- Codebase exploration, incident forensics, research synthesis — adaptability over predictability.
+
+## When NOT to reach for it
+
+- Request-response paths with a latency SLO under 30s — loops can take minutes.
+- Cost-sensitive paths — every loop iteration is a model call, charges stack fast.
+- No hard iteration cap or unbounded tool outputs — infinite loops and context blowups on iteration 3.
+- No explicit evidence-budget check — "am I done?" is the key stop signal; make it a tool call, not a vibe.
 
 ## Evidence a topic touches this
 

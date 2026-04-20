@@ -9,33 +9,46 @@ related: [load-balancer-basics, blue-green-deploy]
 one_liner: "Liveness asks 'are you alive?'; readiness asks 'are you ready for traffic?' — different answers, different actions."
 ---
 
-## Analogy
+## The problem
 
-A restaurant at opening time. **Liveness** = "is the chef breathing?" (if no, call someone; restart them). **Readiness** = "has the kitchen finished setup — stoves on, ingredients prepped?" (if no, don't seat customers yet but don't replace the chef). Conflating them means you replace a chef who's just slow to set up.
+A new container starts slowly — pool warmup, config load, cache prefill. The orchestrator can't tell "still warming up" apart from "broken", kills it mid-startup, and the service never reaches steady state.
 
-## When it applies
+## The idea
 
-- Any containerized deployment (Kubernetes, ECS, Nomad)
-- Services behind a load balancer that can drop unhealthy backends
-- Rolling deploys where new instances need a warmup period
-- Services with slow-starting dependencies (DB connection pool, cache warm, config load)
+Use two separate probes: liveness decides whether to restart the process; readiness decides whether the load balancer sends it traffic.
 
-## When it doesn't
+## Picture it
 
-- Truly stateless, instant-start services (readiness and liveness collapse to the same check)
-- One-off batch jobs (no traffic to route)
+A restaurant at opening time. One question: "is the chef breathing?" If no, call 911. A different question: "is the kitchen set up — stoves on, ingredients prepped?" If no, don't seat customers yet, but don't replace the chef either.
+
+## How it maps
+
+```
+"Is the chef breathing?"    →  liveness probe (shallow: process is responsive)
+Call 911 if no              →  liveness failure → orchestrator restarts container
+"Kitchen set up yet?"       →  readiness probe (dependencies reachable, warm)
+Don't seat customers yet    →  readiness failure → LB stops sending traffic
+Chef keeps setting up       →  container stays alive; no restart
+Opening-time warmup window  →  startup probe (Kubernetes) — grace period before
+                              readiness is enforced aggressively
+```
 
 ## Primary force
 
-"Is this instance alive?" and "should the LB send traffic to it?" are different questions with different correct responses. **Liveness failure** → the orchestrator kills and restarts the container (drastic). **Readiness failure** → the LB stops routing traffic temporarily (gentle; instance stays alive to finish warming up). Without the distinction, a slow-startup service gets killed mid-warmup and never actually becomes ready.
+"Is this instance alive?" and "should the load balancer send it traffic?" are different questions with different correct actions. Liveness failure is drastic — restart the container. Readiness failure is gentle — pause traffic, let the instance recover. Conflating them means a slow-warmup service gets killed mid-warmup, or a flapping dependency triggers a restart storm that makes everything worse.
 
-## Common mistakes
+## When to reach for it
 
-- Same endpoint for liveness and readiness (deep dependency checks cause restart loops when a dependency flaps)
-- Liveness check queries the DB (DB outage → everyone restarts simultaneously → cascading failure)
-- Readiness check is just `return 200` (LB sends traffic to instances that can't actually serve)
-- No startup probe (Kubernetes) — readiness fails too aggressively during slow starts
-- Health endpoint auth-gated (LB can't reach it; infinite restart loop)
+- Any containerized deployment (Kubernetes, ECS, Nomad) behind an orchestrator.
+- Services with slow-starting dependencies (connection pools, cache warmup, config load).
+- Rolling deploys where new instances need time before receiving traffic.
+
+## When NOT to reach for it
+
+- Truly instant-start, dependency-free services — both probes collapse into one shallow check.
+- Same endpoint for liveness and readiness with deep dependency checks — DB flap restarts everyone.
+- Liveness probe that queries the DB — DB outage restarts every instance simultaneously.
+- Auth-gated health endpoint — LB can't reach it; infinite restart loop.
 
 ## Evidence a topic touches this
 

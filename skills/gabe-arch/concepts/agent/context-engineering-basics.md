@@ -9,33 +9,45 @@ related: [progressive-knowledge-disclosure, prompt-caching]
 one_liner: "Every token in context steals from reasoning — load the minimum, defer the rest."
 ---
 
-## Analogy
+## The problem
 
-A desk with limited surface area. A surgeon doesn't pile every tool in front of them — they keep only what the current operation needs and swap trays as the procedure advances. The desk is the context window; the trays are retrieval.
+Stuffed prompts degrade reasoning — not linearly, not monotonically, but measurably. Load the whole codebase "just in case" and the model's answers get worse and its cost goes up at the same time, with no obvious failure to point at.
 
-## When it applies
+## The idea
 
-- Any agent with non-trivial reference material (docs, past conversations, knowledge base)
-- Long-running sessions where naive context accumulation bloats prompts
-- Multi-tool agents where tool descriptions alone consume a non-trivial fraction of the budget
-- RAG systems, agent-over-codebase apps, documentation assistants
+Load only what the current step needs into the prompt, and retrieve or summarize everything else on demand.
 
-## When it doesn't
+## Picture it
 
-- Toy prompts with ≤1KB of context (engineering has overhead that's not worth it)
-- One-shot completions where the input is bounded and static
-- Cases where accuracy is more valuable than token cost and you've verified the model benefits from more context
+A surgeon's operating tray. Only the instruments needed for this incision are within reach; the rest stay on a cart that gets wheeled in when the procedure advances.
+
+## How it maps
+
+```
+The operating tray       →  the context window visible to the model
+The instruments on it    →  tokens spent on prompt, tools, history, retrievals
+The cart in the hallway  →  RAG index, memory store, side-queried sub-agent
+Swapping trays per stage →  retrieval/compaction between steps
+The surgeon's focus      →  reasoning quality (degrades as the tray fills)
+The prep nurse           →  the retriever that decides what to put on the tray
+```
 
 ## Primary force
 
-LLM reasoning quality degrades as context fills — not linearly, not monotonically, but measurably. The best systems load exactly what the current step needs and defer everything else. Claude Code's own architecture proves this at scale: system prompts are memoized, skill listings load truncated, tool schemas are deferred until requested, memory is side-queried.
+LLM reasoning quality degrades as context fills, and the degradation is measurable long before you hit the hard token limit. The best systems load exactly what the current step needs and defer everything else — Claude Code's own architecture proves this at scale: system prompts are memoized, skill listings load truncated, tool schemas are deferred until requested, memory is side-queried.
 
-## Common mistakes
+## When to reach for it
 
-- Loading the entire codebase/knowledge base "just in case"
-- Concatenating chat history forever instead of summarizing or side-querying
-- Verbose tool descriptions — every unused word is paid for on every call
-- No measurement of tokens consumed per stage (you can't optimize what you don't measure)
+- Any agent with non-trivial reference material — docs, past conversations, knowledge base.
+- Long-running sessions where naive history accumulation bloats every subsequent prompt.
+- Multi-tool agents where tool descriptions alone consume a meaningful fraction of the budget.
+
+## When NOT to reach for it
+
+- Toy prompts with ≤1KB of context — engineering overhead exceeds the win.
+- One-shot completions with bounded, static input that already fits comfortably.
+- Loading the entire codebase "just in case" — the model's reasoning gets worse, not better.
+- No per-stage token measurement — you can't optimize what you don't measure.
 
 ## Evidence a topic touches this
 

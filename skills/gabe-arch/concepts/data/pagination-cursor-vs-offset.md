@@ -9,34 +9,45 @@ related: [schema-evolution-expand-contract]
 one_liner: "Offset pagination breaks at scale — cursors are the grown-up answer."
 ---
 
-## Analogy
+## The problem
 
-Reading a book: offset = "skip to page 500" (the typesetter still has to count 500 pages every time you ask). Cursor = "continue from this bookmark" (the bookmark remembers where you were). One scales with book size; the other doesn't.
+`OFFSET 100000 LIMIT 50` forces the database to scan and throw away 100,000 rows on every call to get page 2,001. Queries get slower the deeper users scroll, new rows inserted during browsing cause duplicates and skips, and one caller asking for `limit=100000` can take the DB down.
 
-## When it applies
+## The idea
 
-- Any list endpoint returning more than a few dozen items
-- Infinite-scroll UIs, search results, activity feeds
-- API endpoints clients will hit repeatedly as new data arrives
-- Any dataset expected to grow past a few thousand rows
+Return a cursor (an opaque pointer to the last row seen) and ask for "next 50 after this cursor" — O(log n) via index lookup instead of O(n) via row-skipping.
 
-## When it doesn't
+## Picture it
 
-- Truly bounded lists (e.g., "top 10 items of all time")
-- Internal admin UIs where operational-scale offset is fine
-- Small datasets where neither approach matters measurably
+Reading a long book two ways. "Skip to page 500" forces someone to count 500 pages every time you ask. "Continue from this bookmark" lets you pick up exactly where you left off instantly — the bookmark remembers the position.
+
+## How it maps
+
+```
+"Skip to page 500"      →  OFFSET 500 LIMIT N (scan-and-discard)
+"Continue from bookmark" →  WHERE id > last_seen_id LIMIT N (index seek)
+The bookmark itself     →  the opaque cursor token returned to the client
+Page number in TOC      →  raw row offset (couples API to storage layout)
+Book growing overnight  →  new rows inserted while a user paginates
+Bookmark still works    →  cursor unaffected by inserts above/below it
+```
 
 ## Primary force
 
-`OFFSET 100000 LIMIT 50` forces the database to scan and discard the first 100,000 rows on every call — expensive and gets worse as pagination goes deeper. Cursor pagination uses "WHERE id > last_seen_id LIMIT 50" which uses the index directly and runs in constant time regardless of depth. The tradeoff: cursors don't support "jump to page 500," only "next page from where I left off." For most user-facing lists, that's what you actually wanted.
+Offset-based pagination costs grow linearly with depth — every query re-scans the prefix you've already paged past. Cursor pagination uses the index directly and runs in constant time regardless of depth. The tradeoff: cursors don't support "jump to page 500," only "next page from here." For infinite scroll, feeds, and search, that's exactly what the product wanted anyway; "jump to arbitrary page" is an operational smell for user-facing lists.
 
-## Common mistakes
+## When to reach for it
 
-- Offset pagination with deep results (timeout, slow queries, DB CPU spike)
-- Cursors based on non-unique fields (ties produce duplicates or skips)
-- Exposing raw DB primary keys as cursors (couples API to schema; obfuscate)
-- No tie-breaker in ORDER BY (same-timestamp rows arrive inconsistently)
-- No max page size (one caller requesting limit=100000 takes down your DB)
+- Any list endpoint returning more than a few dozen items.
+- Infinite-scroll UIs, search results, activity feeds, timelines.
+- Datasets expected to grow past a few thousand rows with deep pagination.
+
+## When NOT to reach for it
+
+- Truly bounded lists like "top 10 all time" — no pagination needed at all.
+- Internal admin UIs where offset queries stay at operational scale forever.
+- Cursors based on non-unique fields without a tie-breaker — ties cause duplicates or skips.
+- Exposing raw DB primary keys as cursors — couples API to schema; wrap/obfuscate instead.
 
 ## Evidence a topic touches this
 

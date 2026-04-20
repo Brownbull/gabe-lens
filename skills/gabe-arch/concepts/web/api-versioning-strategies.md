@@ -9,34 +9,47 @@ related: [schema-evolution-expand-contract]
 one_liner: "The day you ship v1 you've promised not to break it — plan for v2 before you need it."
 ---
 
-## Analogy
+## The problem
 
-A train station with multiple platforms running different timetables. Each platform is a version; new trains go to platform 2 without disrupting platform 1's passengers. You don't tear up platform 1 the day platform 2 opens — you run both until the last old train leaves.
+You need to change a response shape, but clients are in the wild — mobile apps installed months ago, partner integrations you can't redeploy. A breaking change to a live API breaks every consumer who hasn't upgraded, and you can't upgrade them for them.
 
-## When it applies
+## The idea
 
-- Public APIs with external clients you don't control
-- Internal APIs with many consumers where coordinated deploys aren't feasible
-- Mobile APIs where old client versions linger for years
-- Any API that has shipped and has >0 real callers
+Expose old and new contracts side by side under distinct version identifiers; deprecate the old one on a published schedule.
 
-## When it doesn't
+## Picture it
 
-- Internal APIs within a single deploy unit (just refactor)
-- Pre-launch APIs where nothing is yet depending on them
-- APIs where you control every consumer and can deploy atomically
+A train station with two platforms running different timetables. New trains leave from platform 2; the old schedule keeps running from platform 1 until the last passenger has moved. You don't tear up platform 1 the day platform 2 opens.
+
+## How it maps
+
+```
+The station                    →  your API surface
+Platform 1 (old timetable)     →  v1 contract — frozen, still serving old clients
+Platform 2 (new timetable)     →  v2 contract — breaking changes live here
+Platform number on the board   →  version selector: URL path, header, or query param
+Timetable posted weeks ahead   →  deprecation headers / dates announced to clients
+Last old train leaves          →  v1 sunset: cutoff date after which it stops serving
+Conductor checking tickets     →  version routing: request → correct handler
+Shared track segments          →  shared internal code; versions diverge at the edge
+```
 
 ## Primary force
 
-A breaking change to an API in use breaks every client that hasn't upgraded. Versioning gives you a parallel track — old clients continue on v1 while new clients use v2, and you deprecate v1 on a schedule that gives consumers time to migrate. The main strategies (URL path `/v1/`, header `Accept: application/vnd.api.v2+json`, query param `?version=2`) all achieve the same goal; pick one and stick with it.
+A breaking change to an API in use breaks every client that hasn't upgraded — and you don't control when they upgrade. Versioning gives you a parallel track: old clients keep working on v1 while new ones use v2, and you deprecate v1 on a schedule the consumers can plan around. Pick one selector (path, header, or query param) and stick with it; the mechanism matters less than the discipline of honoring both versions until the sunset date you promised.
 
-## Common mistakes
+## When to reach for it
 
-- Shipping v1 without a plan for breaking changes later
-- Breaking v1 "just a little" and hoping nobody notices
-- Supporting 5 versions forever (maintenance hell)
-- Versioning the entire API when only one endpoint changed (use field-level evolution — see schema-evolution-expand-contract)
-- No deprecation headers/dates communicated to clients
+- Public APIs with external clients you don't control or can't force-upgrade.
+- Mobile APIs where old client versions linger in the wild for years.
+- Internal APIs with many independently-deployed consumers.
+
+## When NOT to reach for it
+
+- Pre-launch APIs with no real callers — version when you have something to protect.
+- Internal APIs within a single deploy unit — just refactor and redeploy atomically.
+- Shipping v1 with no deprecation policy — you'll paint yourself into a corner the first breaking change.
+- Versioning the whole API when one field changed — prefer field-level schema evolution.
 
 ## Evidence a topic touches this
 

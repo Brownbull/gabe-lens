@@ -9,33 +9,45 @@ related: [input-validation-at-boundary, structured-output-enforcement]
 one_liner: "Filter adversarial input before it reaches the model — cheaper than filtering output."
 ---
 
-## Analogy
+## The problem
 
-A bouncer at the door checking IDs — refusing anyone carrying obvious weapons before they enter the club. Much easier than letting everyone in and trying to catch trouble after drinks are poured.
+Prompt-injection text — "ignore previous instructions and..." — exploits the model's helpfulness and costs a full model call every time it reaches the LLM. Without a pre-filter, you're paying Claude rates to catch attacks a regex would reject in microseconds, and you have no named record of which patterns trended this week.
 
-## When it applies
+## The idea
 
-- Any agent taking untrusted user input (public APIs, support ticket systems, chat)
-- Prompt-injection attack surfaces — text that could hijack instructions
-- Preventing the model from even seeing known-bad patterns (cheaper than model-side detection)
-- Logging which attack patterns hit your system (observability has teeth only with names)
+Run cheap deterministic pattern checks on untrusted input before invoking the model, and emit the matched pattern names as observable evidence.
 
-## When it doesn't
+## Picture it
 
-- Fully trusted input pipelines (internal batch jobs with sanitized data)
-- As the only defense — guardrails complement model-side safety, don't replace it
-- For content moderation of model output (that's post-hoc, different problem)
+A bouncer at a club door checking IDs and refusing anyone with obvious weapons before they step inside. Much easier than letting everyone in and trying to clear the floor after drinks are poured.
+
+## How it maps
+
+```
+The bouncer                →  the pre-agent guardrail function
+The ID / pat-down checks   →  regex patterns for known injection payloads
+The club interior          →  the LLM call downstream of the guardrail
+"No entry, you matched X"  →  structured rejection with matched_patterns array
+The bouncer's incident log →  the observability metric (which patterns fired)
+New weapons memo           →  versioned pattern set updated as attacks evolve
+```
 
 ## Primary force
 
 Prompt injection attacks exploit the model's helpfulness. A regex that blocks "ignore previous instructions" before the model sees it is 1000x cheaper than a model call, 100% deterministic, and produces named evidence of attack patterns for your ops dashboard. The goal is not perfect filtering — it's removing the obvious 80% so the model's remaining defenses handle the 20%.
 
-## Common mistakes
+## When to reach for it
 
-- Returning only `{safe: bool}` — lose observability (can't answer "which patterns trend?")
-- Treating guardrails as a complete security solution (they're layer 1 of many)
-- Matching patterns case-sensitively (attackers use mixed case, unicode)
-- Not versioning the pattern set — you need to know when a new pattern was added
+- Any agent taking untrusted input — public APIs, support ticket intake, chat surfaces.
+- Prompt-injection attack surfaces where text could hijack instructions downstream.
+- You need named evidence of which attack patterns are trending on your system.
+
+## When NOT to reach for it
+
+- Fully trusted input pipelines — internal batch jobs with already-sanitized data.
+- As the only defense — guardrails complement model-side safety, they don't replace it.
+- Returning only `{safe: bool}` with no pattern names — you lose observability on attack trends.
+- Matching patterns case-sensitively and unversioned — attackers use mixed case and unicode, and you need to know when rules changed.
 
 ## Evidence a topic touches this
 
