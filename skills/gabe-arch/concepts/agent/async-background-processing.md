@@ -9,33 +9,46 @@ related: [sse-streaming-progress, request-response-lifecycle]
 one_liner: "Return a ticket immediately; process in the background; stream progress separately."
 ---
 
-## Analogy
+## The problem
 
-A coat-check counter: you hand over your jacket and walk away with a ticket. The attendant hangs it up at their own pace. You come back (or get paged) when it's ready. Nobody stands at the counter waiting for a jacket to be processed.
+Synchronous LLM calls hold a server thread for 10+ seconds. At real scale that means either huge thread pools (expensive) or timeouts (user-hostile). The client's wait is coupled to the server's work — a long job becomes an operational liability even when the logic is correct.
 
-## When it applies
+## The idea
 
-- LLM calls >3 seconds (which is most of them)
-- File uploads that trigger multi-step processing
-- Any request where the user shouldn't be staring at a spinner
-- API endpoints where holding the connection costs more than storing state
+Return a ticket immediately; do the work separately; deliver the result later via a status endpoint or push channel.
 
-## When it doesn't
+## Picture it
 
-- Sub-second operations (no point adding complexity)
-- Strict request-response protocols where the caller expects the result on the same connection
-- Tightly-coupled transactions that must commit or rollback as one unit
+A coat-check counter. You hand over your jacket and walk away with a numbered ticket. The attendant hangs it at their own pace — nobody stands at the counter waiting. You come back, or get paged, when it's ready.
+
+## How it maps
+
+```
+Your request           →  the jacket
+The ticket ID          →  the claim check you walk away with
+The worker pool        →  the attendant
+HTTP 202 Accepted      →  "got it, here's your ticket, goodbye"
+SSE or status polling  →  getting paged that your coat is ready
+Persisted job state    →  the coat-check tag index (so you can find it tomorrow)
+```
 
 ## Primary force
 
 A synchronous LLM call blocks a server thread for 10+ seconds. At any real scale, that means either huge thread pools (expensive) or timeouts (user-hostile). 202 Accepted + background processing decouples the client's wait from the server's work — the connection closes in milliseconds, the work proceeds at its natural pace, and progress is streamed back via SSE or polled via a status endpoint.
 
-## Common mistakes
+## When to reach for it
 
-- No idempotency key on the submit endpoint — retries double-process
-- Storing the ticket ID only in memory (server restart loses the job)
-- Returning 200 instead of 202 (muddies the "accepted but not done" semantics)
-- Background task with no timeout — jobs accumulate indefinitely on failure
+- Long-running LLM calls, OCR, batch ingest — any work with p99 > ~5s.
+- Endpoints that must survive client disconnect (mobile networks, flaky clients).
+- Work that benefits from independently scaling the worker pool (CPU-bound batch vs I/O-bound API).
+
+## When NOT to reach for it
+
+- Sub-200ms lookups — 202 + polling turns one round-trip into three. Use 200 OK.
+- Fire-and-forget work with no need to report completion — a plain queue is simpler.
+- In-memory ticket state without persistence — server restart loses jobs. Pair 202 with durable state or don't use it.
+- No idempotency key on the submit endpoint — client retries double-process the same job.
+- Returning 200 instead of 202 — muddies the "accepted but not done" semantics.
 
 ## Evidence a topic touches this
 

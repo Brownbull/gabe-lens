@@ -11,35 +11,80 @@ one_liner: "Reference concept file showing the full frontmatter + body template.
 
 # Purpose of this file
 
-Not a real concept. This is the canonical example every new concept file should mirror structurally. Delete nothing, rename nothing, reorder nothing — the commands in `/gabe-teach arch` parse sections by heading.
+Not a real concept. This is the canonical example every new concept file should mirror structurally. `/gabe-teach arch show` parses sections by heading name — if you rename a heading, that section won't render. Delete nothing, rename nothing, reorder nothing.
 
-## Analogy
+## The problem
 
-A blueprint for a house: every room is drawn to scale, every door swings the right way, every window faces the sun. New builders copy the blueprint and change only the details; the shape stays the same.
+One short paragraph (1-2 sentences) naming the concrete pain this concept addresses. Written from the human's perspective, not the system's. Name the failure mode, the cost, or the impossible-to-answer question that motivates the concept.
 
-## When it applies
+Good: "Sync LLM calls hold a server thread for 10+ seconds. At real scale, that means huge thread pools (expensive) or timeouts (user-hostile)."
+Bad: "This concept is about async." (Tells the reader what the concept does, not why it exists.)
 
-- Creating a new concept file in any specialization.
-- Reviewing a pull request that adds concepts to the catalog.
-- Onboarding a contributor who hasn't written concept files before.
+## The idea
 
-## When it doesn't
+ONE sentence, ≤25 words, naming the solution in plain language BEFORE any analogy. This is the reader's anchor — if it's ambiguous, the rest of the lesson is trying to explain something the reader can't name.
 
-- Editing an existing concept's Analogy or Primary force — leave the template structure alone, just change the prose.
-- Rendering in `/gabe-teach arch show` — that flow reads body sections by heading name, not by example.
+Good: "Return a ticket immediately; do the work separately; deliver the result later via status endpoint or push channel."
+Bad: "Use 202 Accepted for async workflows." (Jargon-first; doesn't say what you DO with 202.)
+
+## Picture it
+
+1-2 sentences. A physical, sensory, spatial image the reader can see. No code, no jargon. Don't explain the mapping here — just paint the picture.
+
+Good: "A coat-check counter. Hand over your jacket, take a numbered ticket, walk away. The attendant hangs it at their own pace."
+Bad: "Like an async queue in a distributed system." (Same abstraction layer as the concept; teaches nothing.)
+
+## How it maps
+
+Arrow-lines showing how each analogy piece corresponds to a code/system piece. 3-6 mappings. This is the load-bearing section — where gabe-lens earns its keep. Without this, the analogy is decoration.
+
+Format: `<analogy piece>  →  <code/system piece>` (two spaces, arrow, two spaces).
+
+Good:
+```
+Your request       →  the jacket
+The ticket ID      →  the claim check you walk away with
+The worker pool    →  the attendant
+HTTP 202           →  "got it, here's your ticket, goodbye"
+SSE or polling     →  getting paged that your coat is ready
+```
+
+Bad: leaving the mapping implicit, or using `→` without making both sides concrete.
 
 ## Primary force
 
-A consistent template lets the commands parse concept files without per-file logic. If every concept uses the same six sections with the same headings in the same order, tagging, rendering, and progression logic become one code path instead of seven.
+One paragraph, ≤4 sentences, naming the SINGLE strongest reason this pattern is worth the complexity. Singular. If three reasons feel equally important, the concept is too broad — split it.
 
-## Common mistakes
+Good: "A synchronous LLM call blocks a server thread for 10+ seconds. At any real scale, that means either huge thread pools (expensive) or timeouts (user-hostile). 202 Accepted + background processing decouples the client's wait from the server's work — the connection closes in milliseconds while the work proceeds at its natural pace."
 
-- Renaming `## Primary force` to `## Why` — the command looks for the literal heading.
-- Omitting `## Evidence a topic touches this` — without it, deterministic tagging can't find this concept, only the LLM fallback can.
-- Listing more than one force — if you have two, write two concepts.
-- Writing the `one_liner` as a full sentence — keep it under 15 words, no period required.
+## When to reach for it
+
+3 bullets maximum. Each bullet is one concrete scenario where reaching for this pattern is the right call. Specific over abstract.
+
+Good:
+```
+- Long-running LLM calls, OCR, batch ingest — any work with p99 > ~5s.
+- Endpoints that must survive client disconnect.
+- Work that benefits from independently scaling the worker pool.
+```
+
+Bad: "When you need async." (Circular.)
+
+## When NOT to reach for it
+
+4 bullets maximum. Boundary conditions, anti-patterns, and simpler alternatives. Absorbs what older concept files tracked in `Also` and `Common mistakes` — keep them together as the flip side of the primary force.
+
+Good:
+```
+- Sub-200ms lookups — 202 + polling turns one round-trip into three. Use 200 OK.
+- Fire-and-forget work with no completion signal needed — a plain queue is simpler.
+- In-memory ticket state without durability — server restart loses jobs.
+- No idempotency key on submit — retries double-process the same job.
+```
 
 ## Evidence a topic touches this
+
+Deterministic tagging signal for Step 4b.5 auto-tagging. Do NOT remove; the command looks for this literal heading to find tag hooks.
 
 - Keywords: schema-example, reference file (this concept intentionally unmatchable in real projects)
 - Files: n/a
@@ -47,5 +92,21 @@ A consistent template lets the commands parse concept files without per-file log
 
 ## Deeper reading
 
+Optional. Points to external docs that go deeper than the lesson can.
+
 - `skills/gabe-arch/SKILL.md` — full schema definition and rules
 - `skills/gabe-arch/TAXONOMY.md` — tiers × specializations map
+
+---
+
+## Legacy headings (backward-compat, do not use for new files)
+
+Older concept files authored before 2026-04-19 use these heading names. The renderer falls back to them when new headings are absent:
+
+| Old heading | New heading |
+|-------------|-------------|
+| `## Analogy` | `## Picture it` |
+| `## When it applies` | `## When to reach for it` |
+| `## When it doesn't` + `## Common mistakes` | `## When NOT to reach for it` |
+
+For new concept files: write the new headings. Refactor old files opportunistically — no big-bang required.
