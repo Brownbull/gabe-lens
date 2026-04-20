@@ -7,6 +7,7 @@ tags: [async, 202-accepted, background-task, sse]
 prerequisites: []
 related: [sse-streaming-progress, request-response-lifecycle]
 one_liner: "Return a ticket immediately; process in the background; stream progress separately."
+signal: deeper-5min
 ---
 
 ## The problem

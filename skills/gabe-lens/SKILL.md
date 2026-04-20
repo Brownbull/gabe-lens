@@ -2,7 +2,7 @@
 name: gabe-lens
 description: Cognitive translation skill that transforms technical concepts into analogies, spatial maps, constraint boxes, and one-line handles — adapts to your cognitive suit.
 metadata:
-  version: 2.1.0
+  version: 2.2.0
 ---
 
 # Gabe Lens — Cognitive Translation Skill
@@ -80,6 +80,10 @@ Gabe Blocks are token-expensive. A full block costs ~200-350 tokens. In agent fr
 │  Rules in docs get ignored under fatigue...           │
 │  THE ANALOGY                                          │
 │  Gravity vs. posted speed limits...                   │
+│  HOW IT MAPS                                          │
+│    gravity        →  Tier 1 hooks (always on)         │
+│    speed bump     →  Tier 2 workflows (optional)      │
+│    posted sign    →  Tier 3 docs (ignored under load) │
 │  THE MAP                                              │
 │  Tier 1: GRAVITY ══════► Always works                 │
 │  ...                                                   │
@@ -130,6 +134,14 @@ When a concept is complex or critical, produce a **Gabe Block**:
 │   user can visualize spatially — not an abstract       │
 │   metaphor. Must capture the KEY TRADE-OFF.]           │
 │                                                        │
+│  HOW IT MAPS                                           │
+│  [Arrow-lines translating analogy pieces into concrete │
+│   system/code pieces. 3-6 lines. Format:               │
+│     <analogy piece>  →  <concrete piece>               │
+│   Without this section the analogy is decoration —     │
+│   the reader must guess the mapping. With it, the      │
+│   analogy earns its keep.]                             │
+│                                                        │
 │  THE MAP                                               │
 │  [ASCII spatial diagram showing relationships, flow,   │
 │   states, or architecture. Use boxes, arrows, layers.  │
@@ -176,6 +188,23 @@ When a concept is complex or critical, produce a **Gabe Block**:
 - Bad: "It's like a traffic light" (too simple, no spatial depth)
 - Good: "It's like a pressure relief valve — flow is unrestricted until pressure hits the threshold, then the valve diverts excess to a holding tank. The threshold is your 500-operation batch limit. The holding tank is the retry queue."
 - If no good physical analogy exists, say so explicitly: "No clean physical analogy — here's how the mechanism works directly."
+
+### HOW IT MAPS
+- Arrow-lines translating analogy pieces to concrete system/code pieces
+- Format: `<analogy piece>  →  <concrete piece>` (two spaces, arrow, two spaces)
+- 3-6 lines. Fewer than 3 means the analogy is thin; more than 6 means it's sprawling
+- This section is **load-bearing** — without it, the analogy is decorative and the reader has to reconstruct the mapping from context. With it, the analogy does the teaching.
+- Every analogy element that appears in THE ANALOGY body must map to something concrete here. If you used "pressure relief valve" and "holding tank" in the analogy, both must appear on the left-hand side below.
+- Good:
+  ```
+  pressure relief valve  →  batch-size checker
+  closed valve           →  batch under 500 items (normal write)
+  valve opens            →  batch hits limit; chunker activates
+  holding tank           →  retry queue (FIFO, durable)
+  drain back to system   →  retry worker pulls chunks every N seconds
+  ```
+- Bad: using the word "mapping" but only repeating the analogy ("the valve is like a valve in the code"). If the right-hand side isn't a concrete code/system term, the mapping failed.
+- If the analogy is so direct it doesn't need a mapping (rare — usually means the analogy is too thin to carry teaching weight), write `(direct — no additional mapping)` as a single line. Don't skip the section; that signals you forgot.
 
 ### THE MAP
 - ASCII art with boxes, arrows, and labels
@@ -289,6 +318,20 @@ When the planner or architect agent makes a significant decision, apply gabe-len
 │  is like a speed bump — it slows you down IF you       │
 │  drive over it, but you can take a different road.     │
 │                                                        │
+│  HOW IT MAPS                                           │
+│    gravity (always on)   →  Tier 1 hooks (PreToolUse,  │
+│                             pre-commit, CI pipeline)   │
+│    dropping a ball       →  every Edit/commit/PR fires │
+│                             the hook unconditionally   │
+│    speed bump            →  Tier 2 workflows (optional │
+│                             slash commands)            │
+│    taking another road   →  skipping the workflow by   │
+│                             not invoking it            │
+│    posted speed sign     →  Tier 3 docs (CLAUDE.md     │
+│                             rules, retro lessons)      │
+│    ignoring the sign     →  rule lost after compaction │
+│                             or fatigue                 │
+│                                                        │
 │  THE MAP                                               │
 │                                                        │
 │    Tier 1: GRAVITY ══════════════════► Always works    │
@@ -346,6 +389,17 @@ When the planner or architect agent makes a significant decision, apply gabe-len
 │  open the door 6x per day, the compressor runs         │
 │  constantly. If you open it once, the food (context)   │
 │  stays cold (fresh) and the compressor barely runs.    │
+│                                                        │
+│  HOW IT MAPS                                           │
+│    cold food in fridge    →  context held in-window    │
+│    door closed            →  session cache is warm     │
+│    door opens             →  compaction event fires    │
+│    warm air rushes in     →  context summary replaces  │
+│                              full detail               │
+│    compressor runs        →  AI re-reads files to      │
+│                              rebuild lost detail       │
+│    compressor kWh bill    →  cache-read token cost     │
+│    opening door 6x/day    →  6 compactions per session │
 │                                                        │
 │  THE MAP                                               │
 │                                                        │

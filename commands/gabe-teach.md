@@ -547,7 +547,14 @@ Cap: 3 topics per session, counted across `[next]` + `[test]` auto-advances in t
 
 _Unified teach template. Same section order for project topics (Step 4d) and arch concepts (Step 9c). Rationale: one lesson shape the reader learns once — the teach-first principle stands or falls on consistency._
 
-The lesson renders these seven teaching sections (1-7) in pedagogical order, then Q&A and footer metadata:
+The lesson has **two regions** separated by a horizontal rule:
+
+- **Region 1 — Lesson body** (sections 1-7 below): the teaching. Reader absorbs.
+- **Region 2 — `## Your turn`** (interaction block): project context, questions, menu. Reader acts.
+
+The `---` separator and `## Your turn` heading are not optional — they mark the psychological shift from absorb to engage.
+
+**Render order:**
 
 ```
 The problem:
@@ -557,6 +564,12 @@ The problem:
 The idea:
   [One-sentence definition of the solution, BEFORE any analogy fires.
    Names what the thing IS so the reader doesn't assemble the concept from analogies.]
+
+Handle:
+  "[5-10 word memorable phrase that survives compaction / fatigue / 11pm]"
+  [For arch concepts: sourced from frontmatter `one_liner` (tighten to ≤10 words
+   at render time if needed). For project topics: sourced from the topic's
+   one-line summary captured in Step 4b.]
 
 Picture it:
   [gabe-lens analogy — 1-2 sentences, image-only. Don't explain the mapping yet;
@@ -582,16 +595,28 @@ When NOT to reach for it:
   - [Another — 1 line]
   - [Optional third / fourth — 1 line, max 4 bullets]
 
-Architecture link:                         (only if arch_concepts is non-empty — project topics only, else omit section)
-  ↪ [concept-id] ([tier] · [primary-spec]) — "[one_liner from concept file frontmatter]"
-  ↪ [concept-id] ([tier] · [primary-spec]) — "[one_liner]"   (one line per tagged concept, max 3)
+---
 
-Further reading:                           (always rendered for project topics; optional for arch concepts)
+## Your turn
+
+Where this lives in your project:                          (arch concepts: see Step 9c; project topics: Further reading replaces this line)
+  [deterministic enumeration — see Step 9c Where-this-lives construction]
+
+Further reading:                                           (project topics only — see Step 4d Further reading construction)
   → [well's Docs path]                     (well doc — [N] verified topics, last updated [date])
-  → [additional doc path matched via DOCS.md if any]   (optional — see below)
+  → [additional doc path matched via DOCS.md if any]
 
-Q1: [Socratic question referencing only sections 1-7 above]
-Q2: [Socratic question referencing only sections 1-7 above]
+Architecture link:                                         (project topics only, if arch_concepts non-empty)
+  ↪ [concept-id] ([tier] · [primary-spec]) — "[one_liner]"
+
+Signal: [Quick check ✓ | Deeper question ◆ (~5 min focus) | Deeper question ◆ (rethink your model)]
+  [Cognitive-depth indicator borrowed from gabe-lens SIGNAL. Default: "Deeper question ◆ (~5 min focus)"
+   for arch concepts (they're in the catalog because they have layers). Authors override via frontmatter `signal:`
+   field. For project topics, compute at render: if the change is a small refactor, Quick check; if it touches
+   architectural patterns, Deeper question 5 min; if it inverts an existing pattern, Rethink your model.]
+
+Q1: [Socratic question referencing only lesson-body sections 1-7]
+Q2: [Socratic question referencing only lesson-body sections 1-7]
 
 [explain]  [next]  [test]  [skip]
 
@@ -664,7 +689,7 @@ The empty-section annotation gives the human useful signal two ways: (a) "don't 
 
 Sorting: well doc first (highest relevance), DOCS.md mappings after in the order they appear in DOCS.md.
 
-**Worked example** (the T1 from the ai-app screenshot, rewritten to follow the unified template):
+**Worked example** (the T1 from the ai-app screenshot, rewritten to follow the unified template with v2.3 additions):
 
 ```
 The problem:
@@ -677,6 +702,9 @@ The idea:
   Return a named pattern list — {safe: bool, matched_patterns: list[str]} —
   so every denied request carries a machine-readable tag telling ops exactly
   which rule fired.
+
+Handle:
+  "A boolean counts; names let you trend."
 
 Picture it:
   Like a security checkpoint that logs which weapons were confiscated, not
@@ -708,13 +736,19 @@ When NOT to reach for it:
     pattern names as public contract.
   - Single-caller denial flows where the caller already knows the reason.
 
-Architecture link:
-  ↪ input-guardrails (foundational · agent) — "Filter adversarial input before it reaches the model — cheaper than filtering output."
-  ↪ input-validation-at-boundary (foundational · security) — "Trust internal code, validate external input — never the reverse."
+---
+
+## Your turn
 
 Further reading:
   → docs/wells/1-guardrails.md  (well doc — 1 verified topic, Purpose empty)
   → docs/AGENTS_USE.md#Safety  (⚠ section empty — from DOCS.md high-priority mapping)
+
+Architecture link:
+  ↪ input-guardrails (foundational · agent) — "Filter adversarial input before it reaches the model — cheaper than filtering output."
+  ↪ input-validation-at-boundary (foundational · security) — "Trust internal code, validate external input — never the reverse."
+
+Signal: Deeper question ◆ (~5 min focus)
 
 Q1: If you'd kept the old {safe: bool, reason: str} shape, what specific question
     from the `When to reach for it` list becomes impossible to answer cheaply?
@@ -1325,13 +1359,16 @@ Render through the unified 7-section lesson template (same as Step 4d), with the
 | Header          | `T-arch (<primary-spec>, <tier>) — <name>` |
 | The problem     | `## The problem` body verbatim |
 | The idea        | `## The idea` body verbatim (one sentence, frontmatter `one_liner` is a fallback when the body section is absent) |
+| Handle          | Frontmatter `one_liner` rendered as `Handle: "<one_liner>"`. If longer than 10 words, tighten at render time (Haiku call) or render verbatim and emit a warning. |
 | Picture it      | `## Picture it` body verbatim (brief mode uses just the first sentence) |
 | How the picture maps | `## How it maps` body verbatim — renders as arrow-lines exactly as authored |
 | Primary force   | `## Primary force` body verbatim |
 | When to reach for it | `## When to reach for it` bullets (top 3) |
 | When NOT to reach for it | `## When NOT to reach for it` bullets (top 4) |
+| **`---`** + **`## Your turn`** | Hard-coded separator and heading; mark the boundary between lesson body and interaction block. Always rendered for teach-mode lessons. |
 | Where this lives in your project | **Always rendered** — deterministic read from `.kdbp/KNOWLEDGE.md` Topics table. See "Where-this-lives construction" below. Absorbs what used to be a separate `Further reading` section for arch (D2=C). |
 | Architecture link | Omitted for arch concepts (redundant with the footer's `related:` list) |
+| Signal          | Frontmatter `signal:` field if present (values: `quick-check` / `deeper-5min` / `rethink`). Rendered as `Signal: Quick check ✓`, `Signal: Deeper question ◆ (~5 min focus)`, or `Signal: Deeper question ◆ (rethink your model)`. Default when absent: `deeper-5min` (arch concepts are in the catalog because they have layers). |
 | Q1, Q2          | Generated per session from `## When NOT to reach for it` + `## Primary force` via ONE short LLM call. Cached for the session only (not stored in the concept file — questions should rotate) |
 | Footer (context) | Single line after Universal Action Menu: `Context: <tier> · <specializations joined with +> · prereqs: <list-or-"none"> · related: <list-or-"none">` |
 

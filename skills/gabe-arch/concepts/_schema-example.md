@@ -7,6 +7,7 @@ tags: [reference, schema, example]
 prerequisites: []
 related: []
 one_liner: "Reference concept file showing the full frontmatter + body template."
+signal: deeper-5min   # quick-check | deeper-5min | rethink  (default: deeper-5min when absent)
 ---
 
 # Purpose of this file
