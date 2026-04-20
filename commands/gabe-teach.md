@@ -34,6 +34,7 @@ Parse `$ARGUMENTS`:
 | `arch verify <id>` | admin | Mark a concept as already-known (test-or-skip shortcut) |
 | `wells` | admin | List/edit wells (rename, merge, archive, view topics per well) |
 | `init-wells` | admin | Run the wizard to define gravity wells |
+| `learning` | admin | View and adjust `~/.claude/gabe-lens-learning.md` — current patterns, active tailorings, review cadence. Supports `learning reset` (clear all tailoring), `learning pattern <id>` (inspect a specific pattern) |
 | `history` | admin | Full timeline — plans, phases, commits, sessions, topics |
 | `history full` | admin | Unbounded history (default shows last 10 sessions + last 5 plans) |
 
@@ -1413,9 +1414,11 @@ Render through the unified 7-section lesson template (same as Step 4d), with the
 
 After Q1/Q2, classify response exactly as Step 4d does: `verified` (score 2/2 or 1/2) / `pending` / `skipped` / `already-known` (sanity-check). The classification writes to STATE.md and HISTORY.md (see Step 9e). On `verified` or `already-known` (with a `.kdbp/` project present), Steps 9c.1, 9c.2, AND 9c.3 run in that order to persist the learning into project docs and (if gaps were detected) offer remediation actions.
 
-**Step 9c.0 — Auto-suggest tagging (pre-render heuristic)**
+**Step 9c.0 — Auto-suggest tagging (MOVED to Step 9c.0.5 — post-verify, see below)**
 
-Runs BEFORE the render sections above when: `.kdbp/` is present AND the concept has zero tagged topics in KNOWLEDGE.md's `ArchConcepts` column. Solves the chicken-and-egg problem where the first teach of any concept in a project always misses the code-anchor block because nobody has manually tagged yet.
+Previously ran pre-render; as of v2.6 this step runs AFTER Q1/Q2 classify. Rationale: only persist a tag once the user has demonstrated understanding. Failed lessons shouldn't propagate the tag graph. The chicken-and-egg for code anchoring is solved differently — the pre-render section now renders the empty-state with a note that tag-suggest will fire post-verify.
+
+The algorithm and behavior are unchanged from the old 9c.0; only the position in the flow. See Step 9c.0.5 below.
 
 **Heuristic match (deterministic, zero-LLM):**
 
@@ -1770,6 +1773,167 @@ Decision rows written by Step 9c.3 carry a standard Source attribution so retro 
 
 **Idempotency:** If the same gap is detected in a future lesson of the same concept (e.g., after fixing code but before re-tagging), Step 9c.3 checks whether a matching PENDING row / architecture-patterns limitation / DECISIONS row already exists. If so, skip silently and emit one-line note: `✓ Gap "Persisted job state" already tracked in PENDING.md#P4.` Prevents duplicate entries across re-teach sessions.
 
+#### Step 9c.0.5 — Auto-suggest tagging (post-verify)
+
+Moved from pre-render (old Step 9c.0). Runs after Q1/Q2 classification on `verified` (2/2 or 1/2) or `already-known`. Skipped on `pending` or `skipped` — a failed lesson shouldn't propagate the tag graph.
+
+Algorithm unchanged from previous Step 9c.0:
+
+**Heuristic match (deterministic, zero-LLM):**
+
+For each topic in KNOWLEDGE.md, score `match_score` against the concept's `## Evidence a topic touches this` section:
+- +2 per Evidence `Keyword` matching Title or Source columns
+- +2 per Evidence `Files` glob matching the topic's candidate file list
+- +1 per Evidence `Commit verb` matching commit subjects
+
+**Strong match:** `match_score ≥ 3`.
+
+**Prompt (only if ≥1 strong match AND concept has zero tagged topics):**
+
+```
+✓ Lesson verified (1/2). Based on your answers, async-background-processing looks
+  applied in this project:
+
+  • T2 "Why multipart + 202 Accepted + BackgroundTask" (verified) — G3 API Layer
+    Match: keywords "202 Accepted", "BackgroundTask" ✓ · files app/api/*.py ✓
+
+Tag these for future code-anchored lessons?
+
+  [y]       Tag T2 (strongest match)
+  [all]     Tag all proposed matches
+  [manual]  Skip — I'll tag manually later
+  [never]   Don't auto-suggest tags for this project
+```
+
+**BEHAVIOR.md opt-out key:** `teach_arch_auto_suggest_tag: prompt | accept | never` (default: `prompt`).
+
+**Ordering:** runs AFTER 9c.1/9c.2/9c.3 (doc persistence + gap remediation) so the user sees a clean "lesson complete → persist what you learned → tag for next time" sequence.
+
+#### Step 9c.4 — Drift analyzer (Sonnet-backed, post-verify)
+
+Runs after every verify that scores less than 2/2 — that's where the signal lives. Skipped on clean 2/2, skipped on `skipped` / `pending` (no answer to analyze), skipped when `teach_drift_analyzer: never` is set in gabe-lens-profile.md frontmatter or project BEHAVIOR.md.
+
+**Purpose:** detect which lesson sections the user missed, classify the miss pattern, and either append to the miss log or upgrade an existing pattern's observation count.
+
+**LLM call (Sonnet, output_type enforced per U4):**
+
+- **Model:** `claude-sonnet-4-6` (not Haiku — pattern detection requires nuance; this is the most reasoning-heavy call in teach)
+- **Context:** lesson body verbatim + Q1/Q2 text + user's answer + correct answer key + current active patterns from `~/.claude/gabe-lens-learning.md` (so the LLM can decide "new pattern vs observation of existing one")
+- **Output type:**
+  ```python
+  class DriftAnalysis(BaseModel):
+      misses: list[Miss]              # one per partial/wrong answer
+      pattern_match: PatternRef | None  # existing pattern this observation reinforces
+      new_pattern_candidate: NewPattern | None  # if this looks novel
+      content_augmentations: list[Augmentation]  # D4-B suggestions for future renders
+
+  class Miss(BaseModel):
+      question: Literal["Q1", "Q2"]
+      section_missed: str      # e.g., "Primary force", "When NOT to reach for it"
+      user_paraphrase: str      # ≤20 words
+      correct_paraphrase: str    # ≤20 words
+      severity: Literal["partial", "wrong"]
+
+  class PatternRef(BaseModel):
+      id: str                    # e.g., "P1"
+      confidence_delta: Literal["strengthens", "weakens", "neutral"]
+
+  class NewPattern(BaseModel):
+      signal_name: str          # e.g., "Distinction conflation"
+      signal_description: str    # 1-2 sentences
+
+  class Augmentation(BaseModel):
+      section: str              # which section to augment on next render
+      suggestion: str            # e.g., "Add 'and this is NOT X' line to mapping for <analogy-piece>"
+  ```
+- **Token cap:** 1200 tokens (Sonnet is verbose; cap prevents runaway reasoning). Cost ~$0.01-0.02 per call; fires only on <2/2 lessons.
+- **Cache:** session-scoped by `lesson_id + answer_hash` — same answers won't re-trigger analysis within a session.
+
+**Write-back to `~/.claude/gabe-lens-learning.md`:**
+
+1. For each Miss → append row to Miss Log with Project column set to current project name (or `—` if cross-project teach).
+2. If `pattern_match` non-null → update matching pattern's observation count; move to `active` if threshold reached (3 observations OR 2 projects).
+3. If `new_pattern_candidate` non-null AND no strong `pattern_match` → append to Detected Patterns as `suggested` (observations: 1). Patterns only promote to `active` via Step 9c.5 user confirmation.
+4. Store `content_augmentations` in the lesson's session state for the pattern's Active Tailoring block (applied when the user confirms activation in 9c.5).
+
+**Failure modes:**
+
+- LLM call errors → skip silently; emit warning `⚠ Drift analysis unavailable this session — lesson result recorded, pattern analysis skipped.` The score still writes to STATE.md/HISTORY.md as usual.
+- `output_type` validation fails (rare with framework enforcement) → same fallback.
+
+**BEHAVIOR.md / profile.md opt-out:** `teach_drift_analyzer: always | only-partial | never` (default: `only-partial`).
+- `always` = run even on 2/2 (useful for the first few lessons to establish a baseline)
+- `only-partial` = run on <2/2 only (default; where the signal lives)
+- `never` = skip entirely; don't track patterns
+
+#### Step 9c.5 — Tailoring review (user-facing prompt)
+
+Decides when to surface a review prompt to the user about active or suggested tailorings. Two triggers:
+
+**Trigger 1 — Cadence (every 3 verified lessons post-activation):**
+
+Maintain a counter in `~/.claude/gabe-lens-learning.md` front-section tracking lessons-since-last-review. When counter reaches 3 AND at least one pattern is `active`:
+
+```
+Tailoring review — you've completed 3 lessons since activating P1 "Distinction conflation."
+
+Recent lessons:
+  ✓ arch circuit-breaker     — Q2 (2/2) ← no miss on distinction
+  ✓ topic T8                 — Q2 (2/2) ← no miss on distinction
+  ⚠ arch idempotency-keys    — Q2 (1/2) ← partial miss on distinction
+
+The tailoring appears to be helping. How do you want to proceed?
+
+  [keep]    Continue with current tailoring (emphasis + Q2 constraints)
+  [reduce]  Keep emphasis, drop Q2 constraints — test internalization
+  [lift]    Lift tailoring entirely; see if the base style lands now
+  [adjust]  Change which adaptations apply (opens sub-prompt)
+  [skip]    Don't prompt; remind me in 3 more lessons
+```
+
+**Trigger 2 — Threshold (on 3rd observation of a suggested pattern):**
+
+Fires immediately after Step 9c.4 writes the 3rd observation of a `suggested` pattern:
+
+```
+Pattern detected — P2 "Analogy over-reliance" (observations: 3, confidence: medium)
+
+Signal: when Picture-it is vivid, you sometimes anchor the answer to the
+analogy and miss the underlying force. 3 observations across 2 projects.
+
+Try tailoring?
+
+  [y]       Activate pattern P2. Adaptations: add "analogy-limit call-out"
+            in Picture-it; add distinction bullet in When-NOT
+  [defer]   Keep observing (won't prompt again for this pattern until 5th observation)
+  [never]   Abandon this pattern; don't apply it
+```
+
+**Write-back based on user choice:**
+
+- `[keep]`, `[reduce]`, `[lift]`, `[adjust]` → update Active Tailoring block; append to Tailoring History
+- `[y]` on threshold prompt → add pattern to Active Tailoring; append TAILORING-ON event
+- `[defer]`, `[never]` → update pattern status; append history event
+
+**BEHAVIOR.md opt-out:** `teach_tailoring_review: prompt | silent | never` (default: `prompt`).
+
+**Render augmentation (D4 = A + B + D):**
+
+When any pattern is `active` in `~/.claude/gabe-lens-learning.md`, Step 9c render applies these levers BEFORE final output:
+
+- **A — Emphasis:** sections named in the pattern's Active-Tailoring block are rendered with a `⚠ Focus here` marker at the start. Lightweight, no content changes.
+- **B — Content augmentation:** inline additions per the pattern's `content_augmentations` cache. Capped at 2 augmentations per section to prevent bloat. Marked with `[tailored]` so the reader can see where augmentation applied.
+- **D — Q1/Q2 generation constraints:** the question-generation LLM call (Step 9c) gets an extra system prompt line: `"Avoid conflation-prone phrasings: <list from pattern's content_augmentations>"`. Questions become more discriminating on exactly the weakness the user is working through.
+
+**Active tailoring is visible in the Context footer:**
+
+```
+Context: foundational · agent+web · prereqs: none · related: sse-streaming-progress
+Tailoring active: P1 (distinction conflation) — emphasis + Q2 constraints
+```
+
+This makes the adaptation transparent — the user always knows when the lesson has been tailored.
+
 #### Step 9d — Verify (`arch verify <concept-id>`)
 
 The shortcut for humans who already know a concept deeply. Renders a one-line header followed by the Universal Action Menu — no asymmetric verb set.
@@ -2074,6 +2238,81 @@ Tour is read-only. Appends one line to the Sessions log on completion:
 ```
 
 **Step 11e — No active plan needed.** Tour runs on the project's static structure (wells + paths + decisions). A newcomer to the repo runs `/gabe-teach tour` as their first command and gets oriented.
+
+---
+
+### Step 12: Learning mode (`learning`) — pattern + tailoring admin
+
+Admin surface for `~/.claude/gabe-lens-learning.md`. Read-mostly; write paths go through explicit subcommand syntax so users don't accidentally clobber accumulated pattern data.
+
+**Step 12a — Bare `/gabe-teach learning`:**
+
+Lazy-bootstrap the learning file if missing (copy `~/.claude/templates/gabe/gabe-lens-learning.md` to `~/.claude/gabe-lens-learning.md`). Then render:
+
+```
+GABE LENS LEARNING — cross-project teaching adaptation
+
+Miss log:       [N] entries across [M] projects, [K] lessons
+Last lesson:    2026-04-20 — ai-app — arch:async-background-processing (1/2)
+
+Detected patterns:
+  P1  Distinction conflation           active       3 obs · 1 project   since 2026-04-21
+  P2  Analogy over-reliance (sugg.)    suggested    2 obs · 1 project   pending activation
+  (No abandoned or resolved patterns.)
+
+Active tailoring:
+  P1 — emphasis + Q2 constraints  (next review: after 2 more verified lessons)
+
+Next review: 2 more verified lessons, OR next suggested pattern hits 3 observations.
+
+Subcommands:
+  /gabe-teach learning pattern P1   Inspect a specific pattern (observations, adaptations, history)
+  /gabe-teach learning review       Force the tailoring-review prompt now
+  /gabe-teach learning reset        Clear all active tailoring (patterns + miss log retained for history)
+  /gabe-teach learning wipe         Delete the learning file entirely (irreversible; prompts for confirmation)
+```
+
+**Step 12b — `/gabe-teach learning pattern <id>`:**
+
+Renders the pattern's observations table, current adaptations, tailoring history, and a suggested action based on recent lesson performance:
+
+```
+P1 — Distinction conflation (active since 2026-04-21, confidence: medium)
+
+Signal: User scores 1/2 on questions requiring distinction between related-but-
+distinct concepts. Q1 lands; Q2 (inversion) catches.
+
+Observations:
+  2026-04-17  ai-app   T1 Q2                       dict vs list
+  2026-04-20  ai-app   arch async-background-processing Q2  persistence vs delivery
+  2026-04-24  ai-app   arch idempotency-keys Q2     key scope vs TTL
+
+Adaptations currently applied:
+  • Emphasis (A) — bold weak sections
+  • Q2 generation constraints (D) — force distinction between flagged concepts
+  • Content augmentation (B) — deferred (user said "skip for now")
+
+Tailoring history:
+  2026-04-21  TAILORING-ON   user chose A + D
+  2026-05-02  (next-review)
+
+Suggested action (based on recent lessons):
+  Recent 3 lessons: 2/3 Q2 clean. Pattern may be resolving.
+  → Consider `/gabe-teach learning pattern P1 reduce` to drop Q2 constraints
+    and test internalization.
+```
+
+**Step 12c — `/gabe-teach learning review`:** triggers Step 9c.5's review prompt immediately (same UI, without waiting for the cadence counter).
+
+**Step 12d — `/gabe-teach learning reset`:** prompts for confirmation, then:
+1. Appends a `TAILORING-RESET` event to Tailoring History with timestamp + reason (prompted).
+2. Moves all Active Tailoring entries to abandoned status in Detected Patterns.
+3. Clears the Active Tailoring block.
+4. Miss Log and Detected Patterns are preserved — this is a "stop tailoring", not a "forget everything".
+
+**Step 12e — `/gabe-teach learning wipe`:** destructive. Two-prompt confirmation (first `[y/n]`, then type `wipe learning` to confirm). Deletes `~/.claude/gabe-lens-learning.md` entirely. Use when a fresh baseline is needed (e.g., major cognitive-suit change).
+
+**Step 12f — Scaffolding:** if `~/.claude/gabe-lens-learning.md` doesn't exist when Step 9c.4 first fires, create it from template silently (no prompt — same pattern as gabe-arch STATE.md / HISTORY.md auto-create).
 
 ---
 
