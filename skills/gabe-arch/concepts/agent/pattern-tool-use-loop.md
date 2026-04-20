@@ -24,13 +24,13 @@ A detective handed a case file and full access to the records room. They read, h
 ## How it maps
 
 ```
-The case assignment        →  the system prompt (goal + stopping criteria)
-The records room           →  the vetted tool set the agent can call
-Reading a record           →  a tool call + result observation
-Forming a hypothesis       →  the model's reasoning step between tool calls
-"Do I have enough?"        →  explicit evidence-budget check in the loop
-The shift ending           →  the hard iteration cap (max_iter)
-Filing the final report    →  the structured output when stop condition trips
+the case assignment       →  system prompt (goal + stopping criteria)
+the records room          →  the vetted tool set the agent can call
+reading a record          →  tool call + result observation
+forming a hypothesis      →  model reasoning step between tool calls
+"do I have enough?"       →  explicit evidence-budget check in the loop
+the shift ending          →  hard iteration cap (max_iter)
+filing the final report   →  structured output emitted when stop condition trips
 ```
 
 ## Primary force

@@ -24,12 +24,12 @@ A bouncer at a club door checking IDs and refusing anyone with obvious weapons b
 ## How it maps
 
 ```
-The bouncer                →  the pre-agent guardrail function
-The ID / pat-down checks   →  regex patterns for known injection payloads
-The club interior          →  the LLM call downstream of the guardrail
-"No entry, you matched X"  →  structured rejection with matched_patterns array
-The bouncer's incident log →  the observability metric (which patterns fired)
-New weapons memo           →  versioned pattern set updated as attacks evolve
+the bouncer                →  pre-agent guardrail function (pre_validate)
+the ID / pat-down checks   →  regex patterns for known injection payloads
+the club interior          →  the LLM call downstream of the guardrail
+"no entry, you matched X"  →  structured rejection with matched_patterns array
+the bouncer's incident log →  observability metric emitting which patterns fired
+the new-weapons memo       →  versioned pattern set updated as attacks evolve
 ```
 
 ## Primary force

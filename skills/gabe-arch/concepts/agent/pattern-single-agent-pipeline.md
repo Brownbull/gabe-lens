@@ -24,12 +24,12 @@ An assembly line with one skilled worker in the middle. Conveyor belts handle th
 ## How it maps
 
 ```
-The conveyor in              →  input validation + guardrails (deterministic)
-The skilled worker           →  the single LLM call with a structured output type
-The conveyor out             →  notification / side-effect / response shaping
-The foreman's checklist      →  the fixed flow — no branching on model whim
-The one worker, not ten      →  one non-deterministic stage, easy to debug
-The assembly-line log        →  structured trace per stage, per request
+the conveyor in            →  input validation + guardrails (deterministic)
+the skilled worker         →  single LLM call with a structured output_type
+the conveyor out           →  notification / side-effect / response shaping
+the foreman's checklist    →  fixed flow — no branching on model whim
+the one worker, not ten    →  one non-deterministic stage, easy to debug
+the assembly-line log      →  structured trace per stage, per request
 ```
 
 ## Primary force

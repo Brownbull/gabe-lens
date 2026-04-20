@@ -24,13 +24,13 @@ A polite guest at a closed door. Knock once, wait a beat, knock again a little l
 ## How it maps
 
 ```
-The closed door           →  the failing downstream (timeout, 503, rate limit)
-Knocking                  →  a retry attempt
-Waiting longer each time  →  exponential delay: 1s, 2s, 4s, 8s
-Not all guests knock at   →  jitter (±25% random) spreads the retry herd
-  the same second
-Giving up after N knocks  →  bounded attempts; don't retry forever
-Leaving a note            →  surface the failure to the caller / fallback path
+the closed door           →  the failing downstream (timeout, 503, rate limit)
+each knock                →  a retry attempt
+longer waits between      →  exponential delay: 1s, 2s, 4s, 8s
+  each knock
+guests arrive out of sync →  jitter (±25% random) spreads the retry herd
+giving up after N knocks  →  bounded attempts; don't retry forever
+leaving a note behind     →  surface the failure to caller / fallback path
 ```
 
 ## Primary force

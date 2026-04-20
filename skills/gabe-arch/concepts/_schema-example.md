@@ -39,18 +39,20 @@ Bad: "Like an async queue in a distributed system." (Same abstraction layer as t
 
 Arrow-lines showing how each analogy piece corresponds to a code/system piece. 3-6 mappings. This is the load-bearing section — where gabe-lens earns its keep. Without this, the analogy is decoration.
 
-Format: `<analogy piece>  →  <code/system piece>` (two spaces, arrow, two spaces).
+**Direction: `<analogy piece>  →  <code/system piece>`** — familiar-first (left), technical (right). Matches the pedagogical flow: the reader already understands the analogy image, so start there and map into code.
+
+Format: two spaces, arrow, two spaces.
 
 Good:
 ```
-Your request       →  the jacket
-The ticket ID      →  the claim check you walk away with
-The worker pool    →  the attendant
-HTTP 202           →  "got it, here's your ticket, goodbye"
-SSE or polling     →  getting paged that your coat is ready
+the jacket                  →  your request (HTTP payload)
+the claim check             →  ticket_id returned in 202 response
+the attendant               →  worker pool / BackgroundTask handler
+"got it, here's your ticket" →  HTTP 202 Accepted response
+getting paged               →  SSE event or status endpoint polling
 ```
 
-Bad: leaving the mapping implicit, or using `→` without making both sides concrete.
+Bad: leaving the mapping implicit, or using `→` without making both sides concrete. Also wrong direction (code → analogy) — the reader's working model starts with the picture.
 
 ## Primary force
 

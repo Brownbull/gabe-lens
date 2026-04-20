@@ -24,12 +24,12 @@ A dashcam in a car. You don't watch the footage daily, but the one time somethin
 ## How it maps
 
 ```
-The dashcam footage    →  the named trace / span tree (Langfuse, LangSmith)
-Each captured frame    →  a span for one model call or tool invocation
-The odometer reading   →  the metric (cost_per_run, latency_p95, token_usage)
-Time-stamped playback  →  replaying a run to see prompt, output, and cost at each step
-Crash review           →  post-incident drill-down into the run that misbehaved
-The crash detector     →  alerts on metric thresholds (cost regression, p95 spike)
+the dashcam footage       →  named trace / span tree (Langfuse, LangSmith)
+each captured frame       →  one span per model call or tool invocation
+the odometer reading      →  named metric (cost_per_run, latency_p95, token_usage)
+time-stamped playback     →  run replay showing prompt, output, cost per step
+the crash review          →  post-incident drill-down on the misbehaving run
+the crash detector        →  alert rules on metric thresholds (cost regression, p95 spike)
 ```
 
 ## Primary force

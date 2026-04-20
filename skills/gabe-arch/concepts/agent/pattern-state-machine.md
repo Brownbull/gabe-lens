@@ -24,13 +24,13 @@ A manufacturing line with inspection checkpoints. The product stops at each stat
 ## How it maps
 
 ```
-Each inspection station    →  a named node in the graph
-The stamp on the product   →  the checkpoint write (durable state transition)
-The conveyor routing       →  edges (conditional or straight-through)
-The emergency pause button →  human-in-the-loop interrupt at a node
-Resuming after power-out   →  restart from last checkpoint, not from scratch
-The station manifest       →  the audit trail of which node produced what
-The spec sheet             →  the StateGraph definition (typed, inspectable)
+each inspection station     →  a named node in the graph
+the stamp on the product    →  checkpoint write (durable state transition)
+the conveyor routing        →  edges (conditional or straight-through)
+the emergency pause button  →  human-in-the-loop interrupt at a node
+resuming after power-out    →  restart from last checkpoint, not from scratch
+the station manifest        →  audit trail of which node produced what
+the spec sheet              →  StateGraph definition (typed, inspectable)
 ```
 
 ## Primary force

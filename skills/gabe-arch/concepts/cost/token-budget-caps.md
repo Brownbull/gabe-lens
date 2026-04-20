@@ -24,11 +24,11 @@ A taxi meter with a hard stop at $50. The driver pulls over when the meter hits 
 ## How it maps
 
 ```
-The meter                →  the running token counter during generation
-The $50 ceiling          →  the max_tokens value on the request
-Driver pulling over      →  provider truncating output at the cap
-Different fares per ride →  different caps per task (20 for classify, 1000 for report)
-You walking the block    →  the caller handling a truncated response gracefully
+the meter                    →  running token counter during generation
+the $50 ceiling              →  max_tokens value on the outbound request
+driver pulling over          →  provider truncating output at the cap
+different fares per ride     →  per-task caps (20 for classify, 1000 for report)
+you walking the block        →  caller handling a truncated response gracefully
 ```
 
 ## Primary force

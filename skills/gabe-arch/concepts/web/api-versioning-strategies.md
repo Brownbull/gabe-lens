@@ -24,14 +24,14 @@ A train station with two platforms running different timetables. New trains leav
 ## How it maps
 
 ```
-The station                    →  your API surface
-Platform 1 (old timetable)     →  v1 contract — frozen, still serving old clients
-Platform 2 (new timetable)     →  v2 contract — breaking changes live here
-Platform number on the board   →  version selector: URL path, header, or query param
-Timetable posted weeks ahead   →  deprecation headers / dates announced to clients
-Last old train leaves          →  v1 sunset: cutoff date after which it stops serving
-Conductor checking tickets     →  version routing: request → correct handler
-Shared track segments          →  shared internal code; versions diverge at the edge
+the station                    →  your public API surface
+platform 1 (old timetable)     →  v1 contract — frozen, still serving old clients
+platform 2 (new timetable)     →  v2 contract — breaking changes live here
+platform number on the board   →  version selector: URL path, header, or query param
+timetable posted weeks ahead   →  deprecation headers / dates announced to clients
+last old train leaves          →  v1 sunset: cutoff after which it stops serving
+conductor checking tickets     →  version routing: request → correct handler
+shared track segments          →  shared internal code; versions diverge at the edge
 ```
 
 ## Primary force

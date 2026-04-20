@@ -24,13 +24,13 @@ A concert ticket with a serial number. Scan it once — doors open. Scan the sam
 ## How it maps
 
 ```
-Unique serial on ticket   →  client-generated UUID (the idempotency key)
-First scan at the door    →  first request: server processes, stores {key → response}
-Scanner's memory          →  server-side key store with TTL (time-to-live)
-Repeat scan → beep red    →  retry arrives: server returns the stored response
-Ticket stub kept on file  →  response cached for the retention window
-Different concert, new    →  key is scoped per-user or per-endpoint, not global
-  serial
+unique serial on ticket    →  client-generated UUID (the Idempotency-Key header)
+first scan at the door     →  first request: server processes, stores {key → response}
+scanner's memory           →  server-side key store with TTL (time-to-live)
+repeat scan beeps red      →  retry arrives: server returns the stored response
+ticket stub kept on file   →  response cached for the retention window
+different concert needs    →  key scoped per-user or per-endpoint, not global —
+  a different serial         prevents collisions between unrelated operations
 ```
 
 ## Primary force

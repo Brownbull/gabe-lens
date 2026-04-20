@@ -24,15 +24,15 @@ A drive-through window versus your regular barber. Every car at the window gets 
 ## How it maps
 
 ```
-Drive-through window           →  stateless HTTP instance
-Any staffer can take the       →  load balancer routes freely across instances
+drive-through window           →  stateless HTTP instance
+any staffer can take the       →  load balancer routes freely across instances
   order
-"May I take your order?"       →  request carries everything the handler needs
-Order ticket stuck to cup      →  signed token / session ID the client presents
-Shared kitchen and POS         →  external state store: Redis, DB, JWT
-Your regular barber            →  stateful instance holding in-memory session
-Can't swap barbers mid-cut     →  sticky sessions required; loses the routing freedom
-Cloning the barber             →  state sync / replication — expensive and fragile
+"may I take your order?"       →  request carries everything the handler needs
+order ticket stuck to the cup  →  signed token / session ID the client presents
+shared kitchen and POS         →  external state store: Redis, DB, JWT
+your regular barber            →  stateful instance holding in-memory session
+can't swap barbers mid-cut     →  sticky sessions required; loses routing freedom
+cloning the barber             →  state sync / replication — expensive and fragile
 ```
 
 ## Primary force

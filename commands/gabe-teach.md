@@ -711,10 +711,10 @@ Picture it:
   just "we turned someone away."
 
 How the picture maps to the code:
-  security checkpoint          →  the guardrail middleware
-  confiscated weapon           →  a regex pattern name (e.g., "instruction_override")
-  log entry                    →  matched_patterns list in the response
-  turned someone away (count)  →  safe: false boolean (what we had before)
+  the security checkpoint      →  the guardrail middleware
+  a confiscated weapon         →  a regex pattern name (e.g., "instruction_override")
+  the log entry                →  matched_patterns list in the response
+  "turned someone away"        →  safe: false boolean (what we had before)
   weapon inventory over time   →  ops dashboard showing pattern frequencies
 
 In your codebase:
@@ -1412,6 +1412,78 @@ Render through the unified 7-section lesson template (same as Step 4d), with the
 - If the call fails: fall back to two canned questions pulled deterministically from the first two `## When NOT to reach for it` bullets (inverted: "If you applied this pattern to [anti-pattern case], what specific problem from [Primary force] re-emerges and why?")
 
 After Q1/Q2, classify response exactly as Step 4d does: `verified` (score 2/2 or 1/2) / `pending` / `skipped` / `already-known` (sanity-check). The classification writes to STATE.md and HISTORY.md (see Step 9e). On `verified` or `already-known` (with a `.kdbp/` project present), Steps 9c.1, 9c.2, AND 9c.3 run in that order to persist the learning into project docs and (if gaps were detected) offer remediation actions.
+
+**Step 9c.0 — Auto-suggest tagging (pre-render heuristic)**
+
+Runs BEFORE the render sections above when: `.kdbp/` is present AND the concept has zero tagged topics in KNOWLEDGE.md's `ArchConcepts` column. Solves the chicken-and-egg problem where the first teach of any concept in a project always misses the code-anchor block because nobody has manually tagged yet.
+
+**Heuristic match (deterministic, zero-LLM):**
+
+Score each topic in KNOWLEDGE.md against the concept's `## Evidence a topic touches this` section (every concept file carries this section — it's the tagging hook authored specifically for this flow).
+
+For each topic row, compute `match_score`:
+- +2 for each Evidence `Keyword` that appears in the topic's Title or Source columns (case-insensitive substring)
+- +2 for each Evidence `Files` glob that matches any file in the topic's candidate file list (from Step 4b record)
+- +1 for each Evidence `Commit verb` that appears in the topic's commit subjects
+
+**Strong match:** `match_score ≥ 3`. Typically fires when a topic has both keyword + file match (e.g., T2 "Why multipart + 202 + BackgroundTask" matches async-background-processing's keywords "202 Accepted, BackgroundTask" AND files `**/api/*.py`).
+
+**If at least one strong match is found, prompt the user:**
+
+```
+No topics tagged with async-background-processing yet — but this project looks like a match:
+
+  • T2 "Why multipart + 202 Accepted + BackgroundTask" (verified) — G3 API Layer
+    Match: keywords "202 Accepted", "BackgroundTask" ✓ · files app/api/*.py ✓
+  • T7 "Why uploads/ lives at project root" (pending) — G3 API Layer
+    Match: files app/api/*.py ✓  (weaker)
+
+Tag these so the lesson can anchor in your code?
+
+  [y]       Tag T2 only (strongest match)
+  [all]     Tag all proposed matches (T2, T7)
+  [manual]  I'll edit KNOWLEDGE.md later — render without code anchoring
+  [never]   Don't auto-suggest tags for this project
+```
+
+**Action handlers:**
+
+- `[y]` → update T2's ArchConcepts column (append comma-separated if existing). One-line confirmation: `✅ Tagged T2 with async-background-processing. Proceeding with full lesson.`
+- `[all]` → update all proposed matches' ArchConcepts columns. Same confirmation format.
+- `[manual]` → proceed to render with empty ArchConcepts; user gets the Where-this-lives empty-state message as before.
+- `[never]` → write BEHAVIOR.md key `teach_arch_auto_suggest_tag: never`; proceed like `[manual]`.
+
+**BEHAVIOR.md key:** `teach_arch_auto_suggest_tag: prompt | accept | never` (default: `prompt`).
+
+- `accept` = silently tag all strong matches; one-line summary only
+- `prompt` = ask the user (default — preserves agency)
+- `never` = skip Step 9c.0 entirely
+
+**After tagging** (whether via `[y]`, `[all]`, or `accept`), re-read KNOWLEDGE.md so the downstream "In your codebase" + "Gaps vs. the mapping" sections use the just-written tags. No re-run of Step 9c.0 — one pass per lesson.
+
+**Edge cases:**
+
+- No strong matches found → skip the prompt entirely; render with empty ArchConcepts and the Where-this-lives hint.
+- User has `teach_arch_auto_suggest_tag: never` → skip even when strong matches exist.
+- Concept has already-tagged topics (score ≥ 1 topic matched) → skip Step 9c.0; the render will use existing tags.
+
+**Rendering rules (apply to all sections above — lesson body + Your turn + Q1/Q2):**
+
+1. **Acronym expansion on first use.** In the render output, the first mention of any acronym (LLM, SSE, OCR, API, HTTP, DB, etc.) in a given lesson must be followed by the expansion in parentheses: `LLM (Large Language Model)`. Subsequent mentions use the bare acronym. Applies across all rendered sections including Q1/Q2. Protocol names that are proper nouns (FastAPI, PostgreSQL, GitHub) are exempt — they're product names, not acronyms.
+
+2. **T-code / G-code naming on first use.** The first mention of any project-specific code reference (T[N] for topic, G[N] for well, P[N] for pending, D[N] for decision) in a given lesson must include the target's Title field in quotes: `T2 "Why multipart + 202 + BackgroundTask"`. Subsequent mentions use the bare code. Applies to lesson body, Your turn section, Q1/Q2, and footer.
+
+3. **File path references.** When code or doc references appear inline in lesson text (e.g., in Q1/Q2 or Where-this-lives), use backtick-quoted relative paths anchored at project root: `app/api/main.py`, `docs/wells/3-api-layer.md`. Full paths only for system-global references (e.g., `~/.claude/skills/gabe-arch/...`).
+
+**Render `## Deeper reading` from concept file** — added to Your turn section, between Signal and Q1/Q2:
+
+```
+More depth (external docs):
+  → <deeper-reading-entry-1>
+  → <deeper-reading-entry-2>
+```
+
+Sourced verbatim from the concept file's `## Deeper reading` section. Render only if that section is non-empty AND at least one entry is a concrete doc path / URL (ignore bullets that are purely descriptive with no link target). Cap at 3 entries.
 
 **In-your-codebase construction** (deterministic, renders in lesson body between "How it maps" and "Primary force"):
 

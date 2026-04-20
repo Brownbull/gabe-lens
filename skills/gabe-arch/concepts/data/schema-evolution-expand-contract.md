@@ -24,12 +24,12 @@ Widening a highway without closing it. You build the new lanes beside the existi
 ## How it maps
 
 ```
-Old lanes still open         →  old column still readable by deployed code
-New lanes built beside       →  Expand phase: add new column, write to both
-Signs routing traffic over   →  Migrate phase: backfill + flip reads to new column
-Old lanes coned off          →  Contract phase: drop the old column
-Traffic never stops          →  zero-downtime — every deploy is compatible with the last
-Cones can be pulled back     →  each step reversible until contract lands
+old lanes still open         →  old column still readable by deployed code
+new lanes built beside       →  Expand: add new column, dual-write both shapes
+signs routing traffic over   →  Migrate: backfill + flip reads to new column
+old lanes coned off          →  Contract: drop the old column
+traffic never stops          →  zero-downtime — each deploy compatible with the last
+cones can be pulled back     →  each step reversible until Contract lands
 ```
 
 ## Primary force

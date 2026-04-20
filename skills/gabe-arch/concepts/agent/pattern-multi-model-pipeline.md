@@ -24,13 +24,13 @@ A hospital intake. A receptionist checks you in, a triage nurse scores urgency, 
 ## How it maps
 
 ```
-The receptionist            →  a rule-based or keyword filter (near-zero cost)
-The triage nurse            →  a cheap classifier model (Haiku, small LLM)
-The specialist              →  the expensive reasoning model (Sonnet, Opus)
-The intake form             →  structured schema passed between stages
-The triage decision         →  routing label that selects next stage
-The billing department      →  per-stage cost metric, not per-request
-Escalation to the specialist →  only complex cases invoke the expensive model
+the receptionist              →  rule-based or keyword filter (near-zero cost)
+the triage nurse              →  cheap classifier model (Haiku, small LLM)
+the specialist                →  expensive reasoning model (Sonnet, Opus)
+the intake form               →  structured schema passed between stages
+the triage decision           →  routing label selecting the next stage
+the billing department        →  per-stage cost metric (not per-request)
+escalation to the specialist  →  only complex cases invoke the expensive model
 ```
 
 ## Primary force

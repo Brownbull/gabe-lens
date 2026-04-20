@@ -24,15 +24,15 @@ A maître d' at a busy restaurant. Guests arrive at one door. The maître d' gla
 ## How it maps
 
 ```
-One restaurant door           →  the public VIP (virtual IP) / DNS name
-The maître d'                 →  the load balancer process (nginx, HAProxy, ALB)
-Tables with open capacity     →  healthy backend instances
-Glancing around the room      →  active health checks against each backend
-Seating strategy              →  algorithm: round-robin, least-connections, hash
-Reading the reservation       →  L7 (layer 7) routing on path/header/cookie
-  card to pick a table
-Just pointing to any table    →  L4 (layer 4) routing on TCP — fast, dumb, agnostic
-Crossing tables off           →  dropping an unhealthy backend from the pool
+one restaurant door           →  the public VIP (virtual IP) / DNS name
+the maître d'                 →  the load balancer process (nginx, HAProxy, ALB)
+tables with open capacity     →  healthy backend instances in the pool
+glancing around the room      →  active health checks against each backend
+seating strategy              →  algorithm: round-robin, least-connections, hash
+reading the reservation card  →  L7 routing on HTTP path / header / cookie
+  to pick a specific table
+pointing to any open table    →  L4 routing on TCP — fast, dumb, protocol-agnostic
+crossing a table off          →  dropping an unhealthy backend from the pool
 ```
 
 ## Primary force

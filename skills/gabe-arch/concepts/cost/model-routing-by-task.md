@@ -24,12 +24,12 @@ A restaurant kitchen. The salad station doesn't run the grill, and the grill doe
 ## How it maps
 
 ```
-Incoming order          →  incoming request
-Expediter reads ticket  →  router inspects task type
-Salad station           →  Haiku (cheap, fast, good at simple shape)
-Grill station           →  Sonnet (mid-cost, handles reasoning)
-Pastry station          →  Opus (expensive, reserved for hard logic)
-Customer sees the dish  →  user sees the answer, not the model name
+incoming order               →  incoming request at the API gateway
+expediter reads ticket       →  router inspects task type / metadata
+salad station                →  Haiku (cheap, fast, simple shape)
+grill station                →  Sonnet (mid-cost, handles reasoning)
+pastry station               →  Opus (expensive, reserved for hard logic)
+customer sees the dish       →  user sees the answer, never the model name
 ```
 
 ## Primary force

@@ -24,13 +24,13 @@ A nightclub. The bouncer at the door checks your ID and decides you're really Al
 ## How it maps
 
 ```
-Bouncer at the door     →  authn middleware (OAuth, JWT, session cookie)
-Your ID / passport      →  the credential being presented
-"Yes, you're Alex"      →  the authenticated identity attached to the request
-VIP rope inside         →  authz check at each protected resource
-"Alex is on the list"   →  the policy/role/ACL lookup for this specific action
-Bouncer swap at 10pm    →  swapping SSO provider without touching permissions
-Rope moved to new room  →  changing permission rules without re-authenticating users
+bouncer at the door          →  authn middleware (OAuth, JWT, session cookie)
+your ID / passport           →  credential presented by the caller
+"yes, you're Alex"           →  authenticated identity attached to the request
+VIP rope inside              →  authz check at each protected resource
+"Alex is on the list"        →  policy / role / ACL lookup for this action
+bouncer swap at 10pm         →  swap SSO provider without touching permissions
+rope moved to new room       →  change permission rules without re-authenticating
 ```
 
 ## Primary force

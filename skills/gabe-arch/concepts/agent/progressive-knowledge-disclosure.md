@@ -24,13 +24,13 @@ A library card catalog. Every book's title and one-line description is on a card
 ## How it maps
 
 ```
-The card catalog           →  the skill / tool listing (names + summaries)
-Each card                  →  one capability announcement (cheap, cache-friendly)
-The stacks on the shelf    →  full tool schemas, skill bodies, doc pages
-Pulling a book             →  a lookup call (ToolSearch, resolve-skill, fetch-doc)
-Working memory             →  the context window — only the catalog lives here
-The librarian's sub-agent  →  memory side-query (facts fetched out of band)
-The acquisitions budget    →  fixed upfront cost for the catalog, variable for pulls
+the card catalog           →  skill / tool listing (names + summaries)
+each card                  →  one capability announcement (cheap, cache-friendly)
+the stacks on the shelf    →  full tool schemas, skill bodies, doc pages
+pulling a book             →  lookup call (ToolSearch, resolve-skill, fetch-doc)
+working memory             →  the context window — only the catalog lives here
+the librarian's sub-agent  →  memory side-query (facts fetched out of band)
+the acquisitions budget    →  fixed upfront cost for catalog, variable for pulls
 ```
 
 ## Primary force

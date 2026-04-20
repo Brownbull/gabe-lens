@@ -24,13 +24,13 @@ A bulletin board in a busy lobby. You can tear old notices down the instant news
 ## How it maps
 
 ```
-Tear down on every update    →  write-through — update cache + DB atomically
-Refresh whole board nightly  →  TTL — bounded staleness, simple, no eventing
-"Expires 5pm" stamp          →  per-key TTL with lazy expiry on read
-Wire-report alarm bell       →  event-driven invalidation (pub/sub on writes)
-Post-it in back, file later  →  write-behind — cache immediately, DB flush async
-Everyone reading at 9am      →  cache stampede when many miss simultaneously
-Pre-posting tomorrow's news  →  cache warming to avoid cold-start latency
+tear down on every update    →  write-through: update cache + DB atomically
+refresh whole board nightly  →  TTL: bounded staleness, simple, no eventing
+"expires 5pm" stamp          →  per-key TTL with lazy expiry on read
+wire-report alarm bell       →  event-driven invalidation (pub/sub on writes)
+post-it in back, file later  →  write-behind: cache now, DB flush async
+everyone reading at 9am      →  cache stampede when many miss simultaneously
+pre-posting tomorrow's news  →  cache warming to avoid cold-start latency
 ```
 
 ## Primary force

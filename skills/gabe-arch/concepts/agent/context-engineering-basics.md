@@ -24,12 +24,12 @@ A surgeon's operating tray. Only the instruments needed for this incision are wi
 ## How it maps
 
 ```
-The operating tray       →  the context window visible to the model
-The instruments on it    →  tokens spent on prompt, tools, history, retrievals
-The cart in the hallway  →  RAG index, memory store, side-queried sub-agent
-Swapping trays per stage →  retrieval/compaction between steps
-The surgeon's focus      →  reasoning quality (degrades as the tray fills)
-The prep nurse           →  the retriever that decides what to put on the tray
+the operating tray         →  context window visible to the model
+the instruments on it      →  tokens spent on prompt, tools, history, retrievals
+the cart in the hallway    →  RAG index / memory store / side-queried sub-agent
+swapping trays per stage   →  retrieval + compaction between steps
+the surgeon's focus        →  reasoning quality (degrades as the tray fills)
+the prep nurse             →  the retriever that decides what goes on the tray
 ```
 
 ## Primary force

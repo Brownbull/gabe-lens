@@ -24,12 +24,12 @@ An ATM that prefers to dispense twenties, falls back to tens, then fives, and if
 ## How it maps
 
 ```
-Dispense twenties          →  structured output from the primary model
-Fall back to tens          →  retry with a stricter schema prompt
-Fall back to fives         →  extract with regex / cheap parser
-Print a location receipt   →  return a named safe-default response
-The ATM never locks up     →  the caller always receives the expected shape
-The transaction ledger     →  structured log of which fallback step fired
+dispensing twenties        →  structured output from the primary model
+falling back to tens       →  retry with a stricter schema prompt
+falling back to fives      →  regex / cheap parser extraction path
+printing a location slip   →  named safe-default response returned to caller
+the ATM never locking up   →  caller always receives the expected response shape
+the transaction ledger     →  structured log naming which fallback step fired
 ```
 
 ## Primary force

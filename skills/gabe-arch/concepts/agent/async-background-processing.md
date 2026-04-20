@@ -25,12 +25,12 @@ A coat-check counter. You hand over your jacket and walk away with a numbered ti
 ## How it maps
 
 ```
-Your request           →  the jacket
-The ticket ID          →  the claim check you walk away with
-The worker pool        →  the attendant
-HTTP 202 Accepted      →  "got it, here's your ticket, goodbye"
-SSE or status polling  →  getting paged that your coat is ready
-Persisted job state    →  the coat-check tag index (so you can find it tomorrow)
+the jacket                    →  your request (HTTP payload)
+the claim check               →  ticket_id returned in 202 response
+the attendant                 →  worker pool / BackgroundTask handler
+"got it, here's your ticket"  →  HTTP 202 Accepted response
+getting paged                 →  SSE event or status endpoint polling
+the coat-check tag index      →  persisted job state (DB row keyed by ticket_id)
 ```
 
 ## Primary force

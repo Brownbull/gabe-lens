@@ -24,17 +24,17 @@ An airport security line: boarding pass check, ID verification, bag scan, walkth
 ## How it maps
 
 ```
-Arriving at the terminal       →  TCP accept + TLS handshake
-Boarding pass scan             →  HTTP parse (method, path, headers)
-Checkpoint line assignment     →  routing (match URL → handler)
-Pre-checkpoint inspectors      →  request-direction middleware (auth, rate-limit,
+arriving at the terminal       →  TCP accept + TLS handshake
+boarding pass scan             →  HTTP parse (method, path, headers)
+checkpoint line assignment     →  routing (match URL → handler)
+pre-checkpoint inspectors      →  request-direction middleware (auth, rate-limit,
                                  logging, body parse)
-Gate agent checking the        →  the handler — your business logic
+gate agent checking the        →  the handler — your business logic
   specific flight
-Post-boarding cleanup          →  response-direction middleware (compression,
+post-boarding cleanup          →  response-direction middleware (compression,
                                  response logging, CORS headers)
-Jet bridge back out            →  response serialization + connection close/keepalive
-Lost bag on conveyor 3         →  the symptom lives in one specific phase — look there
+jet bridge back out            →  response serialization + connection close/keepalive
+lost bag on conveyor 3         →  symptom lives in one specific phase — look there
 ```
 
 ## Primary force

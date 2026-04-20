@@ -24,12 +24,12 @@ Filling out a form with labeled boxes versus being asked "please write your addr
 ## How it maps
 
 ```
-The labeled boxes          →  the typed schema (PydanticAI output_type, JSON mode)
-The form's required fields →  required keys with declared types
-The validation on submit   →  framework-level parse + re-raise on mismatch
-The polite cover letter    →  the system prompt (instruction, not enforcement)
-The clerk rejecting a form →  the caught ValidationError you can branch on
-The resubmit loop          →  output_retries with stricter guidance
+the labeled boxes           →  typed schema (PydanticAI output_type, JSON mode)
+the form's required fields  →  required keys with declared types
+the validation on submit    →  framework-level parse + re-raise on mismatch
+the polite cover letter     →  the system prompt (instruction, not enforcement)
+the clerk rejecting a form  →  caught ValidationError you can branch on
+the resubmit loop           →  output_retries with stricter guidance
 ```
 
 ## Primary force

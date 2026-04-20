@@ -24,13 +24,13 @@ Your house key on a keyring in your pocket versus that same key taped to the fro
 ## How it maps
 
 ```
-House key in pocket       →  secret in process env or secret manager
-Key taped to door         →  credential string checked into source
-The street outside        →  the public internet, plus every fork of your repo
-Every passerby            →  anyone with repo read access, now or ever
-Rekeying the entire lock  →  rotating the credential everywhere it's used
-Keyring away from door    →  .env file gitignored, loaded at process start
-Lockbox at bank           →  secret manager (Vault, AWS Secrets Manager, Doppler)
+house key in pocket          →  secret in process env or secret manager
+key taped to door            →  credential string checked into source
+the street outside           →  public internet + every fork/clone of the repo
+every passerby               →  anyone with repo read access, now or ever
+rekeying the entire lock     →  rotating the credential everywhere it's used
+keyring away from door       →  .env gitignored, loaded at process start
+lockbox at bank              →  secret manager (Vault, AWS SM, Doppler)
 ```
 
 ## Primary force

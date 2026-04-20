@@ -24,12 +24,12 @@ A restaurant at opening time. One question: "is the chef breathing?" If no, call
 ## How it maps
 
 ```
-"Is the chef breathing?"    →  liveness probe (shallow: process is responsive)
-Call 911 if no              →  liveness failure → orchestrator restarts container
-"Kitchen set up yet?"       →  readiness probe (dependencies reachable, warm)
-Don't seat customers yet    →  readiness failure → LB stops sending traffic
-Chef keeps setting up       →  container stays alive; no restart
-Opening-time warmup window  →  startup probe (Kubernetes) — grace period before
+"is the chef breathing?"    →  liveness probe (shallow: process is responsive)
+call 911 if no              →  liveness failure → orchestrator restarts container
+"kitchen set up yet?"       →  readiness probe (dependencies reachable, warm)
+don't seat customers yet    →  readiness failure → LB stops sending traffic
+chef keeps setting up       →  container stays alive; no restart triggered
+opening-time warmup window  →  startupProbe (Kubernetes) — grace period before
                               readiness is enforced aggressively
 ```
 

@@ -24,13 +24,13 @@ A home electrical panel. Current spikes, the breaker trips with a clack, the roo
 ## How it maps
 
 ```
-Current spike             →  rising failure rate on a downstream call
-Breaker trips             →  state goes "open"; calls fail fast
-Dark room                 →  caller short-circuits to a fallback (or fast error)
-Waiting before flipping   →  cooldown timer
-Test-flip the switch      →  "half-open" state: one probe call allowed
-Leaves on → closed        →  success closes the breaker; traffic resumes
-Trips again → back off    →  failure reopens the breaker; longer cooldown
+current spike              →  rising failure rate on a downstream call
+breaker trips with a clack →  state transitions to "open"; calls fail fast
+the dark room              →  caller short-circuits to fallback (or fast error)
+waiting before flipping    →  cooldown timer before probing again
+test-flip the switch       →  "half-open" state: one probe call allowed through
+lights stay on             →  success closes the breaker; normal traffic resumes
+trips again, back off      →  failure reopens breaker; longer cooldown next time
 ```
 
 ## Primary force

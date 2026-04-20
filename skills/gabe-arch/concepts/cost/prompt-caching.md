@@ -24,12 +24,12 @@ A coffee shop that pre-grinds beans once an hour, not once per cup. The grind is
 ## How it maps
 
 ```
-Pre-ground beans in hopper   →  cached prefix sitting in provider memory
-Grinding once per hour       →  one full-price process pass
-Scooping per cup             →  cache hit at ~10% of full price
-The hour the grind stays     →  the cache TTL (Anthropic: 5 minutes)
-Variable order (oat, vanilla) →  the variable suffix appended per call
-Grinder sits cold all night  →  cache miss after TTL expires
+pre-ground beans in hopper   →  cached prefix sitting in provider memory
+grinding once per hour       →  one full-price process pass on cache miss
+scooping per cup             →  cache hit billed at ~10% of full price
+the hour the grind stays     →  the cache TTL (Anthropic: 5 minutes)
+variable order (oat, vanilla) →  variable suffix appended per call
+grinder sits cold all night  →  cache eviction after TTL expires
 ```
 
 ## Primary force

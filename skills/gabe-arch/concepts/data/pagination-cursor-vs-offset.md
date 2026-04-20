@@ -24,12 +24,12 @@ Reading a long book two ways. "Skip to page 500" forces someone to count 500 pag
 ## How it maps
 
 ```
-"Skip to page 500"      →  OFFSET 500 LIMIT N (scan-and-discard)
-"Continue from bookmark" →  WHERE id > last_seen_id LIMIT N (index seek)
-The bookmark itself     →  the opaque cursor token returned to the client
-Page number in TOC      →  raw row offset (couples API to storage layout)
-Book growing overnight  →  new rows inserted while a user paginates
-Bookmark still works    →  cursor unaffected by inserts above/below it
+"skip to page 500"           →  OFFSET 500 LIMIT N (scan-and-discard)
+"continue from bookmark"     →  WHERE id > last_seen_id LIMIT N (index seek)
+the bookmark itself          →  opaque cursor token returned to the client
+page number in TOC           →  raw row offset (couples API to storage layout)
+book growing overnight       →  new rows inserted while a user paginates
+bookmark still works         →  cursor unaffected by inserts above/below it
 ```
 
 ## Primary force

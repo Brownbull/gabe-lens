@@ -24,12 +24,12 @@ Customs at a border. Rigorous inspection at the line — passports checked, bags
 ## How it maps
 
 ```
-The border fence          →  the API handler or deserializer
-Customs officer           →  the schema validator (Pydantic, zod, JSON Schema)
-Passport + forms          →  the request body, headers, query params
-Stamp of approval         →  the typed DTO (Data Transfer Object) handed inward
-Contraband turned away    →  the 400 Bad Request returned on invalid input
-No checks inside country  →  internal modules trust the DTO without re-validating
+the border fence             →  the API handler / deserializer boundary
+customs officer              →  schema validator (Pydantic, zod, JSON Schema)
+passport + forms             →  request body, headers, query params
+stamp of approval            →  typed DTO (Data Transfer Object) handed inward
+contraband turned away       →  400 Bad Request returned on invalid input
+no checks inside country     →  internal modules trust the DTO — no re-validation
 ```
 
 ## Primary force

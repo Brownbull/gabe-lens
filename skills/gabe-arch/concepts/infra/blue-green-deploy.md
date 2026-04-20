@@ -24,14 +24,14 @@ Two dining rooms set for the same party. Blue has guests mid-meal with the old m
 ## How it maps
 
 ```
-Blue dining room              →  current production environment serving traffic
-Green dining room             →  parallel environment running the new version
-Setting green's tables        →  deploy new code to green; wait for readiness
-Tasting before seating        →  smoke tests / synthetic checks on green
-Walking guests across         →  LB traffic switch from blue → green (atomic)
-Guests walk back to blue      →  rollback = flip the LB back; blue was never torn down
-Tearing down blue later       →  decommission old environment after a hold period
-Shared kitchen across rooms   →  shared database — needs expand/contract migrations
+blue dining room              →  current production environment serving traffic
+green dining room             →  parallel environment running the new version
+setting green's tables        →  deploy new code to green; wait for readiness
+tasting before seating guests →  smoke tests / synthetic checks on green
+walking guests across         →  LB traffic switch from blue → green (atomic cutover)
+guests walk back to blue      →  rollback = flip the LB back; blue was never torn down
+tearing down blue later       →  decommission old environment after a hold period
+shared kitchen across rooms   →  shared database — needs expand/contract migrations
 ```
 
 ## Primary force

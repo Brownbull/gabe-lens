@@ -24,13 +24,13 @@ Watching a progress bar fill versus staring at a frozen screen. Same 30-second w
 ## How it maps
 
 ```
-The progress bar filling   →  a stream of named SSE events (Server-Sent Events)
-Each tick of the bar       →  one `event: progress` push ("classifying...", "routing...")
-The cable to the display   →  the long-lived `text/event-stream` HTTP response
-The auto-reconnect wire    →  EventSource reconnect on transient disconnect
-The "still alive" pulse    →  heartbeat events keeping proxies from closing the connection
-The red error light        →  a dedicated `event: error` channel (not mixed with data)
-The bar finishes           →  `event: done` with the final payload
+the progress bar filling   →  stream of named SSE events (Server-Sent Events)
+each tick of the bar       →  one `event: progress` push ("classifying...", "routing...")
+the cable to the display   →  long-lived `text/event-stream` HTTP response
+the auto-reconnect wire    →  EventSource reconnect on transient disconnect
+the "still alive" pulse    →  heartbeat events keeping proxies from closing the connection
+the red error light        →  dedicated `event: error` channel (not mixed with data)
+the bar finishing          →  `event: done` with the final payload
 ```
 
 ## Primary force
