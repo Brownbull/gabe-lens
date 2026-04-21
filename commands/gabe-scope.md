@@ -18,7 +18,7 @@ The backbone authoring command. Produces two linked artifacts for a new project:
 - **Goal-backward success criteria.** Observable user truths, not implementation tasks.
 - **100% coverage invariant.** Every SC covered by ≥1 REQ; every REQ maps to exactly one Phase. Finalize blocks otherwise (with documented `--force` escape).
 
-**This command delivers Steps 0–6.** Step 7 (Requirements → Roadmap) and Step 8 (Finalize) land in the next phase.
+**This command delivers the full 8-step workflow** (Steps 0 through 8 + pre-flight Step 0 + Reference Frame Step 0.5).
 
 ## Procedure
 
@@ -241,9 +241,198 @@ Output: 2–8 NGs, each with `{id: NG-NN, statement, rationale}`. Statement begi
 
 **Write:** §9 table + §10 bullets with `{#constraints}` + `{#architecture-posture}` anchors. Marker `[PENDING APPROVAL — step-6]`.
 
-**Checkpoint 6:** approve → advance `current_step: step-7.1-requirements`, hand off to next phase.
+**Checkpoint 6:** approve → advance `current_step: step-7.1-requirements`.
 
-**End of Phase 4 procedure.** Step 7 (REQs + Roadmap) and Step 8 (Finalize) live in the next phase.
+### Step 7: Requirements → Phase Split → Roadmap (hybrid, per D6)
+
+Step 7 has four sub-steps with two user checkpoints sandwiched. This is the most complex step — the one decomposing success into shippable units.
+
+#### Step 7.1 — Requirements generation
+
+**Model:** Opus. One call.
+
+Invoke `prompts/req-decomposer.md` with `{success_criteria, architecture_posture, constraints, reference_frame}`.
+
+**Output contract:** `{requirements[], coverage_check{scs_covered, scs_uncovered}, notes}`. Each REQ has `{id: REQ-NN, name, description, covers_sc[], acceptance_signal}`.
+
+**Coverage check (deterministic post-LLM):** verify every SC from §7 has ≥1 REQ in `covers_sc`. If `scs_uncovered` is non-empty:
+
+```
+⚠ Coverage incomplete: SCs without REQs: {SC-02, SC-05}
+
+Options:
+  [r] Regenerate — ask Opus to produce REQs covering missing SCs
+  [a] Add REQ manually — enter REQ text + which SCs it covers
+  [f] --force — finalize with gap; records finalize_forced_at in session.json
+  [b] Back — revise SCs instead (returns to Step 5)
+```
+
+**Write:** draft §12 with `{#req-NN}` anchors and coverage matrix table. Marker `[PENDING APPROVAL — step-7.1]`.
+
+**Checkpoint 7.1:** REQ list approved + every SC covered. Session state: `coverage_status.scs_without_reqs: []` required.
+
+#### Step 7.2 — Phase split options (per D5)
+
+Zero LLM. Pure prompt:
+
+```
+How should we split into phases?
+
+  [c] Coarse    (3-5 phases, milestone-sized)
+  [s] Standard  (5-8 phases, sprint-sized)  [default]
+  [f] Fine      (8-12 phases, iteration-sized)
+  [N] Custom    (enter integer N between 2 and 20)
+
+Pick:
+```
+
+Save to `session.json.granularity` (+ `custom_granularity_count` if custom).
+
+#### Step 7.3 — Phase skeleton
+
+**Model:** Opus. Mode: `skeleton`.
+
+Invoke `prompts/phase-skeleton-and-populator.md` with `{mode: skeleton, success_criteria, requirements, granularity, architecture_posture, reference_frame}`.
+
+**Output:** phases array with `{id, name, goal, why}` only. No depends_on / parallel_with / covers_reqs yet.
+
+**Runtime phase-count check** (rubric doesn't catch this — P3.5 finding): verify `len(phases)` matches declared granularity range:
+
+| Granularity | Expected count |
+|---|---|
+| coarse | 3–5 |
+| standard | 5–8 |
+| fine | 8–12 |
+| custom N | exactly N (±1 tolerance) |
+
+Mismatch → announce and offer options:
+
+```
+⚠ Skeleton returned 4 phases; standard granularity expects 5-8.
+
+Options:
+  [r] Regenerate — re-prompt with explicit count hint
+  [a] Accept anyway — proceed with 4 phases
+  [c] Change granularity — back to Step 7.2
+```
+
+**Write:** draft §3 Phase Detail sections of ROADMAP.md with `{#phase-N}` anchors. Each phase section has Name, Goal, Why paragraph. Status `pending`. Depends-on / Parallel-with / Covers REQs fields present but empty `—`. Marker `[PENDING APPROVAL — step-7.3]`.
+
+**Checkpoint 7.3:** user reviews skeleton. Can edit name/goal/why in-file. Can request regen with different granularity. On approve, advance.
+
+#### Step 7.4 — Populate skeleton
+
+**Model:** Opus. Mode: `populate`.
+
+Invoke same prompt with `{mode: populate, skeleton: approved_skeleton, requirements}`.
+
+**Output:** phases now include `depends_on`, `parallel_with`, `covers_reqs` + `coverage_check{reqs_covered, reqs_uncovered, reqs_duplicated}`.
+
+**Coverage check (deterministic):**
+- Every REQ must appear in exactly one phase's `covers_reqs`. Orphans → `reqs_uncovered`. Duplicates → `reqs_duplicated`.
+- If either non-empty → same 4-option prompt as Step 7.1 (r / a / f / b).
+
+**Write:** fill Phase Detail fields + §2 Phase Table at-a-glance + §5 Coverage Matrix. Generate §4 Dependency Graph (Mermaid) deterministically from depends_on + parallel_with columns — no LLM needed:
+
+```mermaid
+graph LR
+  P1[Phase 1: Name] --> P2[Phase 2: Name]
+  P1 --> P3[Phase 3: Name]
+  P2 -.parallel.- P3
+```
+
+Marker `[PENDING APPROVAL — step-7.4]`.
+
+**Checkpoint 7.4:** user reviews populated roadmap. Can move REQs between phases, reorder, adjust dependencies. Coverage check re-runs on every edit (deterministic; fast). Approve advances to Step 8.
+
+### Step 8: Finalize
+
+**Model:** Sonnet for assembly. Deterministic for archival + tombstoning.
+
+**(a) Final assembly.** Invoke `prompts/final-assembler.md` with all approved section drafts + `session_metadata`.
+
+**Output:** `{scope_md, roadmap_md, scope_frontmatter, roadmap_frontmatter, validation}`.
+
+**Validation gate:** the `validation` object must show:
+- `sc_anchors_present: true`
+- `req_anchors_present: true`
+- `phase_anchors_present: true`
+- `coverage_complete: true`
+
+Any false → abort with specific remediation. Also run the `markdown_anchors_resolve` check (same logic as rubric) on `scope_md` to verify every `[link](#x)` has a `{#x}` definition.
+
+**(b) Write finalized files.**
+
+```
+.kdbp/SCOPE.md              # replaces any prior draft
+.kdbp/ROADMAP.md            # replaces any prior draft
+```
+
+Remove ALL `[PENDING APPROVAL — step-N]` markers. Append `init` row to §15 Change Log and §6 Roadmap Change Log with today's date.
+
+Validate emitted SCOPE.md against the template's expected section order via regex check — section numbering 1→15 must appear in order (§0 Reference Frame only if scope-references.yaml is non-empty).
+
+**(c) Archive research.**
+
+```bash
+mkdir -p .kdbp/research/archive/{timestamp}/
+mv .kdbp/research/*.md .kdbp/research/archive/{timestamp}/
+# research/archive/ preserved permanently — regenerated on pivot
+```
+
+**(d) Tombstone session.**
+
+```bash
+mkdir -p .kdbp/archive/tombstones/
+mv .kdbp/scope-session.json .kdbp/archive/tombstones/scope-session-{timestamp}.json
+```
+
+Append tombstone row to `.kdbp/CHANGES.jsonl`:
+
+```jsonl
+{"ts":"2026-04-21T14:32:00Z","event":"scope_init","scope_version":1,"roadmap_version":1,"tombstone":".kdbp/archive/tombstones/scope-session-{ts}.json"}
+```
+
+**(e) Update KNOWLEDGE.md.** Add or update a "Root artifacts" section pointing to SCOPE.md + ROADMAP.md:
+
+```markdown
+## Root artifacts
+
+- [`.kdbp/SCOPE.md`](SCOPE.md) — project premise (stable backbone, changed via `/gabe-scope-change`)
+- [`.kdbp/ROADMAP.md`](ROADMAP.md) — phase plan (updated on any `-change`; read by `/gabe-plan`)
+```
+
+**(f) Git-commit prompt.** Surface suggested commit message:
+
+```
+Suggested git commit:
+
+  feat(scope): initial scope + roadmap for {project name}
+
+  Adds .kdbp/SCOPE.md v1 (premise) and .kdbp/ROADMAP.md v1
+  ({phases_total} phases at {granularity} granularity).
+  Reference Frame: {N} refs declared ({counts by weight}).
+
+Options:
+  [c] Commit now (runs git add + git commit)
+  [s] Show the diff first
+  [n] Skip — I'll commit manually
+```
+
+Do NOT auto-push. Do NOT amend prior commits.
+
+**(g) Announce next step.**
+
+```
+Scope authoring complete.
+
+Next:
+  /gabe-plan 1        — decompose Phase 1 into tasks
+  /gabe-scope-change  — if anything needs adjusting (routes to -addition or -pivot)
+  /gabe-teach scope   — learn the scope you just authored (future phase)
+```
+
+**Checkpoint 8:** SCOPE.md frozen. Only `/gabe-scope-change` can modify it from here.
 
 ---
 
@@ -344,6 +533,6 @@ Surface running total after each checkpoint: "Step 3 complete. Session cost so f
 
 ## Command version
 
-This command: `v1.0-alpha.steps-0-6`. Steps 7–8 land in next phase. Once 7–8 land, version bumps to `v1.0`.
+This command: `v1.0`. Full 8-step workflow implemented.
 
-Session files created under `v1.0-alpha.*` may refuse to resume against future `v1.0` command without `--force-resume` flag.
+Session files created under `v1.0-alpha.*` must be archived before resuming under `v1.0` — sub-step enum changed between alpha and GA. Use `--start-over` if an alpha session is pending.
