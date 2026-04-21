@@ -1,0 +1,86 @@
+---
+name: gabe-scope-change
+description: "Scope-change meta-router. User describes intended change; Opus classifier decides pivot vs addition per 9 pivot-trigger rules, then routes to /gabe-scope-addition or /gabe-scope-pivot with rationale. User can override with --force-addition or --force-pivot. Usage: /gabe-scope-change [--force-addition | --force-pivot] <description>"
+---
+
+# Gabe Scope Change
+
+Single entry point for modifying a finalized SCOPE.md or ROADMAP.md. Classifies the requested change and routes to the right machinery. Never writes directly — routes to `/gabe-scope-addition` (additive) or `/gabe-scope-pivot` (direction shift).
+
+**Why a router and not two commands the user picks from?** Because misclassifying a pivot as an addition corrupts version history. The classifier uses the declared 9 rules + Opus reasoning + rationale, so the user sees *why* it routed each way. User can override with a flag, but the default is classifier-driven to prevent silent scope corruption.
+
+## Procedure
+
+### Step 1: Pre-flight
+
+- If `.kdbp/SCOPE.md` does not exist: exit with "No finalized SCOPE.md. Run `/gabe-scope` first."
+- If `.kdbp/scope-session.json` exists (in-progress scope): exit with "Active scope session in progress. Finish or abort `/gabe-scope` first."
+- Parse `$ARGUMENTS`: extract `--force-addition`, `--force-pivot`, and description text.
+- If no description provided: prompt "What do you want to change? (one paragraph describing the desired change)"
+
+### Step 2: Classify
+
+If `--force-addition` or `--force-pivot` set → skip classification, route directly.
+
+Otherwise invoke `prompts/scope-change-classifier.md` (Opus) with `{current_scope, proposed_change, user_intent}`.
+
+**current_scope** is built by reading SCOPE.md frontmatter + extracting primary_user, success_criteria, non_goals, architecture_posture, reference_frame.
+
+**Output:** `{classification, trigger_rule, rationale, confidence, user_intent_matches_classification, suggested_next_command}`.
+
+### Step 3: Route
+
+Render classification result:
+
+```
+Classification: pivot (trigger: primary_user, confidence: high)
+
+Rationale: Primary User shifts from solo knowledge workers to enterprise teams.
+Downstream collaboration, access controls, and compliance reqs will cascade.
+
+Suggested: /gabe-scope-pivot
+
+Options:
+  [p] Proceed with /gabe-scope-pivot
+  [a] Override → /gabe-scope-addition (records override rationale)
+  [c] Cancel
+```
+
+On `proceed`: exec suggested command with the description as its argument.
+On `override`: prompt for rationale ("why is this not a pivot?"), append rationale + override flag to Change Log, exec the opposite command.
+On `cancel`: exit, no writes.
+
+Low-confidence classifications (`confidence: low`) add a warning: "Classifier confidence low — human review recommended before proceeding."
+
+### Step 4: Hand-off
+
+After routing, control passes to the chosen command. `/gabe-scope-change` exits. The routing decision is recorded in the CHANGES.jsonl audit log regardless of outcome:
+
+```jsonl
+{"ts":"2026-04-21T15:00:00Z","event":"scope_change_classified","classification":"pivot","trigger_rule":"primary_user","confidence":"high","override":false,"routed_to":"/gabe-scope-pivot"}
+```
+
+## Flags
+
+- `--force-addition` — skip classifier, route to addition. Records `override: true` in CHANGES.jsonl.
+- `--force-pivot` — skip classifier, route to pivot. Records `override: true`.
+
+Override without rationale is blocked — classifier skip still requires a one-line reason appended to the Change Log.
+
+## Edge cases
+
+**Classifier returns borderline call (confidence: low).** Warn + proceed with suggested route unless user cancels. Log the low-confidence case for human review.
+
+**User invokes with empty description.** Prompt for description; exit if empty on second attempt.
+
+**Both `--force-addition` and `--force-pivot` set.** Reject: "Pick one override flag."
+
+**Description touches both pivot AND addition scope** (e.g., adding a REQ AND changing primary user). Classifier picks the more disruptive (pivot). Rationale surfaces both changes. User can split via two separate invocations.
+
+## Integration
+
+Called by user directly. Does not chain from `/gabe-scope`. Writes only to CHANGES.jsonl (audit). All artifact writes happen in the routed command.
+
+## Command version
+
+`v1.0`. Classifier prompt version `v2` with 9 rules + backward-compat trigger_rule enum.
