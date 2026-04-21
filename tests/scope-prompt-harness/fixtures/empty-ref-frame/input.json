@@ -1,0 +1,11 @@
+{
+  "scenario": "empty-ref-frame",
+  "description": "User declared no Reference Frame entries (reference_frame: []). Exercises the no-framing code path. Evaluator must still function and not fabricate references.",
+  "question": "What is the primary success criterion?",
+  "answer": "An on-call engineer can route an incoming incident to the correct team in under 60 seconds from pager-received to ticket-assigned, measured end-to-end.",
+  "prior_answers": [
+    {"q": "One-liner?", "a": "Triage agent for incident routing."},
+    {"q": "Primary user?", "a": "On-call engineers receiving pager alerts."}
+  ],
+  "reference_frame": []
+}

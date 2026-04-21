@@ -1,0 +1,17 @@
+{
+  "scenario": "authoritative-conflict",
+  "description": "User's answer contradicts an authoritative Reference Frame entry. Exercises conflict surfacing at Step 5/6. Evaluator should flag the conflict, not silently accept.",
+  "question": "How should the classification step call the LLM?",
+  "answer": "I'd like to hand-craft a regex-based classifier — skip the LLM entirely, it'll be simpler.",
+  "prior_answers": [
+    {"q": "One-liner?", "a": "Triage agent for incident routing."}
+  ],
+  "reference_frame": [
+    {
+      "id": "ref-01",
+      "weight": "authoritative",
+      "role": "AI stack commitments",
+      "content": "All classification tasks MUST use Claude Haiku with PydanticAI structured output per user value U4 (Enforce Output Structure Mechanically) and U6 (Route by Task)."
+    }
+  ]
+}

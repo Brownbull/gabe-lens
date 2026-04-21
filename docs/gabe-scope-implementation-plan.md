@@ -1,0 +1,317 @@
+# /gabe-scope Implementation Plan
+
+**Status:** Approved — ready to execute Phase 1
+**Date:** 2026-04-21
+**Design spec:** [gabe-scope-design.md v0.3](./gabe-scope-design.md)
+**Authors:** brownbull + Claude (planner agent)
+
+---
+
+## 0. How to use this doc
+
+This is the **execution plan**. The [design spec](./gabe-scope-design.md) is the *what + why*; this is the *how + when*. Read that first if you haven't.
+
+Execution proceeds phase-by-phase. Each phase ends with a Definition of Done (DoD) checklist that gates commit + mirror. If you pause mid-phase, leave a note at the bottom of this doc.
+
+---
+
+## 1. Requirements Restatement (condensed)
+
+Build the backbone authoring command family for the Gabe Lens suite: a multi-step, checkpoint-gated, Opus-heavy workflow that produces two linked artifacts per project — a stable `SCOPE.md` (premise) and a fluid `ROADMAP.md` (phase plan). The family is 4 commands: `/gabe-scope` (author v1), `/gabe-scope-change` (classifier router), `/gabe-scope-addition`, `/gabe-scope-pivot`.
+
+**Critical non-obvious requirements:**
+- Dual resume (`.kdbp/scope-session.json` + `[PENDING APPROVAL]` markers)
+- 100% coverage invariant (SC → REQ → Phase)
+- Conflict surfacing at Steps 5/6/7 against authoritative Reference Frame entries
+- Pivot-vs-addition is Opus-reasoning with declared rules, not heuristics
+- Tombstone-never-delete on all destructive ops
+- Prompts are versioned; session.json records version used
+
+**Out of scope for first implementation** (deferred to Phase 7 or later):
+- `/gabe-plan` integration edits
+- `/gabe-teach` SCOPE mode
+- `/gabe-align` drift watchdog detail
+
+---
+
+## 2. Locked sequencing decisions
+
+- **Schema → Prompts → Glue.** Templates must land before prompts, because prompts fill the template's section schema.
+- **Prompts live in `/home/khujta/projects/gabe_lens/prompts/` as standalone files** during Phases 1–5 (Option A). Final ship decision (ship-to-`~/.claude/prompts/` vs. inline into command file at build time) deferred to Phase 7.
+- **Two-repo sync per phase DoD**, not at the end. Mirror only after each phase passes its independent test + git commit.
+- **Dogfood target:** `/home/khujta/projects/apps/ai-app/` in dry-run mode + synthetic "bookmark manager" scenario for deterministic regression.
+
+---
+
+## 3. Risk Register (prioritized by IMPLEMENTATION risk)
+
+| # | Risk | Prob. | Impact | Mitigation |
+|---|---|---|---|---|
+| IR1 | Prompt quality regressions undetectable without scoring harness | High | 2x–3x timeline | Build harness in Phase 1; every prompt has frozen fixtures + rubric |
+| IR2 | Session.json schema churn after Phase 3 | High | 1.5x timeline | Freeze schema in Phase 2; version it; prompts read via adapter |
+| IR3 | Reference Frame threading bloats token budget | Medium | Medium | 3k token cap assertion in harness; test index_only + summarize from day one |
+| IR4 | Step 7 coverage validation deceptively tricky | Medium | Medium | Dedicate Phase 5 to Step 7 alone; deterministic validator function |
+| IR5 | Brainstorm sub-loop runaway | Medium | Low-Med | Hard 2-cycle cap in prompt AND command; log cycle count |
+| IR6 | Pivot-trigger classifier false-negatives | Medium | High (users) | 20-fixture hand-labeled test suite before Phase 6 ships; ≥95% accuracy gate |
+| IR7 | Two-repo sync drifts during active dev | High | Low per event, compounding | Mirror per phase DoD; checkbox gate |
+| IR8 | Dogfood needs realistic greenfield | Medium | Medium | Use ai-app dry-run + synthetic "bookmark manager" |
+| IR9 | Phase 7 integration edits force schema changes back to Phase 2 | Medium | Medium | Phase 2 includes 15-min review of `/gabe-plan`, `/gabe-align`, `/gabe-teach` read-needs |
+
+---
+
+## 4. Phases
+
+### Phase summary table
+
+| # | Phase | Goal | Complexity | Hours | Parallel? | Depends |
+|---|---|---|---|---|---|---|
+| 1 | Scaffolding + Prompt Test Harness | Harness + fixtures runnable | M | 4–6 | With P2 (partially) | — |
+| 2 | Templates + Schemas | All data contracts frozen | M | 4–6 | With P1 | — |
+| 3 | Prompt Authoring (7 Opus + 5 Sonnet) | Every prompt passes harness | H | 8–14 | Partial internal | P1, P2 |
+| 4 | `/gabe-scope` Steps 0–6 | Command dry-runs through Step 6 | H | 6–8 | — | P2, P3 |
+| 5 | Step 7 + Step 8 Finalize | End-to-end dry-run completes | H | 5–7 | — | P4 |
+| 6 | Auxiliary cmds (-change, -addition, -pivot) | All 4 commands shipped | M | 5–7 | With P5 partially | P3, P4 |
+| 7 | Integration + dogfood | Regression checklist passes | M | 4–6 | — | All |
+| **Total** | | | **HIGH** | **36–54** | | |
+
+---
+
+### Phase 1 — Scaffolding + Prompt Test Harness
+
+**Goal:** A prompt fixture runs end-to-end against a real Opus call and produces a scored pass/fail result — without any `/gabe-scope` command existing.
+
+**Deliverables:**
+- `/home/khujta/projects/gabe_lens/prompts/` — new dir
+- `/home/khujta/projects/gabe_lens/prompts/README.md` — versioning convention (`vN` frontmatter; session.json records version)
+- `/home/khujta/projects/gabe_lens/tests/scope-prompt-harness/` — harness
+- `tests/scope-prompt-harness/run.sh` — CLI: takes prompt + fixture, calls LLM, scores against rubric
+- `tests/scope-prompt-harness/fixtures/` — 3–5 synthetic scenarios (spec-user, idea-user, mixed, authoritative-conflict, empty-ref-frame)
+- `tests/scope-prompt-harness/rubrics/` — one JSON rubric per prompt type (shape assertions, not exact match)
+
+**DoD:**
+- [ ] `run.sh` executes against a dummy placeholder prompt; all fixtures fail (proves harness works)
+- [ ] README documents prompt-version frontmatter schema
+- [ ] Rubric format documented with one worked example
+- [ ] Git commit in `gabe_lens/`: `feat(gabe-scope): P1 prompt test harness`
+- [ ] No mirror to refrepos yet (build-time asset)
+
+**Note on rubrics:** Author rubric content LAST in P1, after P2 data-contracts doc lands. Harness infra is independent; rubric content isn't.
+
+---
+
+### Phase 2 — Templates + Schemas
+
+**Goal:** A hand-assembled valid `SCOPE.md` + `ROADMAP.md` + `scope-references.yaml` + `scope-session.json` pass schema validation; all cross-references resolve.
+
+**Deliverables:**
+- `/home/khujta/projects/gabe_lens/templates/SCOPE.md` — §3a spec: §0 Reference Frame, frontmatter, 15 sections, coverage matrix placeholder, Change Log format
+- `/home/khujta/projects/gabe_lens/templates/ROADMAP.md` — frontmatter, Phase Table (integer + decimal IDs), dependency graph placeholder, Roadmap Change Log
+- `/home/khujta/projects/gabe_lens/templates/scope-references.yaml` — canonical example with 4 weights × 3 load modes
+- `/home/khujta/projects/gabe_lens/schemas/scope-session.schema.json` — JSON Schema (step, sub-step, checkpoint-status, prompt versions, brainstorm-cycle counts, research-width, granularity, pending-approval markers)
+- `/home/khujta/projects/gabe_lens/schemas/scope-references.schema.json` — JSON Schema for the YAML
+- `/home/khujta/projects/gabe_lens/docs/scope-data-contracts.md` — authoritative doc listing every field in every artifact and which step writes it
+- **15-min review (part of this phase):** Read `/gabe-plan`, `/gabe-align`, `/gabe-teach` command files; document their read-needs in `scope-data-contracts.md` to prevent Phase 7 rework
+
+**DoD:**
+- [ ] Handcrafted valid examples pass a schema validator (ajv or similar)
+- [ ] One deliberately-broken example per artifact fails the validator with a useful error
+- [ ] 15-min read-needs review complete and documented
+- [ ] Git commit in `gabe_lens/`: `feat(gabe-scope): P2 templates + schemas + data-contracts doc`
+- [ ] Mirror templates + schemas to `refrepos/setup/cherry-pick/kdbp/templates/` and `.../schemas/`
+- [ ] Git commit in `refrepos/`: `feat(kdbp): mirror gabe-scope P2 templates + schemas`
+
+---
+
+### Phase 3 — Prompt Authoring
+
+**Goal:** All 12 prompts (7 Opus + 5 Sonnet) pass their rubrics against Phase 1 fixtures, with token-budget assertions holding.
+
+**Deliverables (each file has frontmatter: `version: v1`, `model: opus|sonnet`, `token_budget: N`, `rubric: path`):**
+
+**Opus (7):**
+- `prompts/intake-quality-evaluator.md` — returns `{quality: spec|idea, signals, gap_opened, gap_question}`
+- `prompts/brainstorm-analyst.md` — §3.5 Mary-persona: reframe + 2–3 framings + probing question
+- `prompts/success-criteria-generator.md` — goal-backward SCs from intake + research
+- `prompts/non-goals-generator.md` — non-goals with "why we said no"
+- `prompts/req-decomposer.md` — SC → REQ-01..N with SC-tag
+- `prompts/phase-skeleton-and-populator.md` — two modes: skeleton-only (7.3) or populate (7.4)
+- `prompts/scope-change-classifier.md` — pivot-vs-addition router with rationale per §2 rules
+
+**Sonnet (5):**
+- `prompts/intake-summary-assembler.md` — compresses interview into structured summary
+- `prompts/users-and-non-users-drafter.md` — Sections 4–6
+- `prompts/constraints-and-posture-drafter.md` — Section 9–10
+- `prompts/reference-summarizer.md` — for `summarize` load-mode refs at Step 0.5
+- `prompts/final-assembler.md` — Step 8 final SCOPE.md + ROADMAP.md assembly
+
+**DoD per prompt:**
+- [ ] ≥3 fixture inputs cover spec-quality, idea-quality, edge cases
+- [ ] Rubric passes deterministically across 3 consecutive runs (temp=0 where supported, else ≥2/3)
+- [ ] Token budget within declared cap across all fixture runs
+- [ ] No hallucinated section names outside Phase 2 schema
+- [ ] Negative fixture (malformed input) → controlled failure shape, no cascading error
+- [ ] Classifier prompt: ≥95% correctness on 20 hand-labeled scope-change scenarios
+
+**DoD for phase:**
+- [ ] All 12 prompts ship
+- [ ] 20-scenario classifier fixture suite documented in `tests/scope-prompt-harness/fixtures/classifier-scenarios.md`
+- [ ] Git commit in `gabe_lens/`: `feat(gabe-scope): P3 prompt authoring (12 prompts)`
+- [ ] No mirror yet (prompts are build-time until Phase 7 decision)
+
+**Hours reality check:** Realistic range 8–14 hrs. Brainstorm-analyst and phase-skeleton prompts are the hardest (budget 3 hrs each). Intake evaluator may need 2–3 iterations.
+
+---
+
+### Phase 4 — `/gabe-scope` Command Spec, Steps 0–6
+
+**Goal:** A real `/gabe-scope` invocation on a scratch project completes Steps 0, 0.5, 1, 2, 3, 4, 5, 6 with session.json checkpoints, `[PENDING APPROVAL]` markers, and Reference Frame threading.
+
+**Deliverables:**
+- `/home/khujta/projects/gabe_lens/commands/gabe-scope.md` — mirrors `gabe-teach.md` structure (~1500–2500 lines)
+- Step 0 re-invocation logic (4-case matrix)
+- Step 0.5 Reference Frame auto-suggest scanner (deterministic FS walk) + manual entry + summarize-pass invocation
+- Step 1 interview loop with +10 follow-up cap + brainstorm sub-loop invocation (cap 2 cycles)
+- Step 2 research fan-out (parallel Task agents, Sonnet) + synthesis (Opus)
+- Steps 3–6 drafting + in-file `[PENDING APPROVAL]` workflow
+- Conflict-surfacing logic at Steps 5 and 6
+- `.kdbp/scope-session.json` writer/reader conventions
+
+**DoD:**
+- [ ] Dry-run up to Step 6 on cloned `/home/khujta/projects/apps/ai-app/` completes without errors
+- [ ] session.json shape matches P2 schema
+- [ ] Pending-approval markers appear in draft SCOPE.md
+- [ ] Seeded authoritative-ref conflict at Step 5 surfaces 3-option prompt
+- [ ] Brainstorm sub-loop fires on seeded idea-quality answer; caps at 2 cycles
+- [ ] Git commit in `gabe_lens/`: `feat(gabe-scope): P4 command spec Steps 0-6`
+- [ ] Mirror `commands/gabe-scope.md` to `refrepos/setup/cherry-pick/kdbp/commands/`
+- [ ] Git commit in `refrepos/`: `feat(kdbp): mirror gabe-scope P4`
+
+---
+
+### Phase 5 — Step 7 (REQs + Roadmap) + Step 8 (Finalize)
+
+**Goal:** A full `/gabe-scope` run from empty `.kdbp/` produces finalized `SCOPE.md` + `ROADMAP.md` + archived research, coverage matrix validating 100%, Change Log `init` entry, tombstone marker present.
+
+**Deliverables:**
+- Step 7.1 REQ decomposition + coverage check (SC has ≥1 REQ; `--force` escape)
+- Step 7.2 granularity prompt (coarse/standard/fine/custom)
+- Step 7.3 skeleton render + user edit loop
+- Step 7.4 population + coverage check (every REQ in exactly 1 phase; re-run on edit)
+- Coverage matrix generator (deterministic function, documented with pseudocode)
+- Step 8 final assembly (Sonnet) with Mermaid graph generation
+- Research archival, session.json tombstoning, CHANGES.jsonl writer (per Q5)
+- `.kdbp/KNOWLEDGE.md` pointer update
+- Git-commit prompt at finalize
+
+**DoD:**
+- [ ] Full end-to-end run on a synthetic "bookmark manager" scenario completes Step 8
+- [ ] Finalized SCOPE.md passes schema validator
+- [ ] Finalized ROADMAP.md passes schema validator
+- [ ] Coverage matrix validates 100% in output
+- [ ] Research archived to `.kdbp/research/archive/`
+- [ ] Tombstone at `.kdbp/archive/tombstones/scope-session-{ts}.json`
+- [ ] `--force` escape works on coverage block
+- [ ] Git commit in `gabe_lens/`: `feat(gabe-scope): P5 Step 7 + Step 8 finalize`
+- [ ] Mirror + commit in `refrepos/`
+
+---
+
+### Phase 6 — Auxiliary Commands
+
+**Goal:** Finalized SCOPE.md receives both an addition (routed correctly) and a pivot (routed correctly, archives to vN, creates vN+1) via the classifier.
+
+**Deliverables:**
+- `commands/gabe-scope-change.md` — classifier invocation + routing + `--force-addition`/`--force-pivot`
+- `commands/gabe-scope-addition.md` — SCOPE Change Log append, REQ append, ROADMAP decimal-ID phase insertion, Sonnet draft
+- `commands/gabe-scope-pivot.md` — archive `SCOPE.md` → `SCOPE.vN.md` + `ROADMAP.md` → `ROADMAP.vN.md`, re-derive vN+1, Opus drafting
+
+**DoD:**
+- [ ] Classifier ≥95% on 20-fixture suite from Phase 3
+- [ ] Seeded addition (new REQ) routes to `-addition` and inserts at correct decimal ID
+- [ ] Seeded pivot (Primary User change) routes to `-pivot` and bumps `version:` in frontmatter
+- [ ] Ref downgrade (authoritative → suggestive) classifies as pivot
+- [ ] Archived files in `.kdbp/` (never deleted)
+- [ ] Git commit + mirror
+
+**Parallel with P5:** Classifier + `-addition` can start after Phase 3; `-pivot` must wait for P5 (shared finalize machinery).
+
+---
+
+### Phase 7 — Integration Edits + Dogfood Validation
+
+**Goal:** Dogfood regression checklist passes on `/home/khujta/projects/apps/ai-app/`; suite-wide integration points updated.
+
+**Deliverables:**
+- `/gabe-plan` edit: read ROADMAP.md for phase + Covers-REQs, read SCOPE.md for REQ text
+- `/gabe-teach` edit: add SCOPE mode alongside ARCH mode
+- `/gabe-align`, `/gabe-review`, `/gabe-commit`, `/gabe-push` edits per design §6
+- `docs/gabe-scope-v1-dogfood.md` — 15-check regression report (like `gabe-teach-v2-dogfood.md`)
+- `install.sh` updated: include `gabe-scope`, `gabe-scope-change`, `gabe-scope-addition`, `gabe-scope-pivot` in COMMANDS_ONLY
+- **Decision point:** ship prompts to `~/.claude/prompts/` (Option A) or inline them (Option B)?
+- Mirror to `refrepos/setup/cherry-pick/kdbp/`
+
+**Dogfood regression checklist (15 checks):**
+1. Bare `/gabe-scope` on empty `.kdbp/` reaches Step 0.5
+2. Auto-suggest Reference Frame scan finds ≥2 candidates in seeded project
+3. Manual ref entry with each weight × load-mode combo works
+4. Brainstorm triggers on idea-quality answer; produces 3 framings
+5. Brainstorm hard-caps at 2 cycles; routes to Open Questions
+6. Research fan-out width prompt works for quick/standard/deep
+7. Conflict at Step 5 between authoritative ref and user answer surfaces 3 options
+8. Step 7.1 coverage block fires if SC has no REQ
+9. Step 7.4 re-runs coverage on user edit
+10. Step 8 archives research, writes tombstone, offers git-commit
+11. `/gabe-scope-change` with Primary-User change routes to pivot
+12. `/gabe-scope-change` with new-REQ routes to addition
+13. Session pause on Step 3, resume on Step 4 with markers visible
+14. `--force` escape works on coverage block
+15. Start-over requires typed confirmation + archives to tombstone
+
+**DoD:**
+- [ ] All 15 regression checks pass
+- [ ] Integration edits land in all 6 existing commands
+- [ ] Option A/B decision made and executed
+- [ ] `install.sh` updated and tested on a fresh `~/.claude/`
+- [ ] Final git commits in both repos
+- [ ] PR-ready state
+
+---
+
+## 5. Testing Strategy (3 layers)
+
+### Layer 1 — Prompt-unit tests
+Per prompt: 3–5 fixtures × rubric scoring. Rubrics assert shape + constraints, not exact text. Token-budget assertions. Re-run on any prompt edit. Failure = hard stop.
+
+### Layer 2 — Workflow integration test
+- **Dogfood project:** `/home/khujta/projects/apps/ai-app/` in dry-run mode. Backup `.kdbp/`, run `/gabe-scope` from scratch, compare to existing `BUILD-GUIDE-V2` + `.kdbp/PLAN.md`.
+- **Synthetic scenario:** "bookmark manager" greenfield transcript with all 5 core answers + likely follow-ups. Replayable deterministically.
+
+### Layer 3 — Regression checklist
+15-item checklist in Phase 7 DoD above.
+
+---
+
+## 6. Two-Repo Sync Plan
+
+Mirror per phase DoD (not at the end). Only `commands/`, `templates/`, `schemas/` mirror to refrepos. `prompts/` and `tests/` are build-time assets staying in `gabe_lens/` unless Phase 7 decides Option A (ship to `~/.claude/prompts/`).
+
+---
+
+## 7. Progress Log
+
+Append entries here as phases complete. Format: `[YYYY-MM-DD] Phase N: summary. Hours: X. Blockers: Y.`
+
+- `[2026-04-21] Phase 1: Scaffolding + Prompt Test Harness — DONE. Harness infra (run.sh, lib/call-llm.sh, lib/score.sh) works; placeholder prompt fails 4/5 assertions across all 5 fixtures with exit code 1, proving scoring logic is bidirectional. 7 assertion types implemented (output_is_json, field_exists, field_in_set, contains_phrase, absent_phrase, max_chars, min_chars). Real-LLM path stubbed with curl + anthropic API but untested (mock-mode sufficient for P1 DoD). Rubric content remains authored against placeholder; real rubrics arrive in Phase 3 after Phase 2 data contracts. Hours: ~2. Blockers: none.`
+
+---
+
+## 8. Open Decisions Deferred to Phase 7
+
+1. **Ship prompts to user or inline at build time?** (Option A vs. Option B.) Decide after Phases 1–5 reveal iteration cadence.
+2. **Whether to also create `/gabe-brief` lightweight predecessor** for users without clear intent. Out of scope for v1; revisit post-Phase 7 if demand shows.
+
+---
+
+## 9. Kickoff
+
+Next action: begin **Phase 1 — Scaffolding + Prompt Test Harness**. Start with directory creation + README skeleton + a stub `run.sh` that can read a placeholder prompt and call Opus. Rubrics come last in Phase 1, after Phase 2 data-contracts doc.

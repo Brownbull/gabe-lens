@@ -1,0 +1,8 @@
+{
+  "scenario": "idea-quality-user",
+  "description": "User provides vague, hedged, short answers. Should trigger brainstorm sub-loop. Signals expected: length, hedge words, abstract nouns.",
+  "question": "In one sentence, what are you building?",
+  "answer": "Maybe something like a helpful tool, I'm not sure.",
+  "prior_answers": [],
+  "reference_frame": []
+}

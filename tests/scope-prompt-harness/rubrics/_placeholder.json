@@ -1,0 +1,33 @@
+{
+  "rubric_id": "_placeholder",
+  "prompt_version": "v0",
+  "output_format": "json",
+  "description": "Deliberately-failing rubric used by the Phase 1 self-test. The _placeholder prompt returns 'PLACEHOLDER' (not JSON), so every assertion below fails and the harness reports FAIL. Delete when real prompts land.",
+  "assertions": [
+    {
+      "type": "output_is_json",
+      "description": "Response must parse as valid JSON"
+    },
+    {
+      "type": "field_exists",
+      "path": ".quality",
+      "description": "Response must have a top-level 'quality' field"
+    },
+    {
+      "type": "field_in_set",
+      "path": ".quality",
+      "values": ["spec", "idea"],
+      "description": "'quality' must be 'spec' or 'idea'"
+    },
+    {
+      "type": "absent_phrase",
+      "phrase": "PLACEHOLDER",
+      "description": "Response must not contain the placeholder sentinel"
+    },
+    {
+      "type": "max_chars",
+      "limit": 2000,
+      "description": "Response fits rough token budget (2000 chars)"
+    }
+  ]
+}

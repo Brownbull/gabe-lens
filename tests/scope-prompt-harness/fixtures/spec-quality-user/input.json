@@ -1,0 +1,8 @@
+{
+  "scenario": "spec-quality-user",
+  "description": "User provides concrete, measurable, well-scoped answers. Should not trigger brainstorm sub-loop. Represents the happy path for the intake evaluator.",
+  "question": "In one sentence, what are you building?",
+  "answer": "A triage agent that ingests incoming incident reports via a REST endpoint, classifies them by severity and domain using a PydanticAI-structured Haiku call, and opens a Linear ticket with the assignee routed from the classification.",
+  "prior_answers": [],
+  "reference_frame": []
+}

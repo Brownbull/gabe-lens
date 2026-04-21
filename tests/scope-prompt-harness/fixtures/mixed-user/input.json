@@ -1,0 +1,10 @@
+{
+  "scenario": "mixed-user",
+  "description": "User provides a concrete first clause and a vague second clause. Tests the evaluator's ability to handle compound answers where part is spec-quality and part is idea-quality.",
+  "question": "Who is the primary user and what pain do they feel?",
+  "answer": "On-call engineers receiving pager alerts at 3am — they currently spend 10-15 minutes per incident just figuring out which team should own it, but maybe the tool could also help with other things too I guess.",
+  "prior_answers": [
+    {"q": "One-liner?", "a": "Triage agent for incident routing."}
+  ],
+  "reference_frame": []
+}
