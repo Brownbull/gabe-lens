@@ -697,9 +697,9 @@ CRITICAL findings during triage **cannot be deferred**. The `(d)` option is disa
 | Finding references a file not in the workspace | Can't auto-fix. Offer defer/dismiss only. |
 | Skipped CRITICAL at end of triage | CRITICALs cannot be deferred. At the final sweep, present only **(f) Fix now** or **(x) Dismiss (requires justification)**. If the user skips again, auto-classify as Dismissed with note: "No resolution chosen — treated as acknowledged risk." |
 
-### Step 6: Auto-tick Review column in PLAN.md
+### Step 6: Auto-tick Review column in PLAN.md + LEDGER trace
 
-After triage completes (Final Verdict produced), tick the Review column of the current phase if the review passed. Silent no-op on any mismatch.
+After triage completes (Final Verdict produced), tick the Review column of the current phase if the review passed, and **always** append a LEDGER entry so every run leaves an audit trail — regardless of verdict or tick outcome.
 
 **Pass condition for Review column:**
 - Final Verdict is APPROVE or WARNING (not BLOCK)
@@ -714,6 +714,31 @@ Follow the shared procedure documented in `/gabe-plan` under "Shared: auto-tick 
 - On success, display: `✅ PLAN: Phase [N] review ticked` (one line at the end of output)
 
 If the pass condition is not met (BLOCK verdict or unresolved issues above gate), do NOT tick — but do not emit a warning either. The user knows they blocked.
+
+**LEDGER trace — always append** (runs whether tick fires or skips; runs whether PLAN.md exists or not):
+
+1. Preconditions: `.kdbp/LEDGER.md` exists. If missing, skip silently (non-KDBP repo or pre-init state).
+2. Compute `tick_outcome`:
+   - `✅` if Review column was ticked by the block above
+   - `skip(BLOCK)` if Final Verdict is BLOCK
+   - `skip(unresolved-HIGH)` if HIGH finding above maturity gate remains un-deferred
+   - `skip(MISALIGNED)` if Sub-check 5a returned MISALIGNED
+   - `skip(no-plan)` if `.kdbp/PLAN.md` missing or legacy
+   - `skip(phase-not-found)` if Current Phase row not found
+3. Append to `.kdbp/LEDGER.md`:
+   ```
+   ## YYYY-MM-DD HH:MM — PHASE N REVIEW: [phase name, or "ad-hoc" if no plan]
+   VERDICT: [APPROVE | WARNING | BLOCK]
+   FINDINGS: N total (C critical, H high, M medium, L low)
+   COVERAGE: [HIGH | MEDIUM | LOW | VERY LOW] — [one-line reason if not HIGH]
+   CONFIDENCE: [score]/100
+   DEFERRED: [list of IDs added to PENDING.md, or "none"]
+   ALIGNMENT: [ALIGNED | DRIFTED | MISALIGNED | SKIP]
+   TICK: [tick_outcome from step 2]
+   ```
+4. This LEDGER entry is the single audit artifact for `/gabe-review` runs. Do NOT duplicate into another file (KNOWLEDGE.md, session files, etc.). `/gabe-next` and humans read LEDGER to answer "did review run? what did it say? why didn't it tick?".
+
+Rationale: the silent-no-op-on-tick-failure behavior leaves no record when a review runs but doesn't advance phase state (e.g., MISALIGNED skip or BLOCK verdict). Without the LEDGER trace, `/gabe-next` cannot distinguish "review never ran" from "review ran and blocked" — both present as Review=⬜. The trace makes the state machine auditable.
 
 ---
 

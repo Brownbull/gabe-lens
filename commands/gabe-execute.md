@@ -124,9 +124,26 @@ For each task T_i in order:
    - Auto mode (`--auto-commit`): proceed to commit without prompt. Skip to Step 4.5.
 
 4.5. **Commit (when user picks `commit` or `--auto-commit` active):**
-   - Invoke `/gabe-commit` inline. Pass generated commit message subject + body (see Step 5).
-   - If `/gabe-commit` blocks on findings → user resolves per normal gabe-commit triage. Exec resumes after commit returns 0.
-   - If user picks `defer` on a gabe-commit finding → it lands in PENDING.md, Exec continues.
+
+   **MUST invoke `/gabe-commit` inline.** Raw `git commit` / `git commit -m` at this step is prohibited. `/gabe-commit` is the sole owner of CHECK 6 (deferred), CHECK 7 (doc drift), CHECK 8 (structure), the per-hash `[hash] msg / FINDINGS: N / ACTIONS: …` LEDGER entry, PENDING.md updates, the `/gabe-teach topics` suggestion (Step 6.5), and the auto-tick of the `Commit` column (Step 6.6). Bypassing it silently drops all six responsibilities — the observed failure mode being: `Exec=✅` yet `Commit=⬜`, no `FINDINGS:` lines in LEDGER, no teach trigger, and `docs/AGENTS_USE.md` / `docs/wells/*.md` drift uncaught.
+
+   Procedure:
+
+   1. Build the commit message per Step 5 (Subject + body with Before/After + Phase/Task footer).
+   2. Invoke `/gabe-commit "<message>"` — pass the generated message as `$ARGUMENTS` so `/gabe-commit` skips its own message-generation step (gabe-commit Step 1) and honors the Phase/Task footer verbatim.
+   3. Handle findings surfaced by `/gabe-commit`:
+      - **CRITICAL** → Exec stays `🔄`. Never proceed to T[i+1] with unresolved CRITICAL findings. User must resolve via `fix` / `skip-to-pending` before exec resumes.
+      - **HIGH / MEDIUM / LOW** → user picks per-finding action (`fix` / `accept` / `defer`). Exec resumes after `/gabe-commit` returns 0.
+      - `defer` → PENDING.md row added with source=`gabe-commit`; Exec continues.
+   4. **Confirm Commit column ticked.** After `/gabe-commit` returns 0, re-read `.kdbp/PLAN.md` and verify the current phase's `Commit` cell is `✅`. If still `⬜` (gabe-commit Step 6.6 silent no-op fired), print:
+      ```
+      ⚠ Commit column not ticked for Phase N — PLAN.md state drift detected.
+      Possible causes: legacy plan schema, Current Phase mismatch, or Phases table missing Commit column.
+      Fix PLAN.md before continuing.
+      ```
+      Do not silently continue to T[i+1].
+
+   Do NOT duplicate CHECK 6/7/8 logic inside `/gabe-execute`. Single source of truth = `/gabe-commit`.
 
 ### Step 5: Commit message enrichment (D2 — gabe-lens brief + before/after)
 
@@ -227,15 +244,37 @@ No prompt. Continue execution.
 
 When last task T_K commits successfully:
 
-1. Tick Exec cell: 🔄 → ✅ via shared auto-tick (target state = `complete`)
-2. Bump Last Updated
-3. Append to `.kdbp/LEDGER.md`:
+1. **Invariant: Commit column must be `✅`.** Re-read `.kdbp/PLAN.md` Phases table row for current phase N. If `Commit` is still `⬜` despite all K tasks having committed, halt:
+   ```
+   ⚠ PHASE COMPLETE BLOCKED — Commit column still ⬜ for Phase N
+   Root cause: one or more tasks bypassed /gabe-commit (raw git commit used instead).
+   Consequence: doc drift (DOCS.md CHECK 7), deferred items (CHECK 6), and structure (CHECK 8) were not evaluated for this phase.
+   Fix:
+     1. Run /gabe-commit docs-audit to surface missed doc drift and triage.
+     2. Re-invoke /gabe-commit on any uncommitted state so Step 6.6 ticks the column.
+     3. Re-run /gabe-execute once Commit = ✅.
+   ```
+   Do not tick Exec `✅` until the Commit invariant holds. This prevents the cascade failure where Exec advances past a phase that skipped `/gabe-commit`.
+2. Tick Exec cell: 🔄 → ✅ via shared auto-tick (target state = `complete`)
+3. Bump Last Updated
+4. Append to `.kdbp/LEDGER.md`:
    ```
    ## [YYYY-MM-DD HH:MM] — PHASE EXEC COMPLETE: Phase N — [name]
    TASKS: [K] tasks, [K] commits
    DEVIATIONS: [N structural, M minor] (see DEVIATIONS.md if any)
    ```
-4. If scope arg was `all` → advance Current Phase to N+1 and re-enter Step 1. Else → print summary and exit:
+5. **Teach nudge (phase-level).** Deterministic heuristic, zero LLM cost. Suggest `/gabe-teach topics` before `/gabe-next` if ANY of:
+   - Phase added ≥2 new files in a new folder (matches `/gabe-commit` Step 6.5 trigger at phase scope)
+   - Phase introduced new top-level imports in changed files (e.g. `pydantic-ai`, `langchain`, `ai-sdk`, auth libs — any dep not present before the phase)
+   - Phase modified `.kdbp/DECISIONS.md`
+   - Phase touched files mapped to a Gravity Well whose Topics column shows `(0 / … / …)` or `(… / 0 / …)` verified — i.e. an architecturally significant well with no consolidated knowledge yet
+
+   If triggered, print (one line):
+   ```
+   ℹ Phase N introduced new architectural concepts. Run /gabe-teach topics before /gabe-next to consolidate them into KNOWLEDGE.md.
+   ```
+   This is a redundant safety net — per-commit `/gabe-commit` Step 6.5 already suggests teach, but scroll-loss in bulk commits can lose it.
+6. If scope arg was `all` → advance Current Phase to N+1 and re-enter Step 1. Else → print summary and exit:
    ```
    ✅ GABE EXECUTE — Phase N complete
    EXEC: ✅  REVIEW: ⬜  COMMIT: ✅  PUSH: ⬜

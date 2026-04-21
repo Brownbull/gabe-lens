@@ -28,7 +28,7 @@ run() {
 }
 
 SKILLS=(gabe-align gabe-arch gabe-assess gabe-docs gabe-health gabe-help gabe-lens gabe-review gabe-roast)
-COMMANDS_ONLY=(gabe-init gabe-commit gabe-push gabe-plan gabe-teach gabe-scope gabe-scope-change gabe-scope-addition gabe-scope-pivot)
+COMMANDS_ONLY=(gabe-init gabe-commit gabe-push gabe-plan gabe-teach gabe-scope gabe-scope-change gabe-scope-addition gabe-scope-pivot gabe-execute gabe-next)
 
 if $UNINSTALL; then
     echo "=== Uninstall Gabe Lens Suite ==="
