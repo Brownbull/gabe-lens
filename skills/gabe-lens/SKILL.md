@@ -2,7 +2,7 @@
 name: gabe-lens
 description: Cognitive translation skill that transforms technical concepts into analogies, spatial maps, constraint boxes, and one-line handles — adapts to your cognitive suit.
 metadata:
-  version: 2.2.0
+  version: 2.3.0
 ---
 
 # Gabe Lens — Cognitive Translation Skill
@@ -91,6 +91,11 @@ Gabe Blocks are token-expensive. A full block costs ~200-350 tokens. In agent fr
 │    IS: A reliability classification for rules         │
 │    IS NOT: A quality judgment                         │
 │    DECIDES: Where to invest enforcement effort        │
+│  EASY TO CONFUSE WITH                                 │
+│    • hook vs workflow — hook fires automatic;         │
+│      workflow fires only if invoked                    │
+│    • doc-rule vs retro-lesson — both Tier 3 but       │
+│      decay differently (compaction vs sprint amnesia) │
 │  ONE-LINE HANDLE                                      │
 │  "Hooks are gravity — docs are speed limit signs"     │
 │  ANALOGY LIMITS                                       │
@@ -151,6 +156,15 @@ When a concept is complex or critical, produce a **Gabe Block**:
 │    IS:      [what this concept/thing IS]               │
 │    IS NOT:  [what it is NOT — prevents overthinking]   │
 │    DECIDES: [what trade-off or choice it resolves]     │
+│                                                        │
+│  EASY TO CONFUSE WITH                                  │
+│    [Optional. Use when the concept has multiple        │
+│     orthogonal sub-parts that share surface similarity.│
+│     1-3 bullets; each names a distinction pair + a     │
+│     one-line clarification. Addresses sub-part         │
+│     conflation — distinct from CONSTRAINT BOX (which   │
+│     handles category confusion) and ANALOGY LIMITS     │
+│     (which handles metaphor failures).]                │
 │                                                        │
 │  ONE-LINE HANDLE                                       │
 │  [A memorable phrase — 5-10 words — that captures the  │
@@ -217,6 +231,23 @@ When a concept is complex or critical, produce a **Gabe Block**:
 - **IS:** One sentence defining what this is (use everyday language)
 - **IS NOT:** One sentence clarifying what it's NOT (prevents overthinking trap — explicitly removes the "maybe it's also X?" distraction)
 - **DECIDES:** The trade-off this concept resolves. What tension does it sit between?
+
+### EASY TO CONFUSE WITH
+- **Optional** — include only when the concept has multiple orthogonal sub-parts that share surface similarity. Skip when the concept is atomic.
+- Addresses a **different failure mode** than CONSTRAINT BOX or ANALOGY LIMITS:
+  - CONSTRAINT BOX `IS NOT:` — category confusion ("is this a X or a Y?")
+  - ANALOGY LIMITS — where the metaphor betrays you
+  - EASY TO CONFUSE WITH — sub-part conflation (two distinct roles inside the concept look alike)
+- Format: 1-3 bullets. Each bullet names a distinction pair + one-line clarification.
+- Good example (for "Async Background Processing"):
+  ```
+  • ticket_id vs persisted job state — the first is a handle; the second is storage.
+    You can have a ticket without persistence, or persistence without a ticket.
+  • 202 Accepted vs "work started" — 202 is acknowledgement. The worker may still be cold.
+  • SSE vs polling vs webhooks — three delivery channels, orthogonal to persistence choice.
+  ```
+- Bad example: `• Don't confuse with caching.` (no pair, no clarification, too abstract)
+- Test: after reading this section, could the reader explain which sub-part does which job, without guessing?
 
 ### ONE-LINE HANDLE
 - 5-10 words maximum
@@ -354,6 +385,15 @@ When the planner or architect agent makes a significant decision, apply gabe-len
 │    DECIDES: Where to invest enforcement effort —       │
 │             convert Tier 3 lessons into Tier 1 hooks   │
 │                                                        │
+│  EASY TO CONFUSE WITH                                  │
+│    • hook vs workflow — a hook fires unconditionally   │
+│      on the trigger event; a workflow fires only when  │
+│      invoked. Enforcement strength comes from the       │
+│      auto-fire, not from the rule's wording.            │
+│    • doc-rule vs retro-lesson — both are Tier 3 but    │
+│      decay differently: doc-rules die to compaction,   │
+│      retro-lessons die to sprint amnesia.               │
+│                                                        │
 │  ONE-LINE HANDLE                                       │
 │  "Hooks are gravity — docs are speed limit signs"      │
 │                                                        │
@@ -423,6 +463,15 @@ When the planner or architect agent makes a significant decision, apply gabe-len
 │    IS NOT:  A token pricing problem (rates are fine)   │
 │    DECIDES: Session length — shorter sessions with     │
 │             fresh context are cheaper than long ones    │
+│                                                        │
+│  EASY TO CONFUSE WITH                                  │
+│    • context loss vs token cost — they're linked but   │
+│      distinct. Context loss is the mechanism; token    │
+│      cost is one symptom. Fixing one without the other │
+│      misses the loop.                                   │
+│    • compaction vs re-read — compaction is the trigger;│
+│      re-read is the consequence. The compressor runs   │
+│      BECAUSE the door opened, not alongside it.         │
 │                                                        │
 │  ONE-LINE HANDLE                                       │
 │  "The refrigerator door opens every 27 minutes"        │

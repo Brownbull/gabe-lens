@@ -33,6 +33,12 @@ getting paged                 →  SSE event or status endpoint polling
 the coat-check tag index      →  persisted job state (DB row keyed by ticket_id)
 ```
 
+## Easy to confuse with
+
+- **ticket_id vs persisted job state** — the ticket_id is a handle (the claim check you walk away with); persisted job state is storage (the DB row keyed by ticket_id). You can have a ticket with no persistence (in-memory only — server restart loses jobs) or persistence with no ticket (content-hash key). They're orthogonal.
+- **202 Accepted vs "work started"** — 202 means "I've accepted the request." The worker pool may still be cold; processing hasn't necessarily begun. Don't conflate acknowledgement with progress.
+- **SSE vs polling vs webhooks** — three different delivery channels, all orthogonal to whether jobs are persisted. SSE holds a connection; polling is request-driven; webhooks push to the client's server. Pick one based on client topology, not on whether you're using 202.
+
 ## Primary force
 
 A synchronous LLM call blocks a server thread for 10+ seconds. At any real scale, that means either huge thread pools (expensive) or timeouts (user-hostile). 202 Accepted + background processing decouples the client's wait from the server's work — the connection closes in milliseconds, the work proceeds at its natural pace, and progress is streamed back via SSE or polled via a status endpoint.

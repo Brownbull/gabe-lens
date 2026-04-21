@@ -33,6 +33,12 @@ different concert needs    →  key scoped per-user or per-endpoint, not global 
   a different serial         prevents collisions between unrelated operations
 ```
 
+## Easy to confuse with
+
+- **key generation vs key storage vs key TTL** — three separable concerns. The client generates the key (UUID typically); the server stores `{key → response}`; the entry ages out after TTL. Conflating these hides failure modes: client-side collisions, unbounded storage, or replays after the window expires.
+- **idempotency-key vs content-hash** — a client-generated UUID treats logically-distinct-but-identical-bodied requests as separate operations (two users transferring $10 to same recipient). A content-hash collapses them. Idempotency keys are about intent, not content.
+- **retry-safety vs deduplication** — retry-safety is "the same logical request, replayed, produces the same result." Deduplication is "two different requests, identical in body, collapse to one." Idempotency keys give you retry-safety, not deduplication.
+
 ## Primary force
 
 Networks fail after the server has already committed the write — the client never sees the 200 and retries. Without a key, that retry is a brand-new request: a second charge, a second order. Idempotency keys let the server recognize "I've seen this exact operation" and replay the original response. The caller gets the same answer whether it retried once or five times, and the underlying write happens exactly once.

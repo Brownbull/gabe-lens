@@ -54,6 +54,29 @@ getting paged               →  SSE event or status endpoint polling
 
 Bad: leaving the mapping implicit, or using `→` without making both sides concrete. Also wrong direction (code → analogy) — the reader's working model starts with the picture.
 
+## Easy to confuse with
+
+**Optional section.** Include when the concept has multiple orthogonal sub-parts that share surface similarity — the kind of adjacent-but-distinct roles that readers conflate. Skip when the concept is atomic (single sub-part, no internal distinctions to make).
+
+Format: 1-3 bullets, each naming a distinction pair + one-line clarification.
+
+Good:
+```
+- **ticket_id vs persisted job state** — the first is a handle you walk away with;
+  the second is storage. You can have a ticket with no persistence (in-memory only)
+  or persistence with no ticket (key-by-content-hash).
+- **202 Accepted vs "work started"** — 202 means "I've accepted the request."
+  The worker pool may still be cold; processing hasn't necessarily begun yet.
+```
+
+Bad:
+```
+- It's NOT synchronous.   (too abstract; belongs in When NOT or Primary force)
+- Don't confuse with caching.  (no pair, no clarification)
+```
+
+This section addresses a narrow failure mode: users learning a concept with multiple related sub-parts sometimes see one role clearly and collapse the others into it. Named distinctions before the primary force prevent that collapse.
+
 ## Primary force
 
 One paragraph, ≤4 sentences, naming the SINGLE strongest reason this pattern is worth the complexity. Singular. If three reasons feel equally important, the concept is too broad — split it.

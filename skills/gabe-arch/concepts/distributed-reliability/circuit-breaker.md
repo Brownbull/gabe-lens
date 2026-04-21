@@ -33,6 +33,13 @@ lights stay on             →  success closes the breaker; normal traffic resum
 trips again, back off      →  failure reopens breaker; longer cooldown next time
 ```
 
+## Easy to confuse with
+
+- **open vs closed (intuitive naming inversion)** — "open" means calls are BLOCKED (like an open electrical circuit: no current flows); "closed" means calls PASS THROUGH (closed circuit, current flows). Many readers map the words to the wrong behavior on first encounter.
+- **failure threshold vs cooldown duration** — two independent tuning knobs. Threshold governs *when* to trip (e.g., "5 failures in 30 seconds"). Cooldown governs *how long* to stay open before probing. Both matter; they don't substitute for each other.
+- **circuit breaker vs retry-with-backoff** — they complement, they don't replace. Retry-with-backoff handles transient failures inside a single call. Circuit breaker handles sustained failures across the caller population. Use them together: retry individual calls with backoff, wrap the whole thing in a breaker for when the retries themselves are failing.
+- **half-open vs "testing the water"** — half-open allows exactly ONE probe call. Not N calls with low concurrency — one. If the probe succeeds, the breaker closes; if it fails, back to open with extended cooldown. Misreading this as "reduced traffic" defeats the recovery-while-quiet purpose.
+
 ## Primary force
 
 Retrying against a down service makes the outage worse — the service can't recover while being hammered, and your threads pile up waiting on doomed calls. A circuit breaker turns a flood of failures into a controlled trickle: open fails fast, half-open probes recovery with one call, closed resumes normal traffic. That's how you stop the caller from becoming an unintentional denial-of-service attack against its own dependency.

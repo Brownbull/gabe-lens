@@ -581,6 +581,10 @@ How the picture maps to the code:
    `<analogy piece>  →  <code/system piece>`. This is the load-bearing section —
    the analogy earns its keep here, or the whole lesson is decorative.]
 
+Easy to confuse with:                      (optional — render only when concept file has this section, OR the drift analyzer has flagged conflation for this concept in gabe-lens-learning.md)
+  - **<sub-part A> vs <sub-part B>** — one-line clarification of the distinction.
+  - **<sub-part C> vs <sub-part D>** — one-line clarification (optional, max 3 bullets).
+
 Primary force:
   [The single strongest reason this change/pattern is worth the complexity —
    1 paragraph, ≤4 sentences. Singular. If three forces feel equally weighty,
@@ -717,6 +721,15 @@ How the picture maps to the code:
   the log entry                →  matched_patterns list in the response
   "turned someone away"        →  safe: false boolean (what we had before)
   weapon inventory over time   →  ops dashboard showing pattern frequencies
+
+Easy to confuse with:
+  - **list[str] vs dict[str, bool]** — a list preserves multi-match order and
+    duplicates; a dict collapses them. If the same attack surface fires twice
+    (e.g., two instruction-override patterns both match), the list shows 2 rows
+    in ops dashboards; the dict shows 1.
+  - **pattern name vs pattern ID** — names are human-readable and can change
+    ("instruction_override" → "jailbreak_attempt"). IDs are immutable contracts
+    that dashboards depend on. Treat names as display; IDs as API.
 
 In your codebase:
   T1 "Expand guardrails + return names" — G1 Guardrails · verified 2026-04-17
@@ -1373,6 +1386,7 @@ Render through the unified 7-section lesson template (same as Step 4d), with the
 | Handle          | Frontmatter `one_liner` rendered as `Handle: "<one_liner>"`. If longer than 10 words, tighten at render time (Haiku call) or render verbatim and emit a warning. |
 | Picture it      | `## Picture it` body verbatim (brief mode uses just the first sentence) |
 | How the picture maps | `## How it maps` body verbatim — renders as arrow-lines exactly as authored |
+| Easy to confuse with | **New v2.7 section.** Optional. Renders when (a) the concept file has a `## Easy to confuse with` section, OR (b) gabe-lens-learning.md has an active `P1 Distinction conflation` pattern affecting this concept. Source: concept file body verbatim (cap at 3 bullets). When source (b) fires without source (a), a one-line Sonnet call generates 1-2 tailored distinctions on the fly (same shared Sonnet call as Step 9c.4 drift analysis — no extra LLM cost). |
 | In your codebase | **New v2.4 section.** Only when `.kdbp/` present AND concept has tagged topics in KNOWLEDGE.md. Renders grouped file list per tagged topic with one-line purpose per file. See "In-your-codebase construction" below. |
 | Gaps vs. the mapping | **New v2.4 section.** Only when In-your-codebase rendered AND gap-detection LLM call succeeds AND gaps ≥ 1. LLM output constrained via `output_type`. See "Gap-detection construction" below. |
 | Primary force   | `## Primary force` body verbatim |
