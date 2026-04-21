@@ -1,0 +1,57 @@
+# scope-references.yaml — Reference Frame for /gabe-scope
+#
+# Declared at Step 0.5 of the /gabe-scope workflow. Every reasoning call
+# receives a framing block built from this file.
+#
+# See gabe-scope-design.md §2.5 for weight + load-mode semantics.
+
+references:
+  # Example: authoritative AI-stack commitments — full read into every call.
+  - id: ref-01
+    path: /home/khujta/projects/refrepos/setup/ai-stack/README.md
+    role: "AI stack commitments (Claude models, PydanticAI, Langfuse, SSE progress)"
+    weight: authoritative
+    load_mode: full_read
+    added: 2026-04-21
+    notes: |
+      Honors user values U4 (structure enforcement), U5 (streaming), U6 (task routing).
+      Violating this ref without override is a Step-8 finalize blocker.
+
+  # Example: authoritative practices index — large directory, use index_only.
+  - id: ref-02
+    path: /home/khujta/projects/refrepos/docs/hackathon-analysis/agent-engineering/
+    role: "Agent engineering maturity model and practices we follow"
+    weight: authoritative
+    load_mode: index_only
+    added: 2026-04-21
+
+  # Example: suggestive UX direction — large doc, summarize once + cache.
+  - id: ref-03
+    path: ./docs/wireframes/
+    role: "UX direction from prior design sprint"
+    weight: suggestive
+    load_mode: summarize
+    added: 2026-04-21
+    summary_cached_at: 2026-04-21T10:30:00Z
+    summary: |
+      Wireframes target a two-pane desktop UI: sidebar with tag/topic list,
+      main pane with search + result cards. No mobile layout considered.
+      Emphasis on keyboard-driven workflow; mouse interactions are secondary.
+
+  # Example: contextual compliance framework — shapes vocabulary, not constraints.
+  - id: ref-04
+    path: https://example.internal/compliance-v3
+    role: "GDPR/privacy framing"
+    weight: contextual
+    load_mode: summarize
+    added: 2026-04-21
+    summary_cached_at: 2026-04-21T10:32:00Z
+    summary: |
+      Product classifies as consumer local-first tool; no PII leaves device.
+      Export functionality must be user-initiated. Data retention is
+      user-controlled via local file deletion.
+
+# When `/gabe-scope-change` classifies an update:
+# - Downgrading a weight (authoritative → suggestive, suggestive → contextual) triggers pivot.
+# - Upgrading a weight, adding a new ref, or removing a contextual ref is addition.
+# - Replacing an authoritative ref with a different authoritative ref is pivot.

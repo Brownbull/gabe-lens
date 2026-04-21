@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gabe-lens/schemas/scope-session.schema.json",
+  "title": "ScopeSession",
+  "description": "In-flight session state for a /gabe-scope invocation. Persists across pause/resume at .kdbp/scope-session.json.",
+  "type": "object",
+  "required": [
+    "session_id",
+    "command_version",
+    "created",
+    "last_updated",
+    "current_step",
+    "completed_steps",
+    "prompt_versions_used"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "session_id": {
+      "type": "string",
+      "description": "UUID for this scoping session",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "command_version": {
+      "type": "string",
+      "description": "Version of /gabe-scope command that created this session. Version mismatch on resume forces fresh start.",
+      "pattern": "^v[0-9]+(\\.[0-9]+)*$"
+    },
+    "created": { "type": "string", "format": "date-time" },
+    "last_updated": { "type": "string", "format": "date-time" },
+    "current_step": {
+      "type": "string",
+      "description": "Step the session is currently paused at",
+      "enum": [
+        "step-0-reinvocation",
+        "step-0.5-reference-frame",
+        "step-1-intake",
+        "step-2-research",
+        "step-3-problem-vision",
+        "step-4-users",
+        "step-5-success-criteria",
+        "step-6-constraints-posture",
+        "step-7.1-requirements",
+        "step-7.2-granularity",
+        "step-7.3-phase-skeleton",
+        "step-7.4-phase-population",
+        "step-8-finalize",
+        "finalized"
+      ]
+    },
+    "completed_steps": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Steps that have been completed and approved by user checkpoint"
+    },
+    "prompt_versions_used": {
+      "type": "object",
+      "description": "Map of prompt-id to version string used during this session. Used to detect mid-session command upgrades.",
+      "additionalProperties": { "type": "string", "pattern": "^v[0-9]+(\\.[0-9]+)*$" }
+    },
+
+    "research_width": {
+      "type": "string",
+      "enum": ["quick", "standard", "deep"],
+      "description": "User's choice at Step 2"
+    },
+    "granularity": {
+      "type": "string",
+      "enum": ["coarse", "standard", "fine", "custom"],
+      "description": "User's choice at Step 7.2"
+    },
+    "custom_granularity_count": {
+      "type": "integer",
+      "minimum": 2,
+      "maximum": 20,
+      "description": "Phase count when granularity=custom"
+    },
+
+    "intake": {
+      "type": "object",
+      "description": "State of the Step 1 interview",
+      "additionalProperties": false,
+      "properties": {
+        "core_questions_answered": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "follow_ups_asked": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Cap at 10 per design §4 Step 1"
+        },
+        "brainstorm_cycles": {
+          "type": "object",
+          "description": "Map of question-id to cycles used (max 2 per question)",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2
+          }
+        },
+        "answers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["question_id", "question_text", "answer", "quality"],
+            "properties": {
+              "question_id": { "type": "string" },
+              "question_text": { "type": "string" },
+              "answer": { "type": "string" },
+              "quality": {
+                "type": "string",
+                "enum": ["spec", "idea", "unresolved"]
+              },
+              "brainstorm_exit": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+
+    "reference_frame_loaded": {
+      "type": "boolean",
+      "description": "Whether Step 0.5 completed and scope-references.yaml is populated"
+    },
+
+    "pending_approval_markers": {
+      "type": "array",
+      "description": "List of in-file [PENDING APPROVAL] markers currently present in the draft SCOPE.md or ROADMAP.md",
+      "items": {
+        "type": "object",
+        "required": ["file", "section", "marker_id"],
+        "properties": {
+          "file": { "type": "string", "enum": ["SCOPE.md", "ROADMAP.md"] },
+          "section": { "type": "string" },
+          "marker_id": { "type": "string" }
+        }
+      }
+    },
+
+    "coverage_status": {
+      "type": "object",
+      "description": "Latest coverage-matrix validation results",
+      "additionalProperties": false,
+      "properties": {
+        "last_checked": { "type": "string", "format": "date-time" },
+        "sc_without_reqs": { "type": "array", "items": { "type": "string" } },
+        "reqs_without_phases": { "type": "array", "items": { "type": "string" } },
+        "reqs_in_multiple_phases": { "type": "array", "items": { "type": "string" } },
+        "blocks_finalize": { "type": "boolean" },
+        "force_override": { "type": "boolean", "default": false }
+      }
+    },
+
+    "open_questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "text", "status"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^OQ-[0-9]+$" },
+          "text": { "type": "string" },
+          "status": {
+            "type": "string",
+            "enum": ["open", "brainstorm-exit", "resolved"]
+          }
+        }
+      }
+    },
+
+    "cost_estimate": {
+      "type": "object",
+      "description": "Rolling cost tracker surfaced to user after each step",
+      "additionalProperties": false,
+      "properties": {
+        "tokens_used": { "type": "integer", "minimum": 0 },
+        "estimated_usd": { "type": "number", "minimum": 0 }
+      }
+    }
+  }
+}

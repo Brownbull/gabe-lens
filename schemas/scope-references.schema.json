@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gabe-lens/schemas/scope-references.schema.json",
+  "title": "ScopeReferences",
+  "description": "Reference Frame for /gabe-scope. Declared at Step 0.5. Every reasoning call receives a framing block built from this file. See gabe-scope-design.md §2.5.",
+  "type": "object",
+  "required": ["references"],
+  "additionalProperties": false,
+  "properties": {
+    "references": {
+      "type": "array",
+      "description": "Array of reference entries. Can be empty (no-framing mode).",
+      "items": { "$ref": "#/$defs/Reference" }
+    }
+  },
+  "$defs": {
+    "Reference": {
+      "type": "object",
+      "required": ["id", "path", "role", "weight", "load_mode", "added"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^ref-[0-9]+$",
+          "description": "Stable ID. Numbered sequentially as refs are added."
+        },
+        "path": {
+          "type": "string",
+          "description": "Local file path, local directory path, or URL",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "description": "One-line purpose. Mandatory.",
+          "minLength": 5
+        },
+        "weight": {
+          "type": "string",
+          "enum": ["authoritative", "suggestive", "contextual"],
+          "description": "Binding level. authoritative = hard constraint; suggestive = soft default; contextual = framing only."
+        },
+        "load_mode": {
+          "type": "string",
+          "enum": ["full_read", "index_only", "summarize"],
+          "description": "How the reference is threaded into LLM calls. See design §2.5."
+        },
+        "added": {
+          "type": "string",
+          "format": "date",
+          "description": "Date this reference was first added"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional free-form notes about conflict handling, overrides, or context"
+        },
+        "summary_cached_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the summary was generated. Required when load_mode=summarize."
+        },
+        "summary": {
+          "type": "string",
+          "description": "Cached summary content. Required when load_mode=summarize."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "load_mode": { "const": "summarize" } }
+          },
+          "then": {
+            "required": ["summary", "summary_cached_at"]
+          }
+        }
+      ]
+    }
+  }
+}

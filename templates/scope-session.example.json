@@ -1,0 +1,76 @@
+{
+  "session_id": "a7f3c2d1-4b8e-4f2a-9c6d-1e3a5b7c9f2e",
+  "command_version": "v1",
+  "created": "2026-04-21T09:15:00Z",
+  "last_updated": "2026-04-21T10:42:00Z",
+  "current_step": "step-5-success-criteria",
+  "completed_steps": [
+    "step-0-reinvocation",
+    "step-0.5-reference-frame",
+    "step-1-intake",
+    "step-2-research",
+    "step-3-problem-vision",
+    "step-4-users"
+  ],
+  "prompt_versions_used": {
+    "intake-quality-evaluator": "v1",
+    "brainstorm-analyst": "v1",
+    "intake-summary-assembler": "v1",
+    "reference-summarizer": "v1",
+    "success-criteria-generator": "v1"
+  },
+  "research_width": "standard",
+  "reference_frame_loaded": true,
+  "intake": {
+    "core_questions_answered": 5,
+    "follow_ups_asked": 3,
+    "brainstorm_cycles": {
+      "Q1": 0,
+      "Q2": 1,
+      "Q3": 0,
+      "Q4": 2,
+      "Q5": 0
+    },
+    "answers": [
+      {
+        "question_id": "Q1",
+        "question_text": "In one sentence, what are you building?",
+        "answer": "A local-first bookmark manager that surfaces what you actually need when you need it.",
+        "quality": "spec"
+      },
+      {
+        "question_id": "Q4",
+        "question_text": "In 6 months, if this works, what's different?",
+        "answer": "A user can re-find a bookmark by approximate topic in ≤30 seconds without remembering title or URL.",
+        "quality": "spec",
+        "brainstorm_exit": false
+      }
+    ]
+  },
+  "pending_approval_markers": [
+    {
+      "file": "SCOPE.md",
+      "section": "§7 Success Criteria",
+      "marker_id": "sc-draft-1"
+    }
+  ],
+  "coverage_status": {
+    "last_checked": "2026-04-21T10:40:00Z",
+    "sc_without_reqs": [],
+    "reqs_without_phases": [],
+    "reqs_in_multiple_phases": [],
+    "blocks_finalize": false,
+    "force_override": false
+  },
+  "open_questions": [
+    {
+      "id": "OQ-01",
+      "text": "Browser extension security model — content script permissions vs. native messaging?",
+      "status": "open"
+    }
+  ],
+  "cost_estimate": {
+    "tokens_used": 42810,
+    "estimated_usd": 0.37
+  }
+}
