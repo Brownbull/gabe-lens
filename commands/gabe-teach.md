@@ -17,7 +17,7 @@ Parse `$ARGUMENTS`:
 
 | Mode | Kind | Purpose |
 |------|------|---------|
-| _(empty)_ | teach | **Default.** Auto-route: if pending project topics exist → `topics`; else → `arch next`; else → `retro`; else → print "you're current" one-liner. Never shows a dashboard first. |
+| _(empty)_ | teach | **Default.** Renders the top-level mode menu (Step 0.3) with a smart-pick default on press-Enter. Users who prefer pure auto-route (v2.1 behavior) can set `teach_default_mode: auto` in `.kdbp/BEHAVIOR.md` or `~/.claude/gabe-lens-profile.md` frontmatter. |
 | `topics` | teach | Session-aware teach loop over recent project changes |
 | `arch` | teach | Alias for `arch next` — picks and teaches the next concept immediately (NOT the dashboard) |
 | `arch next` | teach | Pick the next concept via progressive-pressure rule (project → adjacency → foundation-gap) and teach it directly |
@@ -124,6 +124,82 @@ If step 4 fails (Edit tool collision because another command modified the row), 
 - From `tour` stop: advance to next well, else "Tour complete."
 
 **Shortcut keys:** `e` / `n` / `t` / `s` accepted as single-letter aliases. Case-insensitive.
+
+### Step 0.3: Bare-invocation mode menu
+
+Fires when `$ARGUMENTS` is empty AND `teach_default_mode` is not set to `auto` (default: `menu`). Restores the top-level mode chooser that v2.1 D1 had removed in favor of pure auto-route.
+
+**Rationale for the v2.7 reversal:** auto-route is great when you trust the smart pick; but when you know what you want — "I want to learn architecture" vs "I have pending topics" vs "let me see what we walked away from" — the menu lets you skip the smart-pick logic and go directly to your chosen mode. Press-Enter still gives you the auto-route in one keystroke.
+
+**Render format** (counts and "next pick" lines computed deterministically from KNOWLEDGE.md, gabe-arch STATE.md, DECISIONS.md, and gabe-lens-learning.md):
+
+```
+GABE TEACH — pick what you want to learn
+
+  [1] TOPICS    — changes you just made
+                  3 pending · G1 (2) + G3 (1) · since 2026-04-17
+  [2] ARCH      — architecture curriculum
+                  next pick: retry-with-exponential-backoff (intermediate · adjacency)
+                  1 verified · 30 in catalog
+  [3] RETRO     — what didn't work
+                  1 skipped topic · 1 superseded decision (architectural)
+  [4] TOUR      — how this app works
+                  6 wells defined
+  [5] STORY     — narrative analogy of the project
+                  cached 2026-04-18 (3 verified topics, 1 plan)
+  [6] BRIEF     — newcomer-onboarding snapshot
+  [7] LEARNING  — your patterns + active tailoring (admin)
+                  P1 distinction conflation: 2 obs · 1 active tailoring
+
+  ↵ press Enter to accept the smart pick: [2] ARCH (next concept)
+  Or type the number, or type the mode name:
+```
+
+**Smart-pick logic (preserves v2.1 auto-route as the press-Enter default):**
+
+1. If pending project topics exist → smart pick = `[1] TOPICS`
+2. Else if arch concepts have un-verified candidates → smart pick = `[2] ARCH`
+3. Else if retro candidates exist → smart pick = `[3] RETRO`
+4. Else → "you're current" one-liner; smart pick prompt becomes "no obvious next lesson — pick from menu or run `/gabe-teach status` to review."
+
+**Counts construction (zero-LLM, deterministic):**
+
+| Line | Source |
+|------|--------|
+| TOPICS pending count | `.kdbp/KNOWLEDGE.md` Topics table — `Status = pending` rows, grouped by Well |
+| TOPICS "since" date | Earliest commit date among pending topics |
+| ARCH next pick | Step 9f progressive-pressure rule (project-driven → adjacency → foundation-gap), name + tier + which rule fired |
+| ARCH counts | `~/.claude/gabe-arch/STATE.md` row counts (verified) + concept catalog scan (total) |
+| RETRO counts | KNOWLEDGE.md `Status = skipped` + DECISIONS.md `Status = superseded` (filtered to architectural per L6) |
+| TOUR wells count | KNOWLEDGE.md Gravity Wells table row count |
+| STORY cached date | mtime of the Storyline section in KNOWLEDGE.md |
+| BRIEF | always available; no count |
+| LEARNING | `~/.claude/gabe-lens-learning.md` — pattern count + active tailoring count |
+
+If a count is zero, render the option but mute it visually with a `(none)` marker:
+
+```
+  [3] RETRO     — what didn't work  (none)
+```
+
+**Input handling:**
+
+- Empty input / Enter → execute smart pick (proceed to that mode's Step)
+- Number `1-7` → execute that mode
+- Mode name (`topics`, `arch`, `retro`, `tour`, `story`, `brief`, `learning`) → execute that mode
+- Unknown input → re-render menu with hint: `Didn't recognize "<input>". Press Enter for smart pick, or type a number 1-7.`
+
+**BEHAVIOR.md / profile.md opt-out:** key `teach_default_mode: menu | auto` (default: `menu`).
+
+- `menu` → Step 0.3 fires on bare invocation (this step)
+- `auto` → Step 0.3 skipped; bare invocation auto-routes per v2.1 logic (TOPICS → ARCH next → RETRO → "you're current")
+
+Reversible at any time by editing the BEHAVIOR.md frontmatter, or by running `/gabe-teach behavior` (admin command — out of scope here).
+
+**Edge cases:**
+
+- No `.kdbp/` present → menu renders only `[2] ARCH`, `[6] BRIEF`, `[7] LEARNING` (cross-project surfaces). Other options grayed out with `(no .kdbp/)`. Smart pick = `[2] ARCH`.
+- All counts zero → render menu with all options grayed; smart pick prompt becomes "you're current — try `/gabe-teach arch` to learn something new, or `/gabe-teach status` for the dashboard."
 
 ### Step 1: Status mode
 
