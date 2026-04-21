@@ -83,14 +83,16 @@ Only after user confirms. Write with this structure:
 
 ## Phases
 
-| # | Phase | Description | Complexity | Review | Commit | Push |
-|---|-------|-------------|------------|--------|--------|------|
-| 1 | [name] | [description] | low/med/high | ⬜ | ⬜ | ⬜ |
-| 2 | [name] | [description] | low/med/high | ⬜ | ⬜ | ⬜ |
-| 3 | [name] | [description] | low/med/high | ⬜ | ⬜ | ⬜ |
+| # | Phase | Description | Complexity | Exec | Review | Commit | Push |
+|---|-------|-------------|------------|------|--------|--------|------|
+| 1 | [name] | [description] | low/med/high | ⬜ | ⬜ | ⬜ | ⬜ |
+| 2 | [name] | [description] | low/med/high | ⬜ | ⬜ | ⬜ | ⬜ |
+| 3 | [name] | [description] | low/med/high | ⬜ | ⬜ | ⬜ | ⬜ |
 
+<!-- Exec is written by /gabe-execute: ⬜ not started, 🔄 in progress, ✅ complete -->
 <!-- Review/Commit/Push auto-ticked by /gabe-review, /gabe-commit, /gabe-push -->
-<!-- A phase is complete when all three columns are ✅ -->
+<!-- A phase is complete when all four columns are ✅ -->
+<!-- /gabe-next routes to the next command based on column state (Exec → Review → Commit → Push → advance phase) -->
 <!-- Manual override is fine — edit cells by hand any time -->
 <!-- Legacy plans with a single Status column still work; auto-tick is a silent no-op -->
 
@@ -211,9 +213,9 @@ If the user runs `/gabe-plan update` or `/gabe-plan status`:
 
 ---
 
-## Shared: auto-tick phase column (used by /gabe-review, /gabe-commit, /gabe-push)
+## Shared: auto-tick phase column (used by /gabe-execute, /gabe-review, /gabe-commit, /gabe-push)
 
-This logic is invoked by the three trigger commands to update the Phases table in `.kdbp/PLAN.md` when a phase gate passes. Idempotent and silent on mismatch.
+This logic is invoked by the four trigger commands to update the Phases table in `.kdbp/PLAN.md` when a phase gate passes. Idempotent and silent on mismatch.
 
 ### Procedure
 
@@ -221,22 +223,22 @@ This logic is invoked by the three trigger commands to update the Phases table i
    - `.kdbp/PLAN.md` exists
    - File contains `<!-- status: active -->`
    - File contains a `## Current Phase` section
-   - The Phases table header includes the target column name (`Review`, `Commit`, or `Push`) — **detection is by column name, not position**. If the plan uses the legacy `Status` column, this logic no-ops so old plans keep working.
+   - The Phases table header includes the target column name (`Exec`, `Review`, `Commit`, or `Push`) — **detection is by column name, not position**. If the plan uses the legacy `Status` column, this logic no-ops so old plans keep working. If the `Exec` column is missing on a pre-v2.9 plan, `/gabe-execute` auto-tick is a silent no-op.
 
 2. **Find the target row:**
    - Parse `## Current Phase` — extract the leading integer N from a line like `Phase 3: [name]`
    - In the Phases table, locate the row where the first data column equals N
 
 3. **Tick the cell:**
-   - Target column is determined by caller: `Review` / `Commit` / `Push`
-   - If the cell is already `✅`, exit silently (idempotent — no rewrite)
-   - If the cell is `⬜`, replace with `✅`
+   - Target column is determined by caller: `Exec` / `Review` / `Commit` / `Push`
+   - For `Review` / `Commit` / `Push`: binary ⬜ → ✅. If already `✅`, exit silently (idempotent).
+   - For `Exec`: tri-state ⬜ → 🔄 → ✅. Caller passes the target state (`start` writes 🔄, `complete` writes ✅). If already at or past the target state, exit silently.
 
 4. **Bump Last Updated:**
    - In the Context section, replace the `- **Last Updated:** ...` line with today's date (`YYYY-MM-DD`)
 
 5. **Exit. Do NOT:**
-   - Advance the Current Phase (manual via `/gabe-plan update`)
+   - Advance the Current Phase (manual via `/gabe-plan update` or automatic via `/gabe-next`)
    - Log to LEDGER.md from this helper (callers already log their primary action)
    - Modify any other column or row
 
