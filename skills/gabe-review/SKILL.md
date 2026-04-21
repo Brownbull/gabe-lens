@@ -344,6 +344,16 @@ On `skip`: no write. Stale candidates re-surface next `/gabe-review` until addre
 
 Purpose: "Did significant architectural decisions happen in this diff that should be captured in DECISIONS.md?"
 
+**Pre-step — Re-surface deferred classifier candidates (runs BEFORE trigger layer):**
+
+Read `.kdbp/PENDING.md`. For every row where `Source` column = `classifier` AND `Status` column = `open`:
+
+1. Render each as an original proposal block using the same format as the Output block below. Use the `Finding` column as `title`. Rationale/alternatives/review_trigger are not re-stored in PENDING.md — if present from the original defer, pull from a `Notes` suffix; otherwise render the row as a minimal candidate (title only + "originally deferred YYYY-MM-DD") and skip alternatives.
+2. User picks `[accept]` / `[edit]` / `[defer]` / `[drop]` per row. Action handlers behave identically to current-run handlers. `accept`/`drop` set the PENDING row's `Status` to `resolved` with today's date. `defer` (explicit or drop-through) keeps `Status = open` and increments `Times Deferred`.
+3. After all re-surfaced rows are resolved or dropped-through, continue to current-run trigger layer.
+
+**Auto-resolve on current-run duplicate:** when the current-run classifier produces a `title` case-insensitively matching any re-surfaced open PENDING row, auto-resolve the PENDING row (`Status = resolved`, today's date, note `auto-resolved: superseded by current run`) and suppress the re-render. This prevents the same proposal from appearing twice in one run.
+
 **Trigger layer** (zero-cost, always runs; fires when ≥1 hits):
 
 A diff is flagged as "potentially architectural" when ANY of these conditions hold:
@@ -399,7 +409,7 @@ Precondition: trigger hit AND no row in `.kdbp/DOCS.md` references any file in t
 
   [accept]  Append to .kdbp/DECISIONS.md as D[next_id]
   [edit]    Revise fields before writing
-  [defer]   Add reminder to PENDING.md (source=gabe-review)
+  [defer]   Add reminder to PENDING.md (source=classifier)
   [drop]    Don't write (one-time dismissal this session)
 ```
 
@@ -407,10 +417,12 @@ Precondition: trigger hit AND no row in `.kdbp/DOCS.md` references any file in t
 
 | Action | Behavior |
 |--------|----------|
-| `accept` | Read DECISIONS.md → compute next `D[N]` (max existing + 1) → append row with today's date, title, rationale, alternatives joined by `<br>`, `active` status, review_trigger. Use Edit tool to append before the closing fence if DECISIONS uses a frontmatter fence, else append at EOF. |
+| `accept` | Read DECISIONS.md → compute next `D[N]` (max existing + 1) → append row with today's date, title, rationale, alternatives joined by `<br>`, `active` status, review_trigger. Use Edit tool to append before the closing fence if DECISIONS uses a frontmatter fence, else append at EOF. Mark any open PENDING.md classifier row with matching title as `resolved` (today's date). |
 | `edit` | Show each field inline-editable (prompt per field, default = proposed value). On confirm, proceed to `accept`. |
-| `defer` | Append to PENDING.md: `\| today \| gabe-review \| Propose DECISIONS entry: [title] \| - \| small \| medium \| low \| 0 \| open`. Source column = `gabe-review`. |
-| `drop` | No write. Session-scoped dedup set to this title (same title won't re-propose this run). |
+| `defer` | Append to PENDING.md: `\| P[N] \| today \| classifier \| [title] \| - \| small \| medium \| low \| 0 \| open \|`. Source column = `classifier`. Title stored verbatim in Finding for dedup on re-surface. If an open classifier row already exists with matching title (case-insensitive), increment `Times Deferred` on that row instead of creating a duplicate. |
+| `drop` | No write. Session-scoped dedup set to this title (same title won't re-propose this run). Mark any open PENDING.md classifier row with matching title as `resolved` (today's date) to prevent re-surface loop. |
+
+**Default-on-drop-through:** If the command completes without the user picking an action (common in non-interactive flow — agent continues before user can choose), treat as `defer`. The unresolved candidate is persisted to PENDING.md so it re-surfaces instead of vanishing. Session-scoped dedup still applies per-title to prevent double-persist within a single run.
 
 **Race handling:** DECISIONS.md may be appended by `/gabe-push` too (starting in Phase 5). Dedup is by title case-insensitive match. If two writers race on `D[N]` computation, Edit tool's match-and-replace will fail on one of them — the losing writer retries with fresh read.
 

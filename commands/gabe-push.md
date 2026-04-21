@@ -178,6 +178,16 @@ If the Edit fails due to a concurrent writer (shouldn't happen — push is the s
 
 Only runs when Step 7.5a appended a row AND the BEHAVIOR.md frontmatter doesn't set `push_operational_classifier: never`. Otherwise skip silently.
 
+**Pre-step — Re-surface deferred classifier candidates (runs BEFORE trigger layer):**
+
+Read `.kdbp/PENDING.md`. For every row where `Source` column = `classifier` AND `Status` column = `open`:
+
+1. Render each as an original proposal block using the same format as the Interactive triage output below. Use the `Finding` column as `title`. Rationale/alternatives/review_trigger are not re-stored in PENDING.md — if present from the original defer, pull from a `Notes` suffix; otherwise render the row as a minimal candidate (title only + "originally deferred YYYY-MM-DD") and skip alternatives.
+2. User picks `[accept]` / `[note]` / `[defer]` / `[drop]` per row. Action handlers behave identically to current-run handlers. `accept`/`note`/`drop` set the PENDING row's `Status` to `resolved` with today's date. `defer` (explicit or drop-through) keeps `Status = open` and increments `Times Deferred`.
+3. After all re-surfaced rows are resolved or dropped-through, continue to current-run trigger layer.
+
+**Auto-resolve on current-run duplicate:** when the current-run classifier produces a `title` case-insensitively matching any re-surfaced open PENDING row, auto-resolve the PENDING row (`Status = resolved`, today's date, note `auto-resolved: superseded by current run`) and suppress the re-render. This prevents the same proposal from appearing twice in one run.
+
 **Trigger layer** (zero-cost, all fire-independently; ≥1 hit → proceed to classifier):
 
 | Trigger | Signal |
@@ -224,16 +234,20 @@ Only runs when Step 7.5a appended a row AND the BEHAVIOR.md frontmatter doesn't 
 
   [accept]  Append to .kdbp/DECISIONS.md as D[next_id] with `operational` tag
   [note]    Write one-liner to today's DEPLOYMENTS.md Decisions column instead (lighter weight)
-  [drop]    Don't record
+  [defer]   Write to .kdbp/PENDING.md with source=classifier — re-surface next run
+  [drop]    Don't record (session-scoped dedup on title)
 ```
 
 **Action handlers:**
 
 | Action | Behavior |
 |--------|----------|
-| `accept` | Append to DECISIONS.md using same mechanism as review 5b. `Status` column = `active,operational`. Dedup: existing DECISIONS.md row with matching title case-insensitively → drop instead of append. |
-| `note` | Find today's DEPLOYMENTS.md row (the one Step 7.5a just wrote, by `Date` and `PR` match). Update its `Decisions` column from `—` to a one-liner of `title`. Never appends a new row; updates the one already written. |
-| `drop` | No write. Session-scoped dedup on title. |
+| `accept` | Append to DECISIONS.md using same mechanism as review 5b. `Status` column = `active,operational`. Dedup: existing DECISIONS.md row with matching title case-insensitively → drop instead of append. Mark any open PENDING.md classifier row with matching title as `resolved` (today's date). |
+| `note` | Find today's DEPLOYMENTS.md row (the one Step 7.5a just wrote, by `Date` and `PR` match). Update its `Decisions` column from `—` to a one-liner of `title`. Never appends a new row; updates the one already written. Mark any open PENDING.md classifier row with matching title as `resolved` (today's date). |
+| `defer` | Append to PENDING.md: `\| P[N] \| today \| classifier \| [title] \| - \| [maturity] \| medium \| low \| 0 \| open \|`. Source column = `classifier`. Title stored verbatim in Finding for dedup on re-surface. If an open classifier row already exists with matching title (case-insensitive), increment `Times Deferred` on that row instead of creating a duplicate. |
+| `drop` | No write. Session-scoped dedup on title. Also mark any open PENDING.md classifier row with matching title as `resolved` (today's date) to prevent re-surface loop. |
+
+**Default-on-drop-through:** If the command completes without the user picking an action (common in non-interactive flow — agent continues before user can choose), treat as `defer`. The unresolved candidate is persisted to PENDING.md so it re-surfaces instead of vanishing. Session-scoped dedup still applies per-title to prevent double-persist within a single run.
 
 **BEHAVIOR.md opt-out flag:**
 
