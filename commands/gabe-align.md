@@ -69,4 +69,15 @@ Convert old `_kdbp/behaviors/` to new `.kdbp/` format.
 
 Review value PASS/CONCERN frequency and suggest changes.
 
+### Scope-drift checks (if SCOPE.md + ROADMAP.md exist)
+
+When project scoped via `/gabe-scope`, align adds read-only drift checks alongside value checks:
+
+1. **Uncovered-implementation check.** Files changed since last checkpoint without traceback to any REQ-NN → `scope_drift: uncovered_implementation`. Remediation hint: `/gabe-scope-change` to capture intent.
+2. **Phase-goal-unmet check.** For current phase (per PLAN.md `## Current Phase`), verify Covers REQs acceptance signals match shipped code. If phase marked `complete` in ROADMAP.md but signals missing → `scope_drift: phase_goal_unmet`.
+3. **Non-goal violation.** Scan changed files + recent commit subjects for keywords matching NG-NN statements in SCOPE.md §8. Flag `non_goal_violation` with specific NG-ID.
+4. **Constraint drift.** Compare package.json / pyproject.toml / Cargo.toml etc. against SCOPE.md §9 Constraints.tech_stack. Flag additions violating declared stack.
+
+Findings surface as CONCERN. Never writes to SCOPE.md or ROADMAP.md — remediation routes to `/gabe-scope-change`.
+
 $ARGUMENTS

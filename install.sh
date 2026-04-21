@@ -28,7 +28,7 @@ run() {
 }
 
 SKILLS=(gabe-align gabe-arch gabe-assess gabe-docs gabe-health gabe-help gabe-lens gabe-review gabe-roast)
-COMMANDS_ONLY=(gabe-init gabe-commit gabe-push gabe-plan gabe-teach)
+COMMANDS_ONLY=(gabe-init gabe-commit gabe-push gabe-plan gabe-teach gabe-scope gabe-scope-change gabe-scope-addition gabe-scope-pivot)
 
 if $UNINSTALL; then
     echo "=== Uninstall Gabe Lens Suite ==="
@@ -40,6 +40,8 @@ if $UNINSTALL; then
         run "rm -f ~/.claude/commands/$cmd.md"
     done
     run "rm -rf ~/.claude/templates/gabe"
+    run "rm -rf ~/.claude/prompts/gabe-scope"
+    run "rm -rf ~/.claude/schemas/gabe-scope"
     echo "Done."
     exit 0
 fi
@@ -78,9 +80,29 @@ done
 # Templates — bundled source of truth for .kdbp/ files created by /gabe-init and other commands
 if [ -d "$SCRIPT_DIR/templates" ]; then
     run "mkdir -p ~/.claude/templates/gabe"
-    run "cp \"$SCRIPT_DIR/templates/\"*.md ~/.claude/templates/gabe/"
+    # Copy .md + .yaml + .json templates (SCOPE.md, ROADMAP.md, scope-references.yaml, scope-session.example.json, etc.)
+    run "cp \"$SCRIPT_DIR/templates/\"*.md ~/.claude/templates/gabe/ 2>/dev/null || true"
+    run "cp \"$SCRIPT_DIR/templates/\"*.yaml ~/.claude/templates/gabe/ 2>/dev/null || true"
+    run "cp \"$SCRIPT_DIR/templates/\"*.json ~/.claude/templates/gabe/ 2>/dev/null || true"
     TEMPLATE_COUNT=$(ls -1 "$SCRIPT_DIR/templates/" | wc -l)
     echo "  OK: $TEMPLATE_COUNT templates → ~/.claude/templates/gabe/"
+fi
+
+# Prompts (Option A — ship to runtime) — consumed by /gabe-scope family at execution time
+if [ -d "$SCRIPT_DIR/prompts" ]; then
+    run "mkdir -p ~/.claude/prompts/gabe-scope"
+    run "cp \"$SCRIPT_DIR/prompts/\"*.md ~/.claude/prompts/gabe-scope/ 2>/dev/null || true"
+    PROMPT_COUNT=$(ls -1 "$SCRIPT_DIR/prompts/"*.md 2>/dev/null | wc -l)
+    echo "  OK: $PROMPT_COUNT prompts → ~/.claude/prompts/gabe-scope/"
+fi
+
+# Schemas — JSON Schema validators for scope-session.json + scope-references.yaml
+if [ -d "$SCRIPT_DIR/schemas" ]; then
+    run "mkdir -p ~/.claude/schemas/gabe-scope"
+    run "cp \"$SCRIPT_DIR/schemas/\"*.json ~/.claude/schemas/gabe-scope/ 2>/dev/null || true"
+    run "cp \"$SCRIPT_DIR/schemas/\"validate.py ~/.claude/schemas/gabe-scope/ 2>/dev/null || true"
+    SCHEMA_COUNT=$(ls -1 "$SCRIPT_DIR/schemas/"*.json 2>/dev/null | wc -l)
+    echo "  OK: $SCHEMA_COUNT schemas → ~/.claude/schemas/gabe-scope/"
 fi
 
 echo ""

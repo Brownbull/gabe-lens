@@ -254,4 +254,20 @@ When reading PLAN.md at Step 1, also check `Last Updated`:
 - >14 days: show `⚠ Plan last updated [N] days ago`
 - >30 days: show `⚠ STALE PLAN — last updated [N] days ago. Consider: [complete] [defer] [cancel] [update]`
 
+### Scope integration (if SCOPE.md + ROADMAP.md exist)
+
+When `.kdbp/SCOPE.md` and `.kdbp/ROADMAP.md` exist (project scoped via `/gabe-scope`):
+
+1. **Read ROADMAP.md first.** Find target phase by ID (integer or decimal). Extract `Goal`, `Why (business intent)`, `Depends-on`, `Parallel-with`, `Covers REQs`.
+2. **Read SCOPE.md REQ blocks.** For each REQ-NN in Covers REQs, read `Description` + `Acceptance signal` at anchor `{#req-NN}`.
+3. **Use as plan context.** Each REQ's Acceptance signal becomes a mandatory verification item in the Current Phase's plan. Goal-backward: plan must produce evidence satisfying every Covers REQ's acceptance.
+4. **Constraint check.** Read SCOPE.md §9 Constraints + §10 Architecture Posture. Plan must align with declared tech stack, budget, topology.
+5. **Dependency gate.** If phase is `pending` but any Depends-on phase is not `complete`, warn and ask whether to proceed anyway.
+
+**Refusal cases:**
+- SCOPE.md `status: pivoted` — confirm which version to target before planning.
+- ROADMAP.md references a phase ID absent from SCOPE.md — stale roadmap, suggest `/gabe-scope-change`.
+
+**Never write** to SCOPE.md or ROADMAP.md. PLAN.md is the only write target.
+
 $ARGUMENTS

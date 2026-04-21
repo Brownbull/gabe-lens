@@ -37,6 +37,8 @@ Parse `$ARGUMENTS`:
 | `learning` | admin | View and adjust `~/.claude/gabe-lens-learning.md` — current patterns, active tailorings, review cadence. Supports `learning reset` (clear all tailoring), `learning pattern <id>` (inspect a specific pattern) |
 | `history` | admin | Full timeline — plans, phases, commits, sessions, topics |
 | `history full` | admin | Unbounded history (default shows last 10 sessions + last 5 plans) |
+| `scope` | teach | Teach WHY sections of your own SCOPE.md + per-phase Why paragraphs from ROADMAP.md. Only available when both files exist. Renders premise + primary user JTBD + current phase Why as a lesson. Requires foundation: SCOPE.md § anchors (`{#sc-NN}`, `{#req-NN}`, `{#phase-N}`). |
+| `scope <anchor>` | teach | Teach one specific anchor, e.g. `scope sc-01`, `scope req-02`, `scope phase-3`. Deep-link lesson. |
 
 **Routing rules:**
 

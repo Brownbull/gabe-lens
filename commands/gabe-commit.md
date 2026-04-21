@@ -517,4 +517,27 @@ User can pass a pre-written message via `$ARGUMENTS`. In that case:
 - Body enrichment is skipped (user owns the message)
 - Phase/Task footer is still appended if plan is active (opt-out: `$ARGUMENTS` ending with `--no-footer`)
 
+### Scope-edit audit (if SCOPE.md or ROADMAP.md in diff)
+
+When a commit modifies `.kdbp/SCOPE.md` or `.kdbp/ROADMAP.md` directly:
+
+1. **Bypass warning.** Surface before proceeding:
+   ```
+   ⚠ Direct SCOPE.md / ROADMAP.md edit detected.
+
+   These files should change only through /gabe-scope-change (which routes to
+   /gabe-scope-addition or /gabe-scope-pivot with classifier + Change Log).
+
+   Direct edits skip the classifier, Change Log entry, and version bump.
+
+   Options:
+     [c] Continue anyway (records commit with scope_bypass audit tag)
+     [r] Revert changes + use /gabe-scope-change
+     [a] Abort commit
+   ```
+2. **Exception:** If the commit author also changed `.kdbp/CHANGES.jsonl` in the same diff with a matching `scope_addition` or `scope_pivot` row, assume the edit was made via the proper command path and skip the warning.
+3. **Audit footer.** If user continues, append `Scope-Bypass-Audit: true` line to commit footer for later grep.
+
+No behavior change for non-scope files.
+
 $ARGUMENTS

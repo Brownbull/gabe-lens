@@ -336,4 +336,22 @@ CI: ✅ lint  ❌ test  ✅ build
   → [details] [logs] [auto-fix] [assess] [ignore]
 ```
 
+### Scope traceability (if SCOPE.md + ROADMAP.md exist)
+
+When writing a DEPLOYMENTS.md row for this push, enrich with scope linkage:
+
+1. Read PLAN.md `## Current Phase` → extract phase ID N.
+2. Read ROADMAP.md phase N row → extract `Covers REQs`.
+3. DEPLOYMENTS.md row gets extra columns: `Phase: {N}` and `REQs: {REQ-01, REQ-02, ...}`.
+4. If CI passes AND the current phase's Exit criteria were satisfied in this push, propose marking Phase {N} as `complete` in ROADMAP.md — but route the write through `/gabe-scope-change` (never write ROADMAP.md directly from gabe-push).
+
+Prompt at end:
+
+```
+Phase {N} Covers REQs appear satisfied by this deployment.
+Mark phase complete?
+  [y] Run /gabe-scope-change "mark phase {N} complete"
+  [n] Leave roadmap alone (will surface again next push)
+```
+
 $ARGUMENTS
