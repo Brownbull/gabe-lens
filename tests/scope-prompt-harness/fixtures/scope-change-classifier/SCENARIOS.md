@@ -1,6 +1,8 @@
-# Scope-Change Classifier — 20 Fixture Scenarios
+# Scope-Change Classifier — 23 Fixture Scenarios (v2)
 
-**Status:** 5 scenarios have physical fixtures; the remaining 15 are reference specs for real-LLM validation in Phase 3.5 or Phase 6 DoD (≥95% correctness gate before shipping `/gabe-scope-change`).
+**Status:** 5 scenarios have physical fixtures; the remaining 18 are reference specs for real-LLM validation in Phase 3.5 or Phase 6 DoD (≥95% correctness gate before shipping `/gabe-scope-change`).
+
+**Rule set:** v2 — added rules 6-conflict (new authoritative ref contradicts existing decisions), 8 (constraint infeasibility), 9 (timeline compression forces phase skipping). Rule 6 now covers both replace/downgrade AND conflicting new refs.
 
 This doc is the canonical 20-scenario test suite for the classifier. Physical fixtures cover the canonical pivot triggers + one clean addition. The other 15 scenarios exercise edge cases, borderline calls, and user-intent mismatches.
 
@@ -39,7 +41,10 @@ This doc is the canonical 20-scenario test suite for the classifier. Physical fi
 | 18 | `constraint-relaxed-posture-stable` | addition | none | medium | Budget relaxed without changing posture — borderline but not a pivot |
 | 19 | `business-model-pivot` | pivot | business_model | high | Free-to-self → paid SaaS; retargets the product |
 | 20 | `double-change-masking-pivot` | pivot | primary_user | medium | User claims "just adding features" but one feature changes primary user segment; test that classifier surfaces the hidden pivot |
+| 21 | `new-auth-ref-conflicts-stack` | pivot | ref_conflict | high | New authoritative auth-framework ref added that contradicts the already-chosen stack — exercises the v2 expansion of rule 6 |
+| 22 | `budget-compressed-to-infeasibility` | pivot | constraint_infeasibility | high | Budget cut from $1M/yr to $1k/yr with existing SCs assuming ML infra — SCs become infeasible even if not explicitly removed |
+| 23 | `timeline-forces-phase-skip` | pivot | timeline_compression | medium | Deadline pulled in 6 months, forcing Phase 5 to be dropped entirely — structural roadmap change, not just acceleration |
 
 ## Acceptance gate (for Phase 6 DoD)
 
-Before `/gabe-scope-change` ships, classifier must achieve **≥95% correct classification** against the 20 scenarios (19/20 minimum). Misclassifications must be documented with remediation prompt tweaks.
+Before `/gabe-scope-change` ships, classifier must achieve **≥95% correct classification** against the 23 scenarios (22/23 minimum). Misclassifications must be documented with remediation prompt tweaks.

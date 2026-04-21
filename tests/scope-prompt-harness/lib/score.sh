@@ -14,6 +14,9 @@
 #   absent_phrase         — response does NOT contain substring
 #   max_chars             — response length <= limit (proxy for token budget)
 #   min_chars             — response length >= limit
+#   markdown_anchors_resolve — (JSON-only) checks that every [link](#anchor) in the
+#                              value at `path` resolves to a matching `{#anchor}`
+#                              definition in the same markdown string
 
 set -euo pipefail
 
@@ -139,6 +142,33 @@ score() {
         if (( len < limit )); then
           pass=false
           detail="response length $len below min_chars $limit"
+        fi
+        ;;
+
+      markdown_anchors_resolve)
+        local path
+        path=$(echo "$a" | jq -r '.path')
+        if ! echo "$response" | jq empty 2>/dev/null; then
+          pass=false
+          detail="response not JSON; cannot extract markdown at '$path'"
+        else
+          local md
+          md=$(echo "$response" | jq -r "$path // \"\"")
+          if [[ -z "$md" ]]; then
+            pass=false
+            detail="markdown at '$path' is empty"
+          else
+            # Extract [text](#anchor) references and {#anchor} definitions.
+            # Same-file links only (start with '#' not 'SCOPE.md#' or similar).
+            local refs defs missing
+            refs=$(echo "$md" | grep -oE '\]\(#[a-zA-Z0-9_-]+\)' | sed -E 's|\]\(#||; s|\)||' | sort -u)
+            defs=$(echo "$md" | grep -oE '\{#[a-zA-Z0-9_-]+\}' | sed -E 's|\{#||; s|\}||' | sort -u)
+            missing=$(comm -23 <(echo "$refs") <(echo "$defs") | head -5)
+            if [[ -n "$missing" ]]; then
+              pass=false
+              detail="unresolved same-file anchor refs: $(echo "$missing" | tr '\n' ',' | sed 's/,$//')"
+            fi
+          fi
         fi
         ;;
 

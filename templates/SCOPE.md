@@ -74,8 +74,13 @@ Goal-backward, observable user truths. Every criterion below is covered by ≥1 
 
 What we are explicitly NOT building, each paired with why.
 
-- **NG-01** — <what we're not building>. **Why:** <rationale>.
-- **NG-02** — <what we're not building>. **Why:** <rationale>.
+### NG-01 — <short name> {#ng-01}
+**Statement:** We will not <what>.
+**Why:** <rationale>.
+
+### NG-02 — <short name> {#ng-02}
+**Statement:** We will not <what>.
+**Why:** <rationale>.
 
 ## 9. Constraints {#constraints}
 
@@ -131,16 +136,29 @@ Every SC must have ≥1 REQ. Finalize blocks if the matrix is incomplete.
 
 Premise-level risks only. Implementation risks live in per-phase PLAN.md files.
 
-| # | Risk | Likelihood | Severity | Mitigation posture |
-|---|---|---|---|---|
-| SR-01 | <risk statement> | Low/Med/High | Low/Med/High | <stance, not tactics> |
+### SR-01 — <short name> {#sr-01}
+**Risk:** <risk statement>
+**Likelihood:** Low / Medium / High
+**Severity:** Low / Medium / High
+**Mitigation posture:** <stance, not tactics>
+
+### SR-02 — <short name> {#sr-02}
+**Risk:** <...>
+**Likelihood:** ...
+**Severity:** ...
+**Mitigation posture:** <...>
 
 ## 14. Open Questions {#open-questions}
 
 Unresolved items from scoping. Items marked `[UNRESOLVED — brainstorm exit]` came from the §3.5 sub-loop hitting its 2-cycle cap.
 
-- **OQ-01** — <question>. **Status:** open.
-- **OQ-02** — <question>. **Status:** `[UNRESOLVED — brainstorm exit]`.
+### OQ-01 — <short topic> {#oq-01}
+**Question:** <question>
+**Status:** open
+
+### OQ-02 — <short topic> {#oq-02}
+**Question:** <question>
+**Status:** `[UNRESOLVED — brainstorm exit]`
 
 ## 15. Change Log {#change-log}
 

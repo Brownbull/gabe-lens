@@ -43,7 +43,7 @@ description: >
 | `id` | yes | Stable identifier; must match filename without `.md` |
 | `version` | yes | `v{N}` integer versioning; bump on any semantic change |
 | `model` | yes | Tier per design §5 |
-| `token_budget` | yes | Cap including context; asserted by test harness |
+| `token_budget` | yes | Cap measured in **tokens** (≈ 4 chars per token). Harness rubrics assert in **characters** via `max_chars` — multiply `token_budget × 4` for the rough char equivalent |
 | `output_format` | yes | Used by harness to select parser |
 | `rubric` | yes | Path (relative to `gabe_lens/tests/scope-prompt-harness/`) to scoring rubric |
 | `fixtures` | yes | Paths to ≥3 fixture directories |
@@ -88,6 +88,19 @@ Do NOT bump for:
 - Documentation-only edits
 
 When `version:` bumps, any in-progress session that recorded the old version in `scope-session.json` MUST force a fresh start with a warning to the user (per design §8 risk last row).
+
+## Token vs. character accounting
+
+Prompt frontmatter declares `token_budget` in **tokens** (the LLM's native unit). Rubrics in `tests/scope-prompt-harness/rubrics/` assert in **characters** via the `max_chars` assertion type, since bash/jq can count characters trivially but not tokens.
+
+**Conversion rule of thumb:** 1 token ≈ 4 characters for English prose and structured JSON. A prompt with `token_budget: 600` corresponds to roughly `max_chars: 2400` in its rubric.
+
+Individual prompts may deviate from 4:1:
+- JSON-dense outputs compress slightly better (~3.5:1)
+- Prose-heavy outputs (brainstorm framings, reference summaries) run closer to 4.2:1
+- Always round the `max_chars` value **up** to avoid truncating valid outputs
+
+When `token_budget` changes, update `max_chars` in the corresponding rubric file. The harness will flag budget overruns via `max_chars` failures.
 
 ## Testing
 

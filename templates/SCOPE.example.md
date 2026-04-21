@@ -62,9 +62,17 @@ In 1–3 years: an ambient tool that watches what you're working on and surfaces
 
 ## 8. Non-Goals {#non-goals}
 
-- **NG-01** — Multi-user sync beyond a single person's devices. **Why:** Collaboration features would dominate scope and dilute the ambient-surfacing focus.
-- **NG-02** — Mobile-first experience. **Why:** Re-find friction is dominant on desktop; mobile-first would force UX compromises that hurt the core use case.
-- **NG-03** — Paid SaaS with hosted sync. **Why:** Local-first is an architecture commitment, not a feature toggle.
+### NG-01 — Multi-user sync {#ng-01}
+**Statement:** We will not build sync beyond a single person's devices.
+**Why:** Collaboration features would dominate scope and dilute the ambient-surfacing focus.
+
+### NG-02 — Mobile-first {#ng-02}
+**Statement:** We will not build a mobile-first experience in v1.
+**Why:** Re-find friction is dominant on desktop; mobile-first would force UX compromises that hurt the core use case.
+
+### NG-03 — Hosted SaaS {#ng-03}
+**Statement:** We will not offer a paid SaaS with hosted sync.
+**Why:** Local-first is an architecture commitment, not a feature toggle.
 
 ## 9. Constraints {#constraints}
 
@@ -112,16 +120,33 @@ In 1–3 years: an ambient tool that watches what you're working on and surfaces
 
 ## 13. Strategic Risks {#strategic-risks}
 
-| # | Risk | Likelihood | Severity | Mitigation posture |
-|---|---|---|---|---|
-| SR-01 | Ambient surfacing feels creepy or useless | Medium | High | Ship REQ-03 behind a feature flag; validate with self for 4 weeks before promoting |
-| SR-02 | Embedding model costs exceed $20/mo | Low | Medium | Use local embedding model (sentence-transformers); only call Claude for explanation, not embedding |
-| SR-03 | Data loss from local-only storage | Medium | High | Document export + auto-backup to Dropbox/iCloud folder as user opt-in |
+### SR-01 — Ambient surfacing rejection {#sr-01}
+**Risk:** Ambient surfacing feels creepy or useless to the user.
+**Likelihood:** Medium
+**Severity:** High
+**Mitigation posture:** Ship REQ-03 behind a feature flag; validate with self for 4 weeks before promoting.
+
+### SR-02 — Embedding cost overrun {#sr-02}
+**Risk:** Embedding model costs exceed $20/mo budget.
+**Likelihood:** Low
+**Severity:** Medium
+**Mitigation posture:** Use local embedding model (sentence-transformers); only call Claude for explanation, not embedding.
+
+### SR-03 — Local-only data loss {#sr-03}
+**Risk:** Data loss from local-only storage with no backup.
+**Likelihood:** Medium
+**Severity:** High
+**Mitigation posture:** Document export + auto-backup to Dropbox/iCloud folder as user opt-in.
 
 ## 14. Open Questions {#open-questions}
 
-- **OQ-01** — Browser extension security model — content script permissions vs. native messaging? **Status:** open; defer until Phase 3.
-- **OQ-02** — Calendar integration scope — macOS only, or also Google Calendar? **Status:** `[UNRESOLVED — brainstorm exit]`.
+### OQ-01 — Extension security model {#oq-01}
+**Question:** Browser extension security model — content script permissions vs. native messaging?
+**Status:** open; defer until Phase 3.
+
+### OQ-02 — Calendar integration scope {#oq-02}
+**Question:** Calendar integration scope — macOS only, or also Google Calendar?
+**Status:** `[UNRESOLVED — brainstorm exit]`
 
 ## 15. Change Log {#change-log}
 

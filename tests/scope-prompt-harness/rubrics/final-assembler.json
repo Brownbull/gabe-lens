@@ -14,6 +14,7 @@
     { "type": "contains_phrase", "phrase": "{#sc-", "description": "SC anchor format present in output" },
     { "type": "contains_phrase", "phrase": "{#req-", "description": "REQ anchor format present in output" },
     { "type": "contains_phrase", "phrase": "{#phase-", "description": "Phase anchor format present in output" },
+    { "type": "markdown_anchors_resolve", "path": ".scope_md", "description": "All same-file [link](#x) refs in scope_md resolve to a {#x} definition" },
     { "type": "max_chars", "limit": 5000, "description": "fits 5000-char budget (compressed markdown)" }
   ]
 }

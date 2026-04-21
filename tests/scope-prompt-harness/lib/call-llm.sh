@@ -67,15 +67,31 @@ call_llm() {
         messages: [{role: "user", content: $prompt}]
       }')
 
-    local response
-    response=$(curl -sS https://api.anthropic.com/v1/messages \
+    local response http_code
+    # Capture body + HTTP status separately so we can fail hard on non-2xx.
+    response=$(curl -sS -w "\n%{http_code}" https://api.anthropic.com/v1/messages \
       -H "x-api-key: $ANTHROPIC_API_KEY" \
       -H "anthropic-version: 2023-06-01" \
       -H "content-type: application/json" \
       -d "$payload")
+    http_code=$(echo "$response" | tail -n1)
+    response=$(echo "$response" | sed '$d')
 
-    # Extract text content (anthropic messages API returns content[0].text)
-    echo "$response" | jq -r '.content[0].text // .error.message // "EMPTY_RESPONSE"' > "$output_file"
+    if [[ "$http_code" != "200" ]]; then
+      echo "ERROR: Anthropic API returned HTTP $http_code" >&2
+      echo "$response" | jq -r '.error.message // .' >&2 2>/dev/null || echo "$response" >&2
+      return 2
+    fi
+
+    # Anthropic messages API returns content[0].text on success.
+    # Fail hard if the response doesn't match that shape (malformed JSON, schema change, etc.)
+    local text
+    if ! text=$(echo "$response" | jq -er '.content[0].text' 2>&1); then
+      echo "ERROR: could not extract text from API response (malformed or schema change?)" >&2
+      echo "Raw response: $response" >&2
+      return 2
+    fi
+    printf '%s' "$text" > "$output_file"
     return 0
   fi
 

@@ -79,7 +79,15 @@ if [[ ! -f "$PROMPT_FILE" ]]; then
 fi
 
 # Parse frontmatter: extract model, rubric path, fixtures list.
-# Simple awk-based YAML reader (handles our flat schema only).
+# Simple awk-based YAML reader. Scope:
+#   - Flat top-level fields of form `name: value` (strings, booleans, integers)
+#   - Flat string lists of form:
+#       fixtures:
+#         - path/1/
+#         - path/2/
+# Not supported: nested objects, multi-line strings, comments inside the list.
+# If the frontmatter schema gains complexity, replace this with python-yaml
+# (python3 + PyYAML are already required for the schema validator).
 parse_frontmatter_field() {
   local field="$1"
   awk -v f="$field" '

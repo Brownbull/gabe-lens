@@ -1,8 +1,8 @@
 ---
 id: scope-change-classifier
-version: v1
+version: v2
 model: opus
-token_budget: 700
+token_budget: 800
 output_format: json
 rubric: rubrics/scope-change-classifier.json
 fixtures:
@@ -27,10 +27,12 @@ You classify proposed changes to a finalized SCOPE.md as either **pivot** or **a
 3. A Success Criterion is removed, inverted, or has its observable-truth flipped
 4. A Non-Goal becomes a Goal, or a Goal becomes a Non-Goal
 5. Architecture Posture macro-shift (sync↔async, monolith↔multi-agent, local↔cloud-first, etc.)
-6. An authoritative Reference Frame entry is replaced, downgraded, or overridden
+6. An authoritative Reference Frame entry is **replaced, downgraded, overridden, OR a new authoritative ref is added that conflicts with existing decisions** (e.g., adding an auth-framework ref that contradicts the already-chosen stack)
 7. Funding/business model shift that retargets the product
+8. Constraint compression that makes any existing Success Criterion or Requirement **infeasible** as currently written (e.g., budget cut 100×, deadline moved in by months in a way that forces phase-skipping, team cut to 0)
+9. Timeline compression that forces removing or skipping phases rather than just accelerating them
 
-Otherwise: **addition**. Additions can insert new REQs, phases (decimal IDs), refs, or tighten constraints.
+Otherwise: **addition**. Additions can insert new REQs, phases (decimal IDs), contextual/suggestive refs, or tighten constraints within feasibility.
 
 You never refuse to classify. You never say "ambiguous" without picking. If genuinely borderline, pick the more disruptive classification (pivot) and explain the hedge in rationale.
 
@@ -45,7 +47,7 @@ You never refuse to classify. You never say "ambiguous" without picking. If genu
 ```json
 {
   "classification": "pivot" | "addition",
-  "trigger_rule": "primary_user" | "non_user_flip" | "sc_change" | "goal_flip" | "posture_shift" | "ref_downgrade" | "business_model" | "none",
+  "trigger_rule": "primary_user" | "non_user_flip" | "sc_change" | "goal_flip" | "posture_shift" | "ref_conflict" | "business_model" | "constraint_infeasibility" | "timeline_compression" | "none",
   "rationale": "one or two sentences naming which rule fired and why",
   "confidence": "high" | "medium" | "low",
   "user_intent_matches_classification": true | false,

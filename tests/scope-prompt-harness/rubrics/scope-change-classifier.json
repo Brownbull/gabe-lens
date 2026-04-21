@@ -1,6 +1,6 @@
 {
   "rubric_id": "scope-change-classifier",
-  "prompt_version": "v1",
+  "prompt_version": "v2",
   "output_format": "json",
   "description": "Validates classifier output shape and rule set.",
   "assertions": [
@@ -8,7 +8,7 @@
     { "type": "field_exists", "path": ".classification", "description": "Must have 'classification'" },
     { "type": "field_in_set", "path": ".classification", "values": ["pivot", "addition"], "description": "'classification' is 'pivot' or 'addition'" },
     { "type": "field_exists", "path": ".trigger_rule", "description": "Must have 'trigger_rule'" },
-    { "type": "field_in_set", "path": ".trigger_rule", "values": ["primary_user", "non_user_flip", "sc_change", "goal_flip", "posture_shift", "ref_downgrade", "business_model", "none"], "description": "'trigger_rule' is in declared set" },
+    { "type": "field_in_set", "path": ".trigger_rule", "values": ["primary_user", "non_user_flip", "sc_change", "goal_flip", "posture_shift", "ref_conflict", "ref_downgrade", "business_model", "constraint_infeasibility", "timeline_compression", "none"], "description": "'trigger_rule' is in declared set (v2 expanded; ref_downgrade kept for backward-compat)" },
     { "type": "field_exists", "path": ".rationale", "description": "Must have 'rationale'" },
     { "type": "field_in_set", "path": ".confidence", "values": ["high", "medium", "low"], "description": "'confidence' in set" },
     { "type": "field_exists", "path": ".suggested_next_command", "description": "Must have 'suggested_next_command'" },

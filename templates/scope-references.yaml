@@ -4,6 +4,12 @@
 # receives a framing block built from this file.
 #
 # See gabe-scope-design.md §2.5 for weight + load-mode semantics.
+#
+# NOTE: the `path:` values below are ILLUSTRATIVE only — they point to
+# local paths on the original author's machine. Replace with your own
+# paths (absolute local paths, relative-to-project paths, or URLs) when
+# using this template in your project. The auto-suggest scanner at
+# Step 0.5 proposes candidates from common locations in your workspace.
 
 references:
   # Example: authoritative AI-stack commitments — full read into every call.
