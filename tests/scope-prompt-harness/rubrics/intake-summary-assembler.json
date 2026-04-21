@@ -1,0 +1,18 @@
+{
+  "rubric_id": "intake-summary-assembler",
+  "prompt_version": "v1",
+  "output_format": "json",
+  "description": "Validates intake summary shape.",
+  "assertions": [
+    { "type": "output_is_json", "description": "Valid JSON" },
+    { "type": "field_exists", "path": ".one_liner", "description": "'one_liner' present (may be null)" },
+    { "type": "field_exists", "path": ".primary_user_and_pain", "description": "field present" },
+    { "type": "field_exists", "path": ".why_now", "description": "field present" },
+    { "type": "field_exists", "path": ".success_shape", "description": "field present" },
+    { "type": "field_exists", "path": ".anti_vision", "description": "field present" },
+    { "type": "field_exists", "path": ".follow_up_highlights", "description": "array present" },
+    { "type": "field_exists", "path": ".open_questions", "description": "array present" },
+    { "type": "max_chars", "limit": 1200, "description": "fits 1200-char budget" },
+    { "type": "absent_phrase", "phrase": "```", "description": "no markdown fences" }
+  ]
+}

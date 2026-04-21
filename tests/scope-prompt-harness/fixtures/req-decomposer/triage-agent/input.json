@@ -1,0 +1,11 @@
+{
+  "scenario": "triage-agent",
+  "success_criteria": [
+    {"id": "SC-01", "statement": "A user can route an incident to the correct team within 60 seconds of pager receipt."},
+    {"id": "SC-02", "statement": "A user can override a routing decision in under 5 seconds."},
+    {"id": "SC-03", "statement": "A user sees a one-sentence rationale in every routing output."}
+  ],
+  "architecture_posture": {"topology": "multi-agent", "synchrony": "async-first"},
+  "constraints": {"tech_stack": "Claude Haiku + PydanticAI"},
+  "reference_frame": []
+}

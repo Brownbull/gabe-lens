@@ -1,0 +1,1 @@
+{"classification":"pivot","trigger_rule":"ref_downgrade","rationale":"Authoritative ref-01 downgraded to suggestive. Rule 6 fires — loosening an authoritative binding permits divergence across already-decided constraints and posture.","confidence":"high","user_intent_matches_classification":false,"suggested_next_command":"/gabe-scope-pivot"}

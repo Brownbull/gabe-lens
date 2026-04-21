@@ -1,0 +1,9 @@
+{
+  "scenario": "triage-agent",
+  "description": "Rich intake + research; should produce 4-7 observable criteria covering route-speed, override, explainability, SLA.",
+  "intake_summary": {"one_liner": "Triage agent for incident routing.", "success_shape": "Route incidents in <60s"},
+  "research_summary": "Competing tools route in 3-5 min. Pain point: wrong-team reassignment costs 20min per incident.",
+  "reference_frame": [],
+  "primary_user": "on-call engineers receiving pager alerts at 3am",
+  "problem_statement": "10-15min per incident is spent deciding which team owns it."
+}

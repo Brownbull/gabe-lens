@@ -1,0 +1,6 @@
+{
+  "intake_summary": {"one_liner": "Triage agent.", "constraints_hint": "FastAPI + Claude Haiku; deploy to Vercel; solo dev"},
+  "research_summary": "",
+  "reference_frame": [{"id": "ref-01", "weight": "authoritative", "role": "AI stack: Claude Haiku + PydanticAI + Langfuse"}],
+  "success_criteria": []
+}

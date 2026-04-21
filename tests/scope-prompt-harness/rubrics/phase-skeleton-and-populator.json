@@ -1,0 +1,19 @@
+{
+  "rubric_id": "phase-skeleton-and-populator",
+  "prompt_version": "v1",
+  "output_format": "json",
+  "description": "Validates both skeleton and populate mode outputs.",
+  "assertions": [
+    { "type": "output_is_json", "description": "Response must parse as JSON" },
+    { "type": "field_exists", "path": ".mode", "description": "Must have 'mode' field" },
+    { "type": "field_in_set", "path": ".mode", "values": ["skeleton", "populate"], "description": "'mode' is 'skeleton' or 'populate'" },
+    { "type": "field_exists", "path": ".phases", "description": "Must have 'phases' array" },
+    { "type": "field_exists", "path": ".phases[0].id", "description": "Each phase has 'id'" },
+    { "type": "field_exists", "path": ".phases[0].name", "description": "Each phase has 'name'" },
+    { "type": "field_exists", "path": ".phases[0].goal", "description": "Each phase has 'goal'" },
+    { "type": "field_exists", "path": ".phases[0].why", "description": "Each phase has 'why' (critical for gabe-teach SCOPE mode)" },
+    { "type": "field_exists", "path": ".notes", "description": "Must have 'notes'" },
+    { "type": "max_chars", "limit": 2500, "description": "Response fits 2500-char budget" },
+    { "type": "absent_phrase", "phrase": "```", "description": "No markdown fences" }
+  ]
+}

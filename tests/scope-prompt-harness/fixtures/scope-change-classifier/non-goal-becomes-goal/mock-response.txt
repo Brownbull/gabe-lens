@@ -1,0 +1,1 @@
+{"classification":"pivot","trigger_rule":"goal_flip","rationale":"NG-01 (multi-user sync refused) flips to a Goal. Rule 4 fires — a non-goal becoming a goal restructures downstream phases and requirements.","confidence":"high","user_intent_matches_classification":false,"suggested_next_command":"/gabe-scope-pivot"}

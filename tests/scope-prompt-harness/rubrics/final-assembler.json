@@ -1,0 +1,19 @@
+{
+  "rubric_id": "final-assembler",
+  "prompt_version": "v1",
+  "output_format": "json",
+  "description": "Validates final assembly output shape.",
+  "assertions": [
+    { "type": "output_is_json", "description": "Valid JSON" },
+    { "type": "field_exists", "path": ".scope_md", "description": "scope_md string present" },
+    { "type": "field_exists", "path": ".roadmap_md", "description": "roadmap_md string present" },
+    { "type": "field_exists", "path": ".validation.sc_anchors_present", "description": "SC anchors validation" },
+    { "type": "field_exists", "path": ".validation.req_anchors_present", "description": "REQ anchors validation" },
+    { "type": "field_exists", "path": ".validation.phase_anchors_present", "description": "Phase anchors validation" },
+    { "type": "field_exists", "path": ".validation.coverage_complete", "description": "coverage_complete validation" },
+    { "type": "contains_phrase", "phrase": "{#sc-", "description": "SC anchor format present in output" },
+    { "type": "contains_phrase", "phrase": "{#req-", "description": "REQ anchor format present in output" },
+    { "type": "contains_phrase", "phrase": "{#phase-", "description": "Phase anchor format present in output" },
+    { "type": "max_chars", "limit": 5000, "description": "fits 5000-char budget (compressed markdown)" }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "scenario": "triage-agent",
+  "intake_summary": {"one_liner": "Triage agent for incident routing.", "anti_vision": "Not a replacement for human judgement on severity calls."},
+  "success_criteria": [{"id": "SC-01", "statement": "A user can route an incident in under 60 seconds."}],
+  "reference_frame": [],
+  "primary_user": "on-call engineers",
+  "non_users": ["large enterprises with existing PagerDuty contracts", "developers without an on-call rotation"]
+}

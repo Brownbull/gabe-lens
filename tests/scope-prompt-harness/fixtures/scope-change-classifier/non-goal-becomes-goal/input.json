@@ -1,0 +1,8 @@
+{
+  "scenario": "non-goal-becomes-goal",
+  "expected_classification": "pivot",
+  "expected_trigger": "goal_flip",
+  "current_scope": {"non_goals": [{"id": "NG-01", "statement": "We will not build multi-user sync across teams."}]},
+  "proposed_change": "Actually, let's build multi-user sync — it's important for growth.",
+  "user_intent": "unspecified"
+}

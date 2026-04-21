@@ -73,9 +73,11 @@ score() {
           pass=false
           detail="response not JSON; cannot check path '$path'"
         else
-          local val
-          val=$(echo "$response" | jq -r "$path // \"__MISSING__\"" 2>/dev/null || echo "__MISSING__")
-          if [[ "$val" == "__MISSING__" || "$val" == "null" ]]; then
+          # Use jq's type function — returns "null" if value is null, "MISSING" if path absent.
+          # Distinguishes missing/null from false/0 (both are valid present values).
+          local type_result
+          type_result=$(echo "$response" | jq -r "$path | type" 2>/dev/null || echo "MISSING")
+          if [[ "$type_result" == "MISSING" || "$type_result" == "null" ]]; then
             pass=false
             detail="path '$path' missing or null"
           fi
@@ -92,9 +94,9 @@ score() {
           detail="response not JSON; cannot check path '$path'"
         else
           local val
-          val=$(echo "$response" | jq -r "$path // \"__MISSING__\"")
+          val=$(echo "$response" | jq -r "$path | tostring")
           local in_set
-          in_set=$(echo "$values" | jq -r --arg v "$val" 'any(. == $v)')
+          in_set=$(echo "$values" | jq -r --arg v "$val" 'any(tostring == $v)')
           if [[ "$in_set" != "true" ]]; then
             pass=false
             detail="value '$val' at '$path' not in set $values"

@@ -1,0 +1,9 @@
+{
+  "scenario": "bookmark-manager",
+  "description": "Local-first bookmark manager; 3 criteria covering save, re-find, surfacing.",
+  "intake_summary": {"one_liner": "Local-first bookmark manager with ambient surfacing.", "success_shape": "Re-find under 30s without remembering"},
+  "research_summary": "Raindrop, Pocket, Pinboard all struggle with re-find. No competitor offers ambient surfacing.",
+  "reference_frame": [],
+  "primary_user": "solo knowledge workers saving 100+ links/year",
+  "problem_statement": "Saved content is lost because intent isn't captured with the URL."
+}

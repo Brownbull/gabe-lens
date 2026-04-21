@@ -1,0 +1,6 @@
+{
+  "path": "/home/khujta/projects/refrepos/setup/ai-stack/README.md",
+  "role": "AI stack commitments",
+  "weight": "authoritative",
+  "content": "# AI Stack (Gabe Lens)\n\nStandardized LLM integration patterns enforced across projects.\n\n- Structured output: PydanticAI output_type or Claude tool_choice. Never prompt-only.\n- Streaming: all >5s operations emit SSE progress events.\n- Model routing: Haiku for classification, Sonnet for complex reasoning, Opus for rare architectural calls. Never user-configurable.\n- Observability: Langfuse traces on all production calls with cost + latency + token_count tags."
+}

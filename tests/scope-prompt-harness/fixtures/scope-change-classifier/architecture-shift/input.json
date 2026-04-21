@@ -1,0 +1,8 @@
+{
+  "scenario": "architecture-shift",
+  "expected_classification": "pivot",
+  "expected_trigger": "posture_shift",
+  "current_scope": {"architecture_posture": {"topology": "single-binary desktop", "data_gravity": "local-first"}},
+  "proposed_change": "We need a cloud-hosted service with web app. Move away from local-first.",
+  "user_intent": "pivot"
+}

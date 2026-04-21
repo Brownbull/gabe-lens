@@ -1,0 +1,13 @@
+{
+  "scenario": "self-question",
+  "description": "User responds with a question; Cycle 2 (final cycle before exit).",
+  "question": "What's the one thing you refuse to build?",
+  "answer": "I don't know, what's common to say no to?",
+  "signals": ["self_question"],
+  "cycle": 2,
+  "prior_answers": [
+    {"q": "One-liner?", "a": "Triage agent for incident routing."},
+    {"q": "Primary user?", "a": "On-call engineers."}
+  ],
+  "reference_frame": []
+}

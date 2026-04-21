@@ -1,0 +1,16 @@
+{
+  "mode": "skeleton",
+  "success_criteria": [
+    {"id": "SC-01", "statement": "A user can save a link with context in under 3 seconds."},
+    {"id": "SC-02", "statement": "A user can re-find a bookmark by approximate topic in under 30 seconds."},
+    {"id": "SC-03", "statement": "A user sees 3-5 surfaced bookmarks on app open."}
+  ],
+  "requirements": [
+    {"id": "REQ-01", "name": "Clipboard quick-save", "covers_sc": ["SC-01"]},
+    {"id": "REQ-02", "name": "Semantic re-find", "covers_sc": ["SC-02"]},
+    {"id": "REQ-03", "name": "Ambient surfacing", "covers_sc": ["SC-03"]}
+  ],
+  "granularity": "standard",
+  "architecture_posture": {"topology": "single-binary desktop", "data_gravity": "local-first"},
+  "reference_frame": []
+}

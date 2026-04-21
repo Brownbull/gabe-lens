@@ -1,0 +1,53 @@
+{
+  "rubric_id": "intake-quality-evaluator",
+  "prompt_version": "v1",
+  "output_format": "json",
+  "description": "Validates that the intake-quality-evaluator returns a well-shaped verdict.",
+  "assertions": [
+    {
+      "type": "output_is_json",
+      "description": "Response must parse as valid JSON"
+    },
+    {
+      "type": "field_exists",
+      "path": ".quality",
+      "description": "Response must have 'quality' field"
+    },
+    {
+      "type": "field_in_set",
+      "path": ".quality",
+      "values": ["spec", "idea"],
+      "description": "'quality' must be 'spec' or 'idea'"
+    },
+    {
+      "type": "field_exists",
+      "path": ".signals",
+      "description": "Response must have 'signals' array"
+    },
+    {
+      "type": "field_exists",
+      "path": ".gap_opened",
+      "description": "Response must have 'gap_opened' boolean"
+    },
+    {
+      "type": "field_exists",
+      "path": ".reference_conflict",
+      "description": "Response must have 'reference_conflict' object"
+    },
+    {
+      "type": "field_exists",
+      "path": ".notes",
+      "description": "Response must have 'notes' string"
+    },
+    {
+      "type": "max_chars",
+      "limit": 600,
+      "description": "Response must fit declared 600-char token budget"
+    },
+    {
+      "type": "absent_phrase",
+      "phrase": "```",
+      "description": "Response must not wrap JSON in markdown code fences"
+    }
+  ]
+}

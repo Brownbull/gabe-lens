@@ -1,0 +1,16 @@
+{
+  "rubric_id": "constraints-and-posture-drafter",
+  "prompt_version": "v1",
+  "output_format": "json",
+  "description": "Validates constraints + posture output.",
+  "assertions": [
+    { "type": "output_is_json", "description": "Valid JSON" },
+    { "type": "field_exists", "path": ".constraints", "description": "constraints object present" },
+    { "type": "field_exists", "path": ".architecture_posture.synchrony", "description": "posture.synchrony present" },
+    { "type": "field_exists", "path": ".architecture_posture.topology", "description": "posture.topology present" },
+    { "type": "field_exists", "path": ".architecture_posture.data_gravity", "description": "posture.data_gravity present" },
+    { "type": "field_exists", "path": ".architecture_posture.deployment_target", "description": "posture.deployment_target present" },
+    { "type": "max_chars", "limit": 1000, "description": "fits 1000-char budget" },
+    { "type": "absent_phrase", "phrase": "```", "description": "no markdown fences" }
+  ]
+}

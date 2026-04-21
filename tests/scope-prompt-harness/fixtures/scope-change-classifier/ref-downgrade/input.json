@@ -1,0 +1,8 @@
+{
+  "scenario": "ref-downgrade",
+  "expected_classification": "pivot",
+  "expected_trigger": "ref_downgrade",
+  "current_scope": {"reference_frame": [{"id": "ref-01", "weight": "authoritative", "role": "AI stack"}]},
+  "proposed_change": "Downgrade ref-01 from authoritative to suggestive — we may diverge from Claude + PydanticAI.",
+  "user_intent": "addition"
+}

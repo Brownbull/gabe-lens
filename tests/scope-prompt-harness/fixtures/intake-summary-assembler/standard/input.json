@@ -1,0 +1,12 @@
+{
+  "interview_answers": [
+    {"question_id": "Q1", "question_text": "One-liner?", "answer": "Triage agent for incident routing.", "quality": "spec"},
+    {"question_id": "Q2", "question_text": "Primary user + pain?", "answer": "On-call engineers losing 10-15min per incident deciding which team owns it.", "quality": "spec"},
+    {"question_id": "Q3", "question_text": "Why now?", "answer": "Haiku cheap enough that per-incident LLM calls are $0.001.", "quality": "spec"},
+    {"question_id": "Q4", "question_text": "Success shape?", "answer": "Users happier.", "quality": "idea"},
+    {"question_id": "Q5", "question_text": "Anti-vision?", "answer": "Not replacing human judgement on severity.", "quality": "spec"}
+  ],
+  "brainstorm_results": [
+    {"question_id": "Q4", "chosen_framing": "Speed-to-outcome", "refined_answer": "Users route incidents in under 60s vs. current 10-15min baseline."}
+  ]
+}

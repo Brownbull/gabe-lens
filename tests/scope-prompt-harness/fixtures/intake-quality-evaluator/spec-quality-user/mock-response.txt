@@ -1,0 +1,1 @@
+{"quality":"spec","signals":[],"gap_opened":false,"gap_question":null,"reference_conflict":{"ref_id":null,"rationale":null},"notes":"Concrete product description with specific integrations and actions."}

@@ -1,0 +1,1 @@
+{"classification":"pivot","trigger_rule":"posture_shift","rationale":"Topology flips from desktop to web + data gravity from local-first to cloud-first. Rule 5 fires — macro-posture shift invalidates prior constraint, deployment-target, and likely non-goals decisions.","confidence":"high","user_intent_matches_classification":true,"suggested_next_command":"/gabe-scope-pivot"}

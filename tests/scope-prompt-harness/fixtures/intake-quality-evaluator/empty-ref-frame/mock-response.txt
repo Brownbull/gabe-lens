@@ -1,0 +1,1 @@
+{"quality":"spec","signals":[],"gap_opened":false,"gap_question":null,"reference_conflict":{"ref_id":null,"rationale":null},"notes":"Observable user truth with explicit time bound; no refs to conflict with."}

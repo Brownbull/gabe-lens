@@ -1,0 +1,16 @@
+{
+  "rubric_id": "non-goals-generator",
+  "prompt_version": "v1",
+  "output_format": "json",
+  "description": "Validates non-goals output shape.",
+  "assertions": [
+    { "type": "output_is_json", "description": "Response must parse as JSON" },
+    { "type": "field_exists", "path": ".non_goals", "description": "Must have 'non_goals' array" },
+    { "type": "field_exists", "path": ".non_goals[0].id", "description": "Each entry has 'id'" },
+    { "type": "field_exists", "path": ".non_goals[0].statement", "description": "Each entry has 'statement'" },
+    { "type": "field_exists", "path": ".non_goals[0].rationale", "description": "Each entry has 'rationale'" },
+    { "type": "contains_phrase", "phrase": "We will not ", "description": "Statements use 'We will not ' prefix" },
+    { "type": "max_chars", "limit": 1000, "description": "Response fits 1000-char budget" },
+    { "type": "absent_phrase", "phrase": "```", "description": "No markdown fences" }
+  ]
+}

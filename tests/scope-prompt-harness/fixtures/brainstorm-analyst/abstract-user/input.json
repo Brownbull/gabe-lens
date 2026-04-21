@@ -1,0 +1,10 @@
+{
+  "scenario": "abstract-user",
+  "description": "Abstract user description; Cycle 1.",
+  "question": "Who is the primary user?",
+  "answer": "Everyone really. Anyone who wants to be more productive.",
+  "signals": ["abstract_nouns"],
+  "cycle": 1,
+  "prior_answers": [{"q": "One-liner?", "a": "A productivity app."}],
+  "reference_frame": []
+}

@@ -1,0 +1,8 @@
+{
+  "scenario": "minimal-context",
+  "intake_summary": {"one_liner": "CLI for bulk file renaming."},
+  "success_criteria": [{"id": "SC-01", "statement": "A user can preview renames before committing."}],
+  "reference_frame": [],
+  "primary_user": "developers",
+  "non_users": []
+}

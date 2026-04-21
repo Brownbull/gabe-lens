@@ -1,0 +1,19 @@
+{
+  "rubric_id": "scope-change-classifier",
+  "prompt_version": "v1",
+  "output_format": "json",
+  "description": "Validates classifier output shape and rule set.",
+  "assertions": [
+    { "type": "output_is_json", "description": "Response must parse as JSON" },
+    { "type": "field_exists", "path": ".classification", "description": "Must have 'classification'" },
+    { "type": "field_in_set", "path": ".classification", "values": ["pivot", "addition"], "description": "'classification' is 'pivot' or 'addition'" },
+    { "type": "field_exists", "path": ".trigger_rule", "description": "Must have 'trigger_rule'" },
+    { "type": "field_in_set", "path": ".trigger_rule", "values": ["primary_user", "non_user_flip", "sc_change", "goal_flip", "posture_shift", "ref_downgrade", "business_model", "none"], "description": "'trigger_rule' is in declared set" },
+    { "type": "field_exists", "path": ".rationale", "description": "Must have 'rationale'" },
+    { "type": "field_in_set", "path": ".confidence", "values": ["high", "medium", "low"], "description": "'confidence' in set" },
+    { "type": "field_exists", "path": ".suggested_next_command", "description": "Must have 'suggested_next_command'" },
+    { "type": "field_in_set", "path": ".suggested_next_command", "values": ["/gabe-scope-pivot", "/gabe-scope-addition"], "description": "'suggested_next_command' is a valid command" },
+    { "type": "max_chars", "limit": 700, "description": "Response fits 700-char budget" },
+    { "type": "absent_phrase", "phrase": "```", "description": "No markdown fences" }
+  ]
+}

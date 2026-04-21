@@ -1,0 +1,16 @@
+{
+  "rubric_id": "users-and-non-users-drafter",
+  "prompt_version": "v1",
+  "output_format": "json",
+  "description": "Validates users sections output.",
+  "assertions": [
+    { "type": "output_is_json", "description": "Valid JSON" },
+    { "type": "field_exists", "path": ".primary_user.role", "description": "primary_user.role present" },
+    { "type": "field_exists", "path": ".primary_user.description", "description": "primary_user.description present" },
+    { "type": "field_exists", "path": ".primary_user.jtbd", "description": "jtbd array present" },
+    { "type": "field_exists", "path": ".non_users", "description": "non_users array present" },
+    { "type": "contains_phrase", "phrase": "When I ", "description": "At least one JTBD uses canonical 'When I...' format" },
+    { "type": "max_chars", "limit": 1500, "description": "fits 1500-char budget" },
+    { "type": "absent_phrase", "phrase": "```", "description": "no markdown fences" }
+  ]
+}

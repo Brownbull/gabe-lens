@@ -144,6 +144,12 @@ run_one_fixture() {
   local fixture_name="$1"
   local fixture_dir="$FIXTURES_DIR/$fixture_name"
 
+  # Fall back to per-prompt nested layout if short name was given.
+  if [[ ! -d "$fixture_dir" ]] && [[ -d "$FIXTURES_DIR/$PROMPT_ID/$fixture_name" ]]; then
+    fixture_dir="$FIXTURES_DIR/$PROMPT_ID/$fixture_name"
+    fixture_name="$PROMPT_ID/$fixture_name"
+  fi
+
   if [[ ! -d "$fixture_dir" ]]; then
     echo "ERROR: fixture not found: $fixture_dir" >&2
     return 2

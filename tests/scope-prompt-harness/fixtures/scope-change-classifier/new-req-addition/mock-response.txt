@@ -1,0 +1,1 @@
+{"classification":"addition","trigger_rule":"none","rationale":"New capability layered on top; no Primary User, SC, Non-Goal, or posture change. Clean additive scope.","confidence":"high","user_intent_matches_classification":true,"suggested_next_command":"/gabe-scope-addition"}

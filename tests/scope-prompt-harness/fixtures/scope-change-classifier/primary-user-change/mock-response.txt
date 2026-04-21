@@ -1,0 +1,1 @@
+{"classification":"pivot","trigger_rule":"primary_user","rationale":"Primary User shifts from solo knowledge workers to enterprise teams. Downstream collaboration, access controls, and compliance reqs will cascade — rule 1.","confidence":"high","user_intent_matches_classification":false,"suggested_next_command":"/gabe-scope-pivot"}

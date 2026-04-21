@@ -1,0 +1,21 @@
+{
+  "rubric_id": "brainstorm-analyst",
+  "prompt_version": "v1",
+  "output_format": "json",
+  "description": "Validates the brainstorm analyst returns a well-shaped reframe + 2-3 framings + one probing question.",
+  "assertions": [
+    { "type": "output_is_json", "description": "Response must parse as JSON" },
+    { "type": "field_exists", "path": ".acknowledgment", "description": "Must have 'acknowledgment' field" },
+    { "type": "field_exists", "path": ".framings", "description": "Must have 'framings' array" },
+    { "type": "field_exists", "path": ".framings[0].id", "description": "Each framing must have 'id'" },
+    { "type": "field_exists", "path": ".framings[0].name", "description": "Each framing must have 'name'" },
+    { "type": "field_exists", "path": ".framings[0].interpretation", "description": "Each framing must have 'interpretation'" },
+    { "type": "field_exists", "path": ".framings[0].gains", "description": "Each framing must have 'gains'" },
+    { "type": "field_exists", "path": ".framings[0].gives_up", "description": "Each framing must have 'gives_up'" },
+    { "type": "field_exists", "path": ".probing_question", "description": "Must have 'probing_question'" },
+    { "type": "field_in_set", "path": ".cycle", "values": [1, 2], "description": "'cycle' must be 1 or 2" },
+    { "type": "field_exists", "path": ".exit_hint", "description": "Must have 'exit_hint'" },
+    { "type": "max_chars", "limit": 1200, "description": "Response fits 1200-char budget" },
+    { "type": "absent_phrase", "phrase": "```", "description": "No markdown fences" }
+  ]
+}

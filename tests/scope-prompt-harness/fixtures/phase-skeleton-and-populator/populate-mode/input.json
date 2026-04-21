@@ -1,0 +1,14 @@
+{
+  "mode": "populate",
+  "skeleton": [
+    {"id": 1, "name": "Foundation + storage", "goal": "App boots with SQLite.", "why": "Foundation for everything."},
+    {"id": 2, "name": "Clipboard quick-save", "goal": "User saves in ≤3s.", "why": "Gravitational center."},
+    {"id": 3, "name": "Semantic re-find", "goal": "User re-finds by topic.", "why": "Promise is 'I don't have to remember it.'"},
+    {"id": 4, "name": "Ambient surfacing", "goal": "App surfaces relevant bookmarks.", "why": "The vision."}
+  ],
+  "requirements": [
+    {"id": "REQ-01", "name": "Clipboard quick-save", "covers_sc": ["SC-01"]},
+    {"id": "REQ-02", "name": "Semantic re-find", "covers_sc": ["SC-02"]},
+    {"id": "REQ-03", "name": "Ambient surfacing", "covers_sc": ["SC-03"]}
+  ]
+}

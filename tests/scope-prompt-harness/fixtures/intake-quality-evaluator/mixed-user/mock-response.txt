@@ -1,0 +1,1 @@
+{"quality":"idea","signals":["hedge_words"],"gap_opened":true,"gap_question":"You mentioned 'other things too' — what are the top 2 candidate workflows beyond routing?","reference_conflict":{"ref_id":null,"rationale":null},"notes":"Compound answer: specific pain quantified but trailing hedge opens scope."}

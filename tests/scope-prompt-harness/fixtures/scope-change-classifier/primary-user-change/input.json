@@ -1,0 +1,8 @@
+{
+  "scenario": "primary-user-change",
+  "expected_classification": "pivot",
+  "expected_trigger": "primary_user",
+  "current_scope": {"primary_user": "solo knowledge workers saving 100+ links/year"},
+  "proposed_change": "Let's focus on enterprise teams instead.",
+  "user_intent": "addition"
+}

@@ -1,0 +1,8 @@
+{
+  "scenario": "new-req-addition",
+  "expected_classification": "addition",
+  "expected_trigger": "none",
+  "current_scope": {"primary_user": "solo knowledge workers", "success_criteria": [{"id": "SC-01"}, {"id": "SC-02"}]},
+  "proposed_change": "Add an export-to-markdown feature; existing SCs still hold.",
+  "user_intent": "addition"
+}

@@ -1,0 +1,15 @@
+{
+  "scenario": "minimal-bookmark-manager-assembly",
+  "session_metadata": {"name": "bookmark-manager", "project_kind": "web-app", "created": "2026-04-21", "granularity": "standard"},
+  "one_liner": "A local-first bookmark manager.",
+  "problem": "Saved links are lost because intent isn't captured.",
+  "vision": "An ambient memory prosthetic.",
+  "primary_user": {"role": "Solo knowledge workers", "jtbd": ["When I save a link, I want to add context, so I can understand past intent."]},
+  "non_users": [{"role": "Enterprise teams", "reason": "Out of scope"}],
+  "success_criteria": [{"id": "SC-01", "statement": "A user can save in under 3 seconds."}],
+  "non_goals": [{"id": "NG-01", "statement": "We will not build multi-user sync."}],
+  "constraints": {"tech_stack": "Tauri + SQLite"},
+  "posture": {"topology": "desktop-app", "synchrony": "async-first"},
+  "requirements": [{"id": "REQ-01", "covers_sc": ["SC-01"], "description": "Clipboard quick-save"}],
+  "phases": [{"id": 1, "name": "Foundation", "goal": "App boots.", "why": "Required.", "covers_reqs": ["REQ-01"], "depends_on": [], "parallel_with": []}]
+}

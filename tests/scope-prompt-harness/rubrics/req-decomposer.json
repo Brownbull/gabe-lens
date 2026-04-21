@@ -1,0 +1,19 @@
+{
+  "rubric_id": "req-decomposer",
+  "prompt_version": "v1",
+  "output_format": "json",
+  "description": "Validates REQ decomposition output.",
+  "assertions": [
+    { "type": "output_is_json", "description": "Response must parse as JSON" },
+    { "type": "field_exists", "path": ".requirements", "description": "Must have 'requirements' array" },
+    { "type": "field_exists", "path": ".requirements[0].id", "description": "Each REQ has 'id'" },
+    { "type": "field_exists", "path": ".requirements[0].name", "description": "Each REQ has 'name'" },
+    { "type": "field_exists", "path": ".requirements[0].description", "description": "Each REQ has 'description'" },
+    { "type": "field_exists", "path": ".requirements[0].covers_sc", "description": "Each REQ has 'covers_sc'" },
+    { "type": "field_exists", "path": ".requirements[0].acceptance_signal", "description": "Each REQ has 'acceptance_signal'" },
+    { "type": "field_exists", "path": ".coverage_check.scs_covered", "description": "coverage_check.scs_covered exists" },
+    { "type": "field_exists", "path": ".coverage_check.scs_uncovered", "description": "coverage_check.scs_uncovered exists" },
+    { "type": "max_chars", "limit": 1800, "description": "Response fits 1800-char budget" },
+    { "type": "absent_phrase", "phrase": "```", "description": "No markdown fences" }
+  ]
+}

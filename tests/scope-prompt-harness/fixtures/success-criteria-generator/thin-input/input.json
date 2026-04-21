@@ -1,0 +1,9 @@
+{
+  "scenario": "thin-input",
+  "description": "Minimum-viable input — tests that the generator produces sensible defaults with sparse context.",
+  "intake_summary": {"one_liner": "A CLI for renaming files in bulk."},
+  "research_summary": "",
+  "reference_frame": [],
+  "primary_user": "developers wrangling large file trees",
+  "problem_statement": "Bulk renames with GUI tools are slow and mouse-heavy."
+}

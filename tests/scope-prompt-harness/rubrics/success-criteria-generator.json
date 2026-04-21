@@ -1,0 +1,17 @@
+{
+  "rubric_id": "success-criteria-generator",
+  "prompt_version": "v1",
+  "output_format": "json",
+  "description": "Validates success criteria output shape and format.",
+  "assertions": [
+    { "type": "output_is_json", "description": "Response must parse as JSON" },
+    { "type": "field_exists", "path": ".criteria", "description": "Must have 'criteria' array" },
+    { "type": "field_exists", "path": ".criteria[0].id", "description": "Each criterion has 'id'" },
+    { "type": "field_exists", "path": ".criteria[0].statement", "description": "Each criterion has 'statement'" },
+    { "type": "field_exists", "path": ".criteria[0].ref_conflict", "description": "Each criterion has 'ref_conflict' object" },
+    { "type": "field_exists", "path": ".notes", "description": "Must have 'notes' field" },
+    { "type": "contains_phrase", "phrase": "A user can ", "description": "At least one statement begins with 'A user can '" },
+    { "type": "max_chars", "limit": 1500, "description": "Response fits 1500-char budget" },
+    { "type": "absent_phrase", "phrase": "```", "description": "No markdown fences" }
+  ]
+}

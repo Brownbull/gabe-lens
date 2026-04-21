@@ -1,0 +1,10 @@
+{
+  "scenario": "vague-success",
+  "description": "Classic 'users are happier' answer. Canonical brainstorm trigger. Cycle 1 — should produce 3 framings around Engagement/Speed/Confidence axes.",
+  "question": "In 6 months, if this works, what's different?",
+  "answer": "Users are happier, I think.",
+  "signals": ["length", "hedge_words", "abstract_nouns"],
+  "cycle": 1,
+  "prior_answers": [],
+  "reference_frame": []
+}

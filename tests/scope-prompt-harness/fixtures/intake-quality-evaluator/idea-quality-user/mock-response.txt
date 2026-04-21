@@ -1,0 +1,1 @@
+{"quality":"idea","signals":["length","hedge_words","abstract_nouns"],"gap_opened":false,"gap_question":null,"reference_conflict":{"ref_id":null,"rationale":null},"notes":"'Maybe something helpful' is unmeasured intent; needs concretization."}

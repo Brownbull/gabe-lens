@@ -1,0 +1,1 @@
+{"quality":"spec","signals":[],"gap_opened":false,"gap_question":null,"reference_conflict":{"ref_id":"ref-01","rationale":"User proposes regex classification; ref-01 (authoritative) mandates Claude Haiku + PydanticAI structured output per U4/U6."},"notes":"Answer is concrete but contradicts authoritative AI-stack ref; surface 3-option conflict prompt at Step 5 or 6."}

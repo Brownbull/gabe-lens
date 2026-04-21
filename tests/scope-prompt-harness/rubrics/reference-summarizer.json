@@ -1,0 +1,15 @@
+{
+  "rubric_id": "reference-summarizer",
+  "prompt_version": "v1",
+  "output_format": "json",
+  "description": "Validates reference summary output.",
+  "assertions": [
+    { "type": "output_is_json", "description": "Valid JSON" },
+    { "type": "field_exists", "path": ".summary", "description": "summary present" },
+    { "type": "field_exists", "path": ".key_constraints", "description": "key_constraints array present" },
+    { "type": "field_exists", "path": ".vocabulary_anchors", "description": "vocabulary_anchors array present" },
+    { "type": "field_in_set", "path": ".confidence", "values": ["high", "medium", "low"], "description": "confidence in set" },
+    { "type": "max_chars", "limit": 3000, "description": "fits 3000-char budget" },
+    { "type": "absent_phrase", "phrase": "```", "description": "no markdown fences" }
+  ]
+}
