@@ -17,7 +17,7 @@ Execution proceeds phase-by-phase. Each phase ends with a Definition of Done (Do
 
 ## 1. Requirements Restatement (condensed)
 
-Build the backbone authoring command family for the Gabe Lens suite: a multi-step, checkpoint-gated, Opus-heavy workflow that produces two linked artifacts per project — a stable `SCOPE.md` (premise) and a fluid `ROADMAP.md` (phase plan). The family is 4 commands: `/gabe-scope` (author v1), `/gabe-scope-change` (classifier router), `/gabe-scope-addition`, `/gabe-scope-pivot`.
+Build the backbone authoring command family for the Gabe Suite: a multi-step, checkpoint-gated, Opus-heavy workflow that produces two linked artifacts per project — a stable `SCOPE.md` (premise) and a fluid `ROADMAP.md` (phase plan). The family is 4 commands: `/gabe-scope` (author v1), `/gabe-scope-change` (classifier router), `/gabe-scope-addition`, `/gabe-scope-pivot`.
 
 **Critical non-obvious requirements:**
 - Dual resume (`.kdbp/scope-session.json` + `[PENDING APPROVAL]` markers)

@@ -1,21 +1,23 @@
 <div align="center">
 
-<img src="assets/gabe-lens-hero.png" alt="gabe-lens" width="600">
+<img src="assets/gabe-lens-hero.png" alt="gabe-suite" width="600">
 
-# Gabe Lens
+# Gabe Suite
 
 **Development suite for Claude Code**
 
 Skills, commands, and hooks for understanding, reviewing, deciding, and shipping — with a knowledge system (KDBP) that tracks values, decisions, and deferred work across sessions.
 
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
-[![Claude Code Plugin](https://img.shields.io/badge/Claude_Code-Plugin-blueviolet.svg?style=flat-square&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiPjxwYXRoIGQ9Ik0xMiAyTDIgN2wxMCA1IDEwLTUtMTAtNXoiLz48cGF0aCBkPSJNMiAxN2wxMCA1IDEwLTUiLz48cGF0aCBkPSJNMiAxMmwxMCA1IDEwLTUiLz48L3N2Zz4=)](https://github.com/khujta/gabe-lens)
-[![Version](https://img.shields.io/badge/version-2.2.0-green.svg?style=flat-square)](https://github.com/khujta/gabe-lens)
-[![GitHub Stars](https://img.shields.io/github/stars/khujta/gabe-lens?style=flat-square&color=yellow)](https://github.com/khujta/gabe-lens/stargazers)
+[![Claude Code Plugin](https://img.shields.io/badge/Claude_Code-Plugin-blueviolet.svg?style=flat-square&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiPjxwYXRoIGQ9Ik0xMiAyTDIgN2wxMCA1IDEwLTUtMTAtNXoiLz48cGF0aCBkPSJNMiAxN2wxMCA1IDEwLTUiLz48cGF0aCBkPSJNMiAxMmwxMCA1IDEwLTUiLz48L3N2Zz4=)](https://github.com/khujta/gabe-suite)
+[![Version](https://img.shields.io/badge/version-2.2.0-green.svg?style=flat-square)](https://github.com/khujta/gabe-suite)
+[![GitHub Stars](https://img.shields.io/github/stars/khujta/gabe-suite?style=flat-square&color=yellow)](https://github.com/khujta/gabe-suite/stargazers)
 
 *Not a prompt template. Built from empirical self-observation.*
 
 </div>
+
+> **Name note.** The project/suite is **Gabe Suite**. One of the skills inside it is called **Gabe Lens** (invoked via `/gabe-lens`) — the cognitive-translation layer. They're different things: the suite contains the skill. Previous name for the suite was "Gabe Lens" — this repo was renamed to avoid collision.
 
 ## The Suite
 
@@ -150,8 +152,8 @@ That one-line handle — *"Hooks are gravity — docs are speed limit signs"* �
 ## Install
 
 ```bash
-git clone https://github.com/khujta/gabe-lens.git
-cd gabe-lens
+git clone https://github.com/khujta/gabe-suite.git
+cd gabe-suite
 ./install.sh              # Install all skills + commands
 ./install.sh --dry-run    # Show what would be done
 ./install.sh --uninstall  # Remove everything

@@ -1,6 +1,6 @@
-# Gabe Lens Prompts
+# Gabe Suite Prompts
 
-Versioned LLM (Large Language Model) prompts used by the Gabe Lens command suite. These are build-time assets during development; final shipping form decided in Phase 7 of the `/gabe-scope` implementation plan (ship to `~/.claude/prompts/` vs. inline into command files).
+Versioned LLM (Large Language Model) prompts used by the Gabe Suite. These are build-time assets during development; final shipping form decided in Phase 7 of the `/gabe-scope` implementation plan (ship to `~/.claude/prompts/` vs. inline into command files).
 
 ## File naming convention
 

@@ -5,7 +5,7 @@ description: "Documentation standards for gabe-generated docs. CommonMark compli
 
 # Gabe Docs — Documentation Standards
 
-The house style for every markdown file the gabe-lens suite creates or touches. Distilled from BMAD tech-writer standards + gabe-lens-specific conventions (analogy-first openers, per-well diagram recommendations).
+The house style for every markdown file the Gabe Suite creates or touches. Distilled from BMAD tech-writer standards + Gabe-Suite-specific conventions (analogy-first openers, per-well diagram recommendations).
 
 ## Runtime output rendering convention
 

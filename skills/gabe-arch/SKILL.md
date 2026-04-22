@@ -1,6 +1,6 @@
 ---
 name: gabe-arch
-description: "Architecture curriculum layer for the Gabe Lens suite. Holds concept files (one per idea: retry-with-backoff, idempotency-keys, circuit-breaker, …) organized by tier × specialization. Consulted by /gabe-teach for inline Architecture-link rendering in lessons, by /gabe-teach arch mode for dedicated architecture study, and by /gabe-teach for tagging topics with concepts they touch."
+description: "Architecture curriculum layer for the Gabe Suite. Holds concept files (one per idea: retry-with-backoff, idempotency-keys, circuit-breaker, …) organized by tier × specialization. Consulted by /gabe-teach for inline Architecture-link rendering in lessons, by /gabe-teach arch mode for dedicated architecture study, and by /gabe-teach for tagging topics with concepts they touch."
 ---
 
 # Gabe Arch — Architecture Curriculum

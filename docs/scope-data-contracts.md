@@ -3,7 +3,7 @@
 **Status:** Phase 2 freeze
 **Related:** [gabe-scope-design.md](gabe-scope-design.md) · [gabe-scope-implementation-plan.md](gabe-scope-implementation-plan.md)
 
-This doc is the authoritative contract between `/gabe-scope` (the producer) and the rest of the Gabe Lens suite (consumers). Every field produced by `/gabe-scope` is listed here with the step that writes it and the commands that read it. Changes here ripple to templates, schemas, prompts, and integration edits.
+This doc is the authoritative contract between `/gabe-scope` (the producer) and the rest of the Gabe Suite (consumers). Every field produced by `/gabe-scope` is listed here with the step that writes it and the commands that read it. Changes here ripple to templates, schemas, prompts, and integration edits.
 
 ## Artifacts produced by `/gabe-scope`
 

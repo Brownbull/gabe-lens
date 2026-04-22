@@ -1,6 +1,6 @@
 ---
 name: gabe-scope
-description: "Backbone authoring command for the Gabe Lens suite. Produces SCOPE.md (stable premise) + ROADMAP.md (phase plan) for a new project. Multi-step, checkpoint-gated, Opus-reasoning + Sonnet-templating. Every major step requires explicit user approval before the next runs. Usage: /gabe-scope [--resume | --start-over]"
+description: "Backbone authoring command for the Gabe Suite. Produces SCOPE.md (stable premise) + ROADMAP.md (phase plan) for a new project. Multi-step, checkpoint-gated, Opus-reasoning + Sonnet-templating. Every major step requires explicit user approval before the next runs. Usage: /gabe-scope [--resume | --start-over]"
 ---
 
 # Gabe Scope

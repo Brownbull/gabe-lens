@@ -76,7 +76,7 @@ Otherwise: **addition**. Classifier outputs rationale so user sees *why* it rout
 
 ## 2.5. Reference Frame — Existing Standards & Docs
 
-**The problem.** Real projects never start from a blank slate. The user often has existing documents that should frame the scope: the AI stack they've standardized on (e.g., gabe-lens suite docs), engineering practices they follow (e.g., agent engineering maturity model from the hackathon analysis), compliance frameworks, prior art, wireframes, user research. Asking Opus to rediscover these through interview is wasteful and lossy. Asking the user to paste them inline is awkward and token-heavy.
+**The problem.** Real projects never start from a blank slate. The user often has existing documents that should frame the scope: the AI stack they've standardized on (e.g., Gabe Suite docs), engineering practices they follow (e.g., agent engineering maturity model from the hackathon analysis), compliance frameworks, prior art, wireframes, user research. Asking Opus to rediscover these through interview is wasteful and lossy. Asking the user to paste them inline is awkward and token-heavy.
 
 **The idea.** A **Reference Frame** is a declared set of external documents with explicit role + weight, loaded once at Step 0.5 and threaded into every subsequent LLM call as framing material.
 

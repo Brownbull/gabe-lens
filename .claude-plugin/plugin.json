@@ -1,13 +1,13 @@
 {
-  "name": "gabe-lens",
-  "version": "2.1.0",
-  "description": "Cognitive toolkit for Claude Code. Transforms concepts into analogies, spatial maps, and one-line handles (gabe-lens). Adversarial gap reviews classified by maturity and importance (gabe-roast). Adapts to your cognitive suit via calibration.",
+  "name": "gabe-suite",
+  "version": "2.2.0",
+  "description": "Development suite for Claude Code. Skills, commands, and hooks for understanding, reviewing, deciding, and shipping — with a knowledge system (KDBP) that tracks values, decisions, and deferred work across sessions. Contains the /gabe-lens cognitive-translation skill plus /gabe-roast, /gabe-review, /gabe-align, /gabe-assess, /gabe-health, /gabe-help, /gabe-docs, /gabe-plan, /gabe-execute, /gabe-commit, /gabe-push, /gabe-teach, /gabe-scope.",
   "author": {
     "name": "Gabe (khujta)",
     "url": "https://github.com/khujta"
   },
-  "homepage": "https://github.com/khujta/gabe-lens",
-  "repository": "https://github.com/khujta/gabe-lens",
+  "homepage": "https://github.com/khujta/gabe-suite",
+  "repository": "https://github.com/khujta/gabe-suite",
   "license": "MIT",
   "skills": [
     "./skills/gabe-lens",
@@ -22,6 +22,8 @@
     "explanation",
     "adversarial-review",
     "gap-analysis",
+    "code-review",
+    "kdbp",
     "education"
   ]
 }
