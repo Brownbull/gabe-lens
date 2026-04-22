@@ -332,6 +332,28 @@ Cap at 10 findings — if more exist, emit `… and {N} more uncovered files` as
 
 ### Step A6: Render audit report + interactive triage
 
+Render an **action glossary** before the findings table so the reader knows what each `[action]` token does. Show every token that appears in the Actions column at least once (dedupe). Keep rows to one line, describe intent + cost, not mechanics.
+
+The glossary is deterministic — action tokens map to the descriptions in the table below. Do not paraphrase at runtime.
+
+**Action token reference:**
+
+| Token | What it does | LLM? | Writes |
+|---|---|---|---|
+| `add-diagram` | Generate a NEW Mermaid diagram in a populated doc section per the per-doc-type matrix. Picks diagram type from matrix, synthesizes from source files + current section prose. Human confirms draft. | yes | doc file |
+| `upgrade-diagram` | Replace an existing **stub** Mermaid diagram with a real one. Respects the scaffold-time type (never re-decided). Synthesizes from verified topics + Key Decisions + Purpose. Human confirms draft. | yes | doc file |
+| `update-docs` | LLM rewrites the prose of a populated-but-thin section, seeded from recent commits touching mapped source files. Human confirms each edit. Never silent. | yes | doc file |
+| `create` | Scaffold a NEW doc file with H1 + section headings from all DOCS.md mappings pointing at this target. Bodies are HTML-comment placeholders (no LLM). | no | new doc file |
+| `create-section` | Append a missing `## {section}` heading to an existing doc file with a TODO comment. No prose generated. | no | doc file |
+| `insert-heading` | Append the `## Topics (auto-appended)` heading block to a well doc that lacks it, so future `/gabe-teach` runs can write there. | no | doc file |
+| `archive` | Move an orphaned doc under `docs/archive/{today}-{basename}`. Unstaged `git mv`; no content change. | no | file rename |
+| `map` | Interactive prompt for a source-pattern glob + priority, then append a new row to `.kdbp/DOCS.md` linking source files to a doc target. Used for orphans + uncovered source files. | no | `.kdbp/DOCS.md` |
+| `update-mapping` | Edit an EXISTING `.kdbp/DOCS.md` row whose `Doc Target` now points at a moved/renamed file. Interactive confirmation of the new target path. | no | `.kdbp/DOCS.md` |
+| `fix-DOCS.md` | Fix a stale `.kdbp/DOCS.md` mapping — same as `update-mapping` but offered when the original source file has also moved (both sides of the mapping refresh). | no | `.kdbp/DOCS.md` |
+| `defer-to-teach` | No-op write; prints a one-line notice that `/gabe-teach topics` Step 4d.4 will handle this (typically for empty Purpose sections once ≥3 topics verified). | no | nothing |
+| `skip` | Session-scoped one-time dismissal. Not persisted. Finding re-surfaces on next `docs-audit` run. | no | nothing |
+| `defer` | Persistent dismissal — append a row to `.kdbp/PENDING.md` with `source=docs-audit`. Re-surfaces on next run as a tracked deferred item with increasing age. | no | `.kdbp/PENDING.md` |
+
 ```
 GABE COMMIT — docs-audit
 
