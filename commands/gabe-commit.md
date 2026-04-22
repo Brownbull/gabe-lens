@@ -149,44 +149,46 @@ Deterministic thresholds, not LLM judgment:
 
 ### Step 4: Present results
 
-**If ALL PASS** (most common case):
-```
-GABE COMMIT: feat: update triage prompt
+**Render these output shapes as plain markdown at runtime — do not wrap in a triple-backtick fence.** Markdown tables, status lines, and interactive prompts all render inline so the user can read severity columns and action tokens.
 
-CHECKS: ✅ lint  ✅ types  ✅ tests (84/84)  ✅ coverage  ✅ shape  ✅ docs
-No findings. Committing...
-[main abc1234] feat: update triage prompt
-```
+**If ALL PASS** (most common case):
+
+> **GABE COMMIT: feat: update triage prompt**
+>
+> CHECKS: ✅ lint  ✅ types  ✅ tests (84/84)  ✅ coverage  ✅ shape  ✅ docs
+>
+> No findings. Committing...
+>
+> `[main abc1234] feat: update triage prompt`
+
 Stage all changes, commit, done.
 
 **If findings exist but no CRITICAL:**
-```
-GABE COMMIT: feat: add classification pipeline stage
 
-CHECKS: ✅ lint  ✅ types  ✅ tests (84/84)  ⚠ coverage  ⚠ shape  ⚠ docs
+> **GABE COMMIT: feat: add classification pipeline stage**
+>
+> CHECKS: ✅ lint  ✅ types  ✅ tests (84/84)  ⚠ coverage  ⚠ shape  ⚠ docs
 
 | # | Sev    | Finding                              | Actions                              |
 |---|--------|--------------------------------------|--------------------------------------|
-| 1 | medium | Coverage: classify.py at 62% (<80%)  | [write-test] [accept] [defer]        |
-| 2 | low    | New file: route.py (23 lines)        | [merge:classify.py] [keep] [defer]   |
-| 3 | low    | D2 open on agent.py (you changed it) | [resolve-now] [skip] [defer]         |
-| 4 | medium | Docs: README.md may need update (config.py changed) | [update-docs] [accept] [defer] |
+| 1 | medium | Coverage: classify.py at 62% (<80%)  | `[write-test]` `[accept]` `[defer]`  |
+| 2 | low    | New file: route.py (23 lines)        | `[merge:classify.py]` `[keep]` `[defer]` |
+| 3 | low    | D2 open on agent.py (you changed it) | `[resolve-now]` `[skip]` `[defer]`   |
+| 4 | medium | Docs: README.md may need update (config.py changed) | `[update-docs]` `[accept]` `[defer]` |
 
-→ Actions? (e.g., "1:defer 2:keep 3:skip") or "all:commit" to defer all:
-```
+Actions prompt (prose): `Actions? (e.g., "1:defer 2:keep 3:skip") or "all:commit" to defer all:`
 
 **If CRITICAL findings:**
-```
-GABE COMMIT: ❌ BLOCKED — 1 critical finding
 
-CHECKS: ✅ lint  ❌ tests  ✅ types  ✅ docs
+> **GABE COMMIT: ❌ BLOCKED — 1 critical finding**
+>
+> CHECKS: ✅ lint  ❌ tests  ✅ types  ✅ docs
 
-| # | Sev      | Finding                              | Actions                |
-|---|----------|--------------------------------------|------------------------|
-| 1 | critical | test_triage.py::test_classify FAILED | [fix] [skip-to-pending]|
+| # | Sev      | Finding                              | Actions                         |
+|---|----------|--------------------------------------|---------------------------------|
+| 1 | critical | test_triage.py::test_classify FAILED | `[fix]` `[skip-to-pending]`     |
 
-Fix critical findings before committing.
-```
+`Fix critical findings before committing.`
 
 ### Step 5: Execute actions
 
@@ -354,73 +356,52 @@ The glossary is deterministic — action tokens map to the descriptions in the t
 | `skip` | Session-scoped one-time dismissal. Not persisted. Finding re-surfaces on next `docs-audit` run. | no | nothing |
 | `defer` | Persistent dismissal — append a row to `.kdbp/PENDING.md` with `source=docs-audit`. Re-surfaces on next run as a tracked deferred item with increasing age. | no | `.kdbp/PENDING.md` |
 
-```
-GABE COMMIT — docs-audit
+**Output structure — render each of the following sections at runtime as plain markdown (not wrapped in a code fence). Headings use H4 or bold labels; tables render as markdown tables; interactive prompts render as prose with inline code.**
 
-Universe: [N source files] | [N doc files] | [N wells] | [N DOCS.md mappings]
+#### GABE COMMIT — docs-audit
+
+Universe line (prose, one line): `Universe: [N source files] | [N doc files] | [N wells] | [N DOCS.md mappings]`
+
+**Findings table** (markdown table, not fenced):
 
 | # | Sev    | Finding                                                              | Actions                               |
 |---|--------|----------------------------------------------------------------------|---------------------------------------|
-| 1 | high   | Doc target missing: docs/architecture.md#Data Model (4 mapped)       | [create] [skip] [defer]               |
-| 2 | medium | Doc section empty: docs/AGENTS_USE.md#Prompts (3 mapped, 42 chars)   | [update-docs] [skip] [defer]          |
-| 3 | medium | Missing ## Topics section: docs/wells/2-llm-pipeline.md              | [insert-heading] [skip] [defer]       |
-| 4 | low    | Orphaned doc: docs/legacy/old-routing.md                             | [archive] [map] [skip]                |
-| 5 | low    | Well Purpose empty despite 4 verified topics: docs/wells/3-api.md    | [defer-to-teach] [skip]               |
-| 6 | low    | Well G2 LLM Pipeline diagram still placeholder (3 verified topics)   | [upgrade-diagram] [skip] [defer]      |
-| 7 | medium | Doc section populated but diagram missing: docs/AGENTS_USE.md#Agent Design (matrix requires flowchart) | [add-diagram] [skip] [defer]          |
+| 1 | high   | Doc target missing: docs/architecture.md#Data Model (4 mapped)       | `[create]` `[skip]` `[defer]`         |
+| 2 | medium | Doc section empty: docs/AGENTS_USE.md#Prompts (3 mapped, 42 chars)   | `[update-docs]` `[skip]` `[defer]`    |
+| 3 | medium | Missing ## Topics section: docs/wells/2-llm-pipeline.md              | `[insert-heading]` `[skip]` `[defer]` |
+| 4 | low    | Orphaned doc: docs/legacy/old-routing.md                             | `[archive]` `[map]` `[skip]`          |
+| 5 | low    | Well Purpose empty despite 4 verified topics: docs/wells/3-api.md    | `[defer-to-teach]` `[skip]`           |
+| 6 | low    | Well G2 LLM Pipeline diagram still placeholder (3 verified topics)   | `[upgrade-diagram]` `[skip]` `[defer]`|
+| 7 | medium | Doc section populated but diagram missing: docs/AGENTS_USE.md#Agent Design (matrix requires flowchart) | `[add-diagram]` `[skip]` `[defer]` |
 
-ℹ … and 3 more uncovered files. Run with `full` flag to see all.
+Info lines (prose, one per line, prefixed with `ℹ`):
 
-Bulk options:
+- `ℹ … and 3 more uncovered files. Run with `full` flag to see all.`
 
-  [1] Fix all diagrams (add + upgrade)
-      Apply:  [n_diagram] findings (add-diagram + upgrade-diagram actions)
-      Defer:  [rest] findings → PENDING.md
-      LLM:    yes — one call per finding (Haiku default, Sonnet on ≥3 layers)
+**Bulk options** (rendered as a numbered list in plain markdown — each option is an H5 heading or bold label with indented bullet details):
 
-  [2] Fix all mappings + DOCS.md housekeeping (map + update-mapping + fix-DOCS.md + archive)
-      Apply:  [n_mapping] findings
-      Defer:  [rest] → PENDING.md
-      LLM:    no — all deterministic
+- **[1] Fix all diagrams (add + upgrade)** — Apply: `[n_diagram]` findings (`add-diagram` + `upgrade-diagram` actions); Defer: `[rest]` → PENDING.md; LLM: yes (Haiku default, Sonnet on ≥3 layers)
+- **[2] Fix all mappings + DOCS.md housekeeping** (`map` + `update-mapping` + `fix-DOCS.md` + `archive`) — Apply: `[n_mapping]` findings; Defer: `[rest]` → PENDING.md; LLM: no
+- **[3] Fix all doc scaffolds** (`create` + `create-section` + `insert-heading`) — Apply: `[n_scaffold]` findings; Defer: `[rest]` → PENDING.md; LLM: no
+- **[4] Fix all prose updates** (`update-docs`) — Apply: `[n_update]` findings; Defer: `[rest]` → PENDING.md; LLM: yes (one call per finding)
+- **[5] Fix HIGH + CRITICAL only** (severity-based) — Apply: `[n_crit+n_high]` findings (default action per row); Defer: `[n_med+n_low]` → PENDING.md
+- **[6] Fix MEDIUM + HIGH + CRITICAL** (severity-based) — Apply: `[n_crit+n_high+n_med]` findings; Defer: `[n_low]` → PENDING.md
+- **[7] Fix everything** (all findings, default action per row) — Apply: `[total]` findings; Defer: none
+- **[8] Defer LOW, triage MEDIUM+ one-by-one** — Defer now: `[n_low]` → PENDING.md; Then enter: one-by-one for remaining `[n_med+n_high+n_crit]`
+- **[9] One-by-one (per-finding prompt)** — Enter per-finding loop for all `[total]`; each gets full action menu for its row
+- **[10] Skip triage (defer everything)** — Defer: all `[total]` → PENDING.md; Apply: none
 
-  [3] Fix all doc scaffolds (create + create-section + insert-heading)
-      Apply:  [n_scaffold] findings
-      Defer:  [rest] → PENDING.md
-      LLM:    no — all deterministic
+★ **Recommended for** `[project maturity]`**:** `[default]`
 
-  [4] Fix all prose updates (update-docs)
-      Apply:  [n_update] findings
-      Defer:  [rest] → PENDING.md
-      LLM:    yes — one call per finding
+**Actions prompt** (prose line, not fenced):
 
-  [5] Fix HIGH + CRITICAL only (severity-based)
-      Apply:  [n_crit+n_high] findings (default action per row)
-      Defer:  [n_med+n_low] → PENDING.md
+`Pick [1-10] or type custom expression (e.g. "1-4:add-diagram 5:update-docs 10-19:defer") or "all:defer":`
 
-  [6] Fix MEDIUM + HIGH + CRITICAL (severity-based)
-      Apply:  [n_crit+n_high+n_med] findings
-      Defer:  [n_low] → PENDING.md
+---
 
-  [7] Fix everything (all findings, default action per row)
-      Apply:  [total] findings
-      Defer:  none
+**Critical rendering rule.** Everything above this line in Step A6 (glossary table, findings table, bulk options list, actions prompt) MUST render as plain markdown at runtime. Do **not** wrap any of those sections in a triple-backtick fence. Markdown tables display as tables in the user's terminal. A code-fenced rendering hides severity columns, clips long finding text, and breaks row-number-based action entry (`1:add-diagram`) because the user can't read the rows.
 
-  [8] Defer LOW, triage MEDIUM+ one-by-one
-      Defer now:  [n_low] findings → PENDING.md
-      Then enter: one-by-one for remaining [n_med+n_high+n_crit]
-
-  [9] One-by-one (per-finding prompt)
-      Enter:      per-finding loop for all [total]
-      Each gets:  full action menu for its row
-
-  [10] Skip triage (defer everything)
-       Defer:     all [total] → PENDING.md
-       Apply:     none
-
-★ Recommended for [project maturity]: [default]
-
-Pick [1-10] or type custom expression (e.g. "1-4:add-diagram 5:update-docs 10-19:defer") or "all:defer":
-```
+The only content in this step that should appear inside a tagged code fence at runtime is the literal warning example in the Bulk-option guardrails section below — that one is a verbatim output sample and stays fenced with ```text.
 
 **Categorization rules (deterministic, compute before rendering the menu):**
 
@@ -449,8 +430,9 @@ If no `.kdbp/BEHAVIOR.md` exists, star [5] as the conservative default.
 
 **Bulk-option guardrails:**
 
-1. **CRITICAL findings are always in the apply set.** If the chosen option would leave a CRITICAL un-applied, warn and adjust:
-   ```
+1. **CRITICAL findings are always in the apply set.** If the chosen option would leave a CRITICAL un-applied, warn and adjust. Example warning output (render as shown, inside a ```text fence for monospace alignment):
+
+   ```text
    ⚠ Option [5] would defer [N] CRITICAL finding(s). CRITICALs cannot be deferred from docs-audit.
      Adjusted apply set:  [N+n_high] findings
      Adjusted defer:      [rest]
