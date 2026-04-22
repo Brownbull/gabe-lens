@@ -349,8 +349,110 @@ Universe: [N source files] | [N doc files] | [N wells] | [N DOCS.md mappings]
 
 ℹ … and 3 more uncovered files. Run with `full` flag to see all.
 
-→ Actions? (e.g., "1:create 2:update-docs 3:insert-heading") or "all:defer":
+Bulk options:
+
+  [1] Fix all diagrams (add + upgrade)
+      Apply:  [n_diagram] findings (add-diagram + upgrade-diagram actions)
+      Defer:  [rest] findings → PENDING.md
+      LLM:    yes — one call per finding (Haiku default, Sonnet on ≥3 layers)
+
+  [2] Fix all mappings + DOCS.md housekeeping (map + update-mapping + fix-DOCS.md + archive)
+      Apply:  [n_mapping] findings
+      Defer:  [rest] → PENDING.md
+      LLM:    no — all deterministic
+
+  [3] Fix all doc scaffolds (create + create-section + insert-heading)
+      Apply:  [n_scaffold] findings
+      Defer:  [rest] → PENDING.md
+      LLM:    no — all deterministic
+
+  [4] Fix all prose updates (update-docs)
+      Apply:  [n_update] findings
+      Defer:  [rest] → PENDING.md
+      LLM:    yes — one call per finding
+
+  [5] Fix HIGH + CRITICAL only (severity-based)
+      Apply:  [n_crit+n_high] findings (default action per row)
+      Defer:  [n_med+n_low] → PENDING.md
+
+  [6] Fix MEDIUM + HIGH + CRITICAL (severity-based)
+      Apply:  [n_crit+n_high+n_med] findings
+      Defer:  [n_low] → PENDING.md
+
+  [7] Fix everything (all findings, default action per row)
+      Apply:  [total] findings
+      Defer:  none
+
+  [8] Defer LOW, triage MEDIUM+ one-by-one
+      Defer now:  [n_low] findings → PENDING.md
+      Then enter: one-by-one for remaining [n_med+n_high+n_crit]
+
+  [9] One-by-one (per-finding prompt)
+      Enter:      per-finding loop for all [total]
+      Each gets:  full action menu for its row
+
+  [10] Skip triage (defer everything)
+       Defer:     all [total] → PENDING.md
+       Apply:     none
+
+★ Recommended for [project maturity]: [default]
+
+Pick [1-10] or type custom expression (e.g. "1-4:add-diagram 5:update-docs 10-19:defer") or "all:defer":
 ```
+
+**Categorization rules (deterministic, compute before rendering the menu):**
+
+Bucket each finding into at most one action-type cluster based on its default (first-listed) action token:
+
+| Cluster | Action tokens |
+|---|---|
+| **Diagrams** | `add-diagram`, `upgrade-diagram` |
+| **Mappings** | `map`, `update-mapping`, `fix-DOCS.md`, `fix-DOCS`, `archive` |
+| **Scaffolds** | `create`, `create-section`, `insert-heading` |
+| **Prose updates** | `update-docs` |
+| **Teach handoffs** | `defer-to-teach` |
+| **Non-actionable** | findings where only action is `skip` / `defer` |
+
+Counts used in the menu (`n_diagram`, `n_mapping`, etc.) are the sizes of each cluster after categorization. Zero-count clusters still appear in the menu but show `Apply: 0 findings` so the shape is stable across runs.
+
+**Starred default (by project maturity, not by project name):**
+
+| Project maturity | Recommended | Reason |
+|---|---|---|
+| MVP | [5] Fix HIGH + CRITICAL only | Cheap wins; low-severity docs debt deferred to PENDING.md |
+| Enterprise | [6] Fix MEDIUM + HIGH + CRITICAL | Drift closes at medium bar |
+| Scale | [7] Fix everything | Full audit resolution |
+
+If no `.kdbp/BEHAVIOR.md` exists, star [5] as the conservative default.
+
+**Bulk-option guardrails:**
+
+1. **CRITICAL findings are always in the apply set.** If the chosen option would leave a CRITICAL un-applied, warn and adjust:
+   ```
+   ⚠ Option [5] would defer [N] CRITICAL finding(s). CRITICALs cannot be deferred from docs-audit.
+     Adjusted apply set:  [N+n_high] findings
+     Adjusted defer:      [rest]
+     Proceed? [Y/n]
+   ```
+2. **Cluster-bulk options respect the matrix-required budget.** Option [1] applies `add-diagram` / `upgrade-diagram` only where the per-doc-type matrix requires a diagram (non-required LOW diagram-missing findings still defer with [1]).
+3. **`update-docs` (prose) always respects human confirmation per-finding.** Even under option [4] or [7], each `update-docs` LLM draft is shown before write — user can accept / edit / cancel each one. No silent rewrite.
+
+**Custom expression syntax:**
+
+```
+1-4:add-diagram 5:update-docs 10-19:defer
+fix 1,3,5 defer 2,4 one-by-one 6-7
+all-diagrams all-medium:defer rest:skip
+```
+
+Parse rules:
+- `N:action` / `N-M:action` — apply `action` to findings N through M
+- `all-diagrams`, `all-mappings`, `all-scaffolds`, `all-updates` — cluster shortcuts (apply cluster's default action)
+- `all-critical`, `all-high`, `all-medium`, `all-low` — severity shortcuts (apply default action per row)
+- `fix N` alone — apply default action for findings N
+- `defer N` / `skip N` — explicit
+- `rest` — everything not yet assigned
+- Unresolved items at end of expression → auto-defer with confirm prompt
 
 ### Step A7: Action handlers
 
