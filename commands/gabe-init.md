@@ -26,7 +26,7 @@ Run the equivalent of `/gabe-align init [project-name]`:
 3. Ask: "What does this project do?" (one sentence for BEHAVIOR.md `domain`)
 4. Ask: "Maturity level?" → `mvp` (default) | `enterprise` | `scale`
 5. Ask: "Tech stack?" (comma-separated, e.g., "python, fastapi, react")
-6. Create `.kdbp/` with these files:
+6. Create `.kdbp/` with these files **and `CLAUDE.md` at the project root** (see Step 1.7 for CLAUDE.md generation):
 
 ```
 .kdbp/
@@ -98,6 +98,36 @@ created: [today's date]
 - Library → use the Library section
 - Remove commented-out sections for other project types
 
+### Step 1.7: Create or refresh `CLAUDE.md` (project root)
+
+`CLAUDE.md` at the project root is how Claude Code discovers the KDBP contract on every session. Unlike the files under `.kdbp/`, this one lives at the repo root so the built-in session-start loader reads it without extra configuration.
+
+**Template source:** `~/.claude/templates/gabe/CLAUDE.md`
+
+**Placeholders to substitute** (all derived from Step 1 answers — no extra prompts):
+
+| Placeholder | Value |
+|-------------|-------|
+| `{PROJECT_NAME}` | Step 1 answer |
+| `{DOMAIN}` | Step 1.3 answer (one sentence) |
+| `{MATURITY}` | `mvp` / `enterprise` / `scale` |
+| `{TECH}` | Step 1.5 comma-separated list |
+
+**Marker:** the template includes `<!-- KDBP-MARKER: gabe-init v1 -->` on line 5. This marker is how `update` mode detects a Gabe-managed CLAUDE.md versus a user-authored one.
+
+**Idempotency rules** (apply on every run, `reset` and `update` alike):
+
+| Existing state at root | Action |
+|------------------------|--------|
+| No `CLAUDE.md` | Create from template with substitutions. Report: `✅ CLAUDE.md created`. |
+| `CLAUDE.md` exists **with** `KDBP-MARKER: gabe-init v1` | Already ours. `reset` mode: regenerate above the trailing `<!-- Add project-specific instructions… -->` comment, preserving whatever the user appended below it. `update` mode: leave untouched (already compliant). |
+| `CLAUDE.md` exists **without** the marker | Stop and ask: `Existing CLAUDE.md has no KDBP marker. Options: (m)erge — append KDBP section below existing content, (b)ackup-and-replace — move current to CLAUDE.pre-kdbp.md and install template, (s)kip — leave as-is. [m/b/s]`. Default `m`. |
+| User picks `m` (merge) | Append `\n\n---\n\n` then the full rendered template. Preserve pre-existing content above verbatim. |
+| User picks `b` (backup-and-replace) | `mv CLAUDE.md CLAUDE.pre-kdbp.md`, install rendered template. |
+| User picks `s` (skip) | Record `⚠️ CLAUDE.md not managed — KDBP discovery may be unreliable` in Step 4 readiness report. |
+
+**Preservation contract for `reset` on a marker-present file:** read the existing CLAUDE.md, find the line `<!-- Add project-specific instructions for Claude Code below. -->`. Everything after that line is user content — preserve it verbatim. Rewrite only the content above that line from the template + substitutions.
+
 ### Step 1.5: Update Mode (only when user picked `update`)
 
 Non-destructive top-up of an existing `.kdbp/` directory. Never overwrites, never deletes.
@@ -105,6 +135,7 @@ Non-destructive top-up of an existing `.kdbp/` directory. Never overwrites, neve
 1. **Scan what's missing.** Compare the existing `.kdbp/` contents against the current template set:
    - Expected files: `BEHAVIOR.md`, `VALUES.md`, `DECISIONS.md`, `PENDING.md`, `LEDGER.md`, `MAINTENANCE.md`, `DOCS.md`, `PLAN.md`, `KNOWLEDGE.md`, `STRUCTURE.md`
    - Expected directory: `archive/`
+   - Expected at **project root** (not `.kdbp/`): `CLAUDE.md` — scanned separately; rules in Step 1.7
    - Note: project-specific files like `PUSH.md` or historical `PLAN-PHASE-N.md` are NOT in the expected set — leave them untouched.
 
 2. **Report findings before acting:**
@@ -113,15 +144,22 @@ Non-destructive top-up of an existing `.kdbp/` directory. Never overwrites, neve
 
    Present (9):    BEHAVIOR, VALUES, DECISIONS, PENDING, LEDGER, MAINTENANCE, DOCS, PUSH, PLAN-PHASE-1
    Missing (3):    PLAN.md, KNOWLEDGE.md, archive/
+   Root-level:     CLAUDE.md [missing | managed | unmanaged]
    Unrecognized:   PLAN-PHASE-1.md (not in template set — will keep as-is)
 
    Proceed with top-up? (y/n)
    ```
 
+   Root-level status meanings:
+   - **missing** — no `CLAUDE.md` at project root; will be created per Step 1.7.
+   - **managed** — `CLAUDE.md` present with `KDBP-MARKER: gabe-init v1`; left untouched.
+   - **unmanaged** — `CLAUDE.md` present without the marker; Step 1.7 will prompt (merge / backup-and-replace / skip).
+
 3. **If confirmed, create only missing items:**
    - For each missing template file: copy from `~/.claude/templates/gabe/[FILE]`
    - For `archive/`: run `mkdir -p .kdbp/archive`
    - For `DOCS.md` specifically: if missing, do NOT auto-select a project type — ask: "Project type? (agent-app | web-app | cli | library)" and use that section
+   - For root `CLAUDE.md`: run Step 1.7 — if the scan flagged `missing` or `unmanaged`, that step handles creation / merge prompt; if `managed`, Step 1.7 is a no-op
    - Skip any file that already exists (never overwrite)
 
 4. **Do NOT touch:**
@@ -135,11 +173,12 @@ Non-destructive top-up of an existing `.kdbp/` directory. Never overwrites, neve
 6. **After Step 2, skip Steps 3-4** (project type + readiness report). Instead show a condensed Update Report:
    ```
    UPDATE COMPLETE
-     Files added:    [list]
-     Directories:    [list]
-     Schema migrations: [list or "none"]
-     Hooks installed: [N] / [total]
-     Preserved:      [count of files left untouched]
+     Files added:      [list]
+     Directories:      [list]
+     Schema migrations:[list or "none"]
+     CLAUDE.md:        [created | merged | backed-up-and-replaced | preserved | skipped]
+     Hooks installed:  [N] / [total]
+     Preserved:        [count of files left untouched]
    ```
 
 ### Step 1.6: Schema migration (non-destructive, only when `update` picked)
@@ -273,6 +312,7 @@ api/services/, api/observability/). Stages 1-5 are MVP; 6-9 are Enterprise.
 
 ```
 ✅ .kdbp/ initialized (10 files + archive/)
+✅ CLAUDE.md: [created | merged | preserved | backed-up-and-replaced | ⚠ skipped]
 ✅ Hooks installed (7/7)
 ✅ Project type: [type]
 ✅ Maturity: [mvp|enterprise|scale]
