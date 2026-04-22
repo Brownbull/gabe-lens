@@ -1071,6 +1071,64 @@ Write `teach_docs_refresh: never` to the project's `.kdbp/BEHAVIOR.md` frontmatt
 
 **Rationale.** The feedback that surfaced this step: `/gabe-teach` lessons are self-contained but well docs were staying empty because writing Purpose/Decisions by hand is friction nobody gets around to. After 3 verified topics, there's enough material to distill — and the human just spent a teach session with fresh context, so it's the right moment to ask. Skipped once → re-prompt next session; `never` → respected persistently.
 
+**Step 4d.5 — Complexity-triggered diagram prompt (only when the topic was verified/already-known).**
+
+After Step 4d.4 completes (Purpose/Decisions drafted or skipped), score the just-verified topic for **diagram-worthiness**. If the signal fires, offer to add a dedicated diagram to clarify the concept — either upgrading the well's stub `## Key Diagrams` or inserting an inline `#### Diagram` subsection under the topic's block. Defers to `gabe-docs/SKILL.md` per-doc-type matrix + inline triggers for placement rules.
+
+**Deterministic complexity score (zero LLM cost).** Scan the user's Q1+Q2 verification answers + the topic title + the `## 📍 Code` file list for signals. Each signal worth 1 point:
+
+| Signal | Trigger |
+|---|---|
+| Flow verbs | Answer/title contains any of: `flow`, `route`, `dispatch`, `forward`, `hand off`, `traverse`, `pipeline`, `handoff`, `enqueue`, `fan out` |
+| Multi-actor | ≥3 distinct module/layer tokens among: `api`, `service`, `repository`, `repo`, `integration`, `ui`, `frontend`, `backend`, `db`, `pipeline`, `worker`, `queue`, `adapter`, `client`, `agent`, `llm`, `classifier`, `router` |
+| State machine | Contains any of: `state`, `status`, `transition`, `lifecycle`, `phase`, `stage`, `pending`, `dispatched`, `resolved`, `failed → retry` |
+| Async / concurrent | Contains any of: `async`, `await`, `concurrent`, `parallel`, `background`, `BackgroundTask`, `celery`, `queue`, `defer`, `schedule` |
+| Long WHEN/WHERE answer | Topic class is `WHEN` or `WHERE` AND user's combined Q1+Q2 answer >150 words |
+
+**Prompt trigger:** score ≥2 AND topic status is `verified` or `already-known`. Skip silently for `pending` / `skipped` / low-score topics. Also skip if `teach_diagram_prompt: never` is set in `.kdbp/BEHAVIOR.md` frontmatter.
+
+**Placement decision (deterministic):**
+
+1. If the well doc's `## Key Diagrams` section contains a **stub** (per `gabe-docs/SKILL.md` stub-detection heuristic: mermaid fence exists, body contains `TODO` OR ≤3 distinct node tokens) AND this is the **first or second** verified topic in the well → **upgrade the well-level stub** using this topic's content as the seed. Future topics may expand it via Step A3 `upgrade-diagram` in `/gabe-commit docs-audit`.
+2. Else if well-level diagram is already real (not stub) OR this is the 3rd+ verified topic in the well → **inline `#### Diagram`** under the `### T[N] —` block in `## Topics (auto-appended)`. Keeps the well-level diagram stable; topic-scoped diagrams live with their topic.
+3. Else (no `## Key Diagrams` section in well doc at all) → print one-line warning `⚠ Well doc missing ## Key Diagrams section — skipping diagram prompt; run /gabe-commit docs-audit to scaffold.` and move on.
+
+**Prompt:**
+
+```
+ℹ Topic T[N] "[title]" looks worth a diagram (complexity score: [S]/5 — signals: [flow, multi-actor, state]).
+
+  Placement: [well-level upgrade | inline topic block]
+  Proposed type: [flowchart | sequenceDiagram | stateDiagram-v2 | erDiagram]
+  (type picked from gabe-docs/SKILL.md per-well recommendation)
+
+  [y]      Draft now — one gabe-lens call distills the topic into a [type] (≤10 nodes)
+  [edit]   Let me pick a different diagram type before drafting
+  [n]      Not this time (will re-surface via /gabe-commit docs-audit when well has ≥2 topics)
+  [never]  Don't prompt for diagrams in this project
+           (writes teach_diagram_prompt: never to BEHAVIOR.md)
+```
+
+**On `y`:**
+
+1. Gather context: topic title + user's Q1+Q2 verification answers + the well's analogy/paths + the topic's `## 📍 Code` file list. If upgrading the well-level stub, also read any existing verified-topic summaries in `## Topics (auto-appended)` for the same well.
+2. One LLM call (Haiku-tier unless flow has ≥3 layers — then Sonnet, per U6 routing) with:
+   - Context: above
+   - Output: `output_type`-enforced schema `{ diagram_type: Literal[types], body: str (Mermaid body only, no fence), alt_text: str (≤80 chars describing what the diagram shows) }`
+   - Constraints: respect diagram-type from placement decision; ≤10 nodes; intent-labeled; consistent with well analogy; consult `gabe-docs/diagrams-library.md` composition ideas ONLY when flow has ≥3 layers or needs subgraph grouping.
+3. Show the draft inline with syntax-verify (try rendering; if parse fails, retry once with error appended per U4 fallback chain).
+4. On user `accept`: write to placement target:
+   - **Well-level upgrade** — replace stub fence body in `## Key Diagrams` section; preserve the comment header (`<!-- Pick diagram type… -->`) above the fence; bump a small marker `<!-- Seeded from T[N] on YYYY-MM-DD; extend as more topics verify. -->` just above the fence.
+   - **Inline topic block** — insert `\n#### Diagram\n\n<alt text as HTML comment>\n\n```mermaid\n<body>\n```\n` immediately after the topic's summary paragraph under `### T[N] —` (before `**Key points:**`).
+5. On `edit`: show as editable; write after confirm.
+6. On `cancel`: drop draft; re-prompt next session if trigger fires again.
+
+**On `n`:** skip. The `/gabe-commit docs-audit` Step A3 will re-surface as `Diagram placeholder despite N verified topics` once the well hits ≥2 verified topics, so the safety net catches it later.
+
+**On `never`:** write `teach_diagram_prompt: never` to BEHAVIOR.md frontmatter. Step 4d.5 becomes a no-op for this project. Revert by deleting the flag.
+
+**Rationale.** Some topics are pure rationale (WHY) and prose is enough; others describe flows / state machines / multi-layer journeys that read as word-soup without a picture. The deterministic score catches the latter without an LLM call. Prompting **after** verification (not before) means the user's own Q1+Q2 answers are the input — the diagram reflects what the human explained, not what the model guessed. Aligns with U2 (build real) and U4 (enforce structure — diagrams use mechanical `output_type` schema with syntax-verify fallback).
+
 **Step 4e — Update KNOWLEDGE.md.** Writes rows with the `Well` column populated. `Tags` column populated with `cross` if flagged. `ArchConcepts` column populated with the confirmed concept IDs from Step 4d.2 (comma-separated, or empty if no tags).
 
 **Step 4f — Log session** (enriched):
@@ -1084,6 +1142,7 @@ Write `teach_docs_refresh: never` to the project's `.kdbp/BEHAVIOR.md` frontmatt
 - Skipped: T2
 - Docs appended: T1 → docs/wells/1-guardrails.md  (only when Step 4d.1 succeeded)
 - Docs refreshed: docs/wells/3-api.md (Purpose + 1 Key Decision drafted)  (only when Step 4d.4 wrote prose)
+- Diagrams added: T1 → docs/wells/1-guardrails.md (well-level upgrade, flowchart)  (only when Step 4d.5 wrote a diagram; omitted if skipped/never)
 - Arch tags: T1 → retry-with-exponential-backoff, idempotency-keys  (only when Step 4d.2 confirmed non-empty tags)
 - Arch state updates: 2 new verified, 1 reinforcement  (counts from Step 4d.3; omitted if zero)
 ```

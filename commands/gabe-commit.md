@@ -209,7 +209,7 @@ Fix critical findings before committing.
 | **Open deferred** | `resolve-now` | Shows item, helps fix | Yes | tokens |
 | | `skip` | Leaves open, no re-prompt this commit | No | 0 |
 | | `escalate` | Bumps priority +1 level | No | 0 |
-| **Doc drift** | `update-docs` | Reads diff + target doc section, suggests minimal edit | Yes | tokens |
+| **Doc drift** | `update-docs` | Reads diff + target doc section, suggests minimal edit. **Consults `gabe-docs/SKILL.md` per-doc-type diagram policy:** if target matches a doc-type row (wells, AGENTS_USE.md, architecture.md, architecture-patterns.md) AND the doc's mapped section has no diagram yet AND the diff introduces a flow / state / multi-hop journey → proposes a diagram alongside the prose edit. Diagram type per matrix; skeleton per SKILL.md syntax templates; reach for `diagrams-library.md` only if ≥3 layers/actors. | Yes | tokens |
 | | `accept` | Acknowledges drift, commits without doc update | No | 0 |
 | | `defer` | Adds to PENDING.md at detected priority | No | 0 |
 | **Structure** | `move` | Suggests nearest-match patterns, `git mv` to chosen, re-stage | No | 0 |
@@ -299,6 +299,7 @@ For each well with non-empty `Paths` AND non-empty `Docs`:
 1. **Docs file exists?** If not → finding `Well doc missing: {Docs} (well {G_N} {name})`, severity = `low`.
 2. **`## Topics (auto-appended)` section present?** If missing → finding `Missing ## Topics (auto-appended) section: {Docs} (teach Step 4d.1 can't append)`, severity = `medium`.
 3. **Purpose still placeholder AND ≥3 verified topics?** Count `### T[N] —` headings under `## Topics (auto-appended)`. Count non-comment/non-whitespace chars in `## Purpose` section. If topics ≥3 AND Purpose <80 chars → finding `Well Purpose empty despite {N} verified topics: {Docs}`, severity = `low` (info: teach Step 4d.4 will offer to draft next time).
+4. **Diagram still placeholder despite ≥2 verified topics?** Parse `## Key Diagrams` section. Stub detection per `gabe-docs/SKILL.md` heuristic: mermaid fence exists, body contains literal `TODO` OR has ≤3 distinct node/participant tokens. If stub detected AND verified-topic count ≥2 → finding `Well [G_N] {name} diagram still placeholder despite {M} verified topics: {Docs}`, severity = `low`. Actions: `[upgrade-diagram] [skip] [defer]`. Handler: see Step A7.
 
 ### Step A4: Orphaned doc detection
 
@@ -358,6 +359,8 @@ Execute each user action in order:
 | | `skip` | One-time dismissal | No |
 | Well Purpose empty | `defer-to-teach` | Print `ℹ docs/wells/{N}-{slug}.md: Purpose will be drafted on next /gabe-teach topics session (Step 4d.4 freshness prompt fires at ≥3 verified topics).` | No |
 | | `skip` | One-time dismissal | No |
+| Diagram placeholder | `upgrade-diagram` | Read well's verified topics from KNOWLEDGE.md Topics table + `## Purpose` + `## Key Decisions` from the well doc. Determine diagram type from per-well recommendation table in `gabe-docs/SKILL.md` (not re-decided — respect scaffold intent). Generate diagram body per gabe-docs upgrade rules (≤10 nodes, intent-labeled, analogy-consistent). Consult `gabe-docs/diagrams-library.md` if the well covers ≥3 layers or needs subgraph grouping. Replace stub fence content. LLM edits proposed, human confirms before write. | **Yes** |
+| | `skip` / `defer` | as above | No |
 | Uncovered source file | `map` | Same interactive prompt as orphaned-doc `map` but target defaults to a DOCS.md row with appropriate doc (prompt for doc + section too). Writes to DOCS.md. | No |
 | | `skip` | One-time dismissal | No |
 

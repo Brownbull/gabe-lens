@@ -104,6 +104,36 @@ erDiagram
 ```
 ````
 
+## Per-doc-type diagram policy
+
+Different doc types have different diagram budgets and triggers. Use this matrix when deciding whether a diagram belongs — and whether it's **required** (commands should propose/block) or **optional** (author's call).
+
+| Doc type | Diagram budget | Required when | Commands that enforce |
+|----------|----------------|---------------|-----------------------|
+| `docs/wells/*.md` | 1 primary per well | ≥2 verified topics in the well (stub no longer acceptable) | `/gabe-commit docs-audit` Step A3 (`upgrade-diagram`); `/gabe-teach` topic-append post-verify |
+| `docs/AGENTS_USE.md` | 1 flowchart (agent loop) + 1 sequenceDiagram (tool-call pattern) | `## Agent Design` section has >100 non-comment chars AND agent module has ≥2 files | `/gabe-commit` CHECK 7 Layer 2 + docs-audit |
+| `docs/architecture.md` | 1 overview flowchart; +1 erDiagram if Data Model section exists; +1 sequenceDiagram if API Endpoints section exists | Section populated (>80 chars) | `/gabe-commit docs-audit` Step A2 |
+| `docs/architecture-patterns.md` | 1 diagram per pattern entry, scoped | Pattern adds a flow / state / structure (skip pure-rationale patterns) | `/gabe-teach arch-append` |
+| ADRs / `docs/decisions/*.md` | Optional; 1 when decision is about a flow, state machine, or structural split | Author judgment | none (suggestion only) |
+| `README.md` | Optional; at most 1 high-level flowchart | Text can't express a multi-hop flow | none |
+| `docs/wells/*.md` inline (within a verified topic) | Optional; triggered by complexity signals (see below) | `/gabe-teach` post-verification complexity heuristic fires | `/gabe-teach` offers `[add-dedicated-diagram]` after user answers questions |
+
+**Budget rationale:** one well-chosen diagram beats three marginal ones. Over-diagramming bloats docs and decays — every diagram is a maintenance debt.
+
+## Inline explanatory diagram triggers (beyond section-level)
+
+Add a dedicated diagram inside a topic block, ADR body, or mid-doc prose when ANY of:
+
+1. **Multi-hop journey** — request/data/call touches ≥3 layers (e.g., UI → API → pipeline → LLM → integration)
+2. **State transitions ≥3 states** — lifecycle not expressible in a single sentence
+3. **Concurrent/async behavior** — ordering matters and prose can't express it
+4. **Concept describes a flow, not a rationale** — WHY topics are usually pure prose; WHEN/WHERE often benefit from a picture
+5. **User explicitly asks** — "how does X connect to Y?" style question in verification answer
+
+**Skip diagrams for:** one-liner config changes, pure-rationale ADRs, simple lookup patterns, single-function refactors.
+
+This trigger set is consulted by `/gabe-teach` after topic verification: if the user's answer + topic metadata matches ≥1 trigger, the command offers `[add-dedicated-diagram] [skip] [defer]`.
+
 ## Per-well diagram recommendations
 
 When scaffolding a well doc (`/gabe-teach init-wells` Step 2e), pick the diagram type whose question matches the well's dominant question. One diagram per well is usually enough. Add more only when the well genuinely covers multiple questions.
@@ -188,6 +218,51 @@ Reasoning: ...
 ```
 
 The scaffolder substitutes `[DIAGRAM_TYPE]` (from the per-well recommendation table) and `[PLACEHOLDER_DIAGRAM]` (a minimal valid skeleton of that type — e.g., `flowchart TD\n    A[Start] --> B[TODO]`). The placeholder is intentionally crude so a human replaces it; do NOT over-invest in auto-generated diagrams.
+
+## Upgrading a placeholder diagram
+
+A stub diagram (contains `TODO`, `[Start] --> B`, or fewer than 3 labeled nodes) is a **debt signal**, not a finished diagram. Commands that touch well docs upgrade the stub when a trigger fires — they don't overwrite human-authored diagrams.
+
+**Upgrade detection heuristic (deterministic, zero LLM cost):**
+
+A `## Key Diagrams` section contains a **stub** when ALL:
+
+- Mermaid fence exists
+- Text inside fence matches `^\s*(flowchart|sequenceDiagram|stateDiagram-v2|erDiagram|classDiagram)`
+- Body contains literal `TODO` OR has ≤3 distinct node/participant tokens
+
+**Upgrade triggers:**
+
+- `/gabe-commit docs-audit` Step A3 — flags `Well [N] diagram still placeholder despite [M] verified topics` at `low` severity when stub detected AND verified topics ≥2. Action: `upgrade-diagram`.
+- `/gabe-teach` topic-append — after appending the 2nd verified topic to a well, offer `[upgrade-diagram]` prompt if stub still present.
+
+**Generation rules for the upgrade (LLM-assisted):**
+
+1. Diagram type comes from the per-well recommendation table (never re-decide at upgrade time — respect author intent from scaffold).
+2. Content synthesized from the well's verified topics in `KNOWLEDGE.md` + Key Decisions section + Purpose section. No external research.
+3. Hard cap at **10 nodes**. If the well genuinely needs more, split into two diagrams under `## Key Diagrams` with H3 subtitles.
+4. Label nodes with intent, not codenames (`Classify[Cheap classifier]` not `A`).
+5. Keep the analogy anchor from the well title in mind — the diagram should read as the same story as the analogy.
+
+## Rich patterns → `diagrams-library.md`
+
+When the minimal skeletons in this file aren't enough, consult `diagrams-library.md` (co-located in this skill dir). It contains 14 advanced Mermaid patterns with subgraphs, styling, multi-layer composition, sequence diagrams with `alt` branches, state machines with notes, and mindmaps for taxonomies.
+
+**When to reach for the library:**
+
+- Diagram needs ≥3 actors / layers / subgraph groups
+- Reader must see hierarchy (user → project → directory config; L1 → L5 defense-in-depth)
+- Flow has parallel branches or conditional modes (router patterns, `alt` blocks)
+- Color legend helps reader parse categories at a glance
+
+**When to stay with SKILL.md skeletons:**
+
+- Scoped single-flow diagrams (most well docs)
+- ≤7 nodes
+- Single-actor sequence
+- Simple state machine (≤4 states)
+
+Pull **composition ideas** from the library — not domain content. The library examples use Brownbull/Claude-agent domain terms; treat as placeholder structure.
 
 ## Writing rules (gabe-generated docs)
 
