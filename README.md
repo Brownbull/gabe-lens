@@ -21,26 +21,36 @@ Skills, commands, and hooks for understanding, reviewing, deciding, and shipping
 
 ## The Suite
 
-### Skills (7)
+### Skills (9)
 
 | Skill | Command | What it does |
 |---|---|---|
 | **Gabe Lens** | `/gabe-lens` | Cognitive translation — analogies, spatial maps, constraint boxes, one-line handles |
 | **Gabe Align** | `/gabe-align` | Values enforcement — pre-flight checks + auto-checkpoint at commit/PR |
-| **Gabe Review** | `/gabe-review` | Code review — risk pricing, confidence scoring, interactive triage, deferred items |
+| **Gabe Review** | `/gabe-review` | Code review — risk pricing, confidence scoring, interactive triage, deferred items, tier drift |
 | **Gabe Roast** | `/gabe-roast` | Adversarial gap review — stress-tests from a required perspective |
 | **Gabe Assess** | `/gabe-assess` | Change impact — blast radius, maturity scope, prerequisites, alternatives |
 | **Gabe Health** | `/gabe-health` | Codebase health — god files, churn hotspots, coupling, deferred items, maintenance |
 | **Gabe Help** | `/gabe-help` | Context-aware guide — scans environment, suggests the right tool |
+| **Gabe Docs** | _(consulted)_ | Documentation house style — CommonMark, Mermaid library, per-well diagram recommendations (used by `/gabe-teach`, `/gabe-init`, `/gabe-commit`) |
+| **Gabe Arch** | _(consulted)_ | Architecture curriculum — concept library organized by tier × specialization (used by `/gabe-teach`) |
 
-### Commands (5)
+### Commands (11)
+
+Commands that don't map 1:1 to a skill — the full KDBP lifecycle from project init through ship:
 
 | Command | What it does |
 |---|---|
 | `/gabe-init` | Project setup — creates `.kdbp/`, installs hooks, selects project type + maturity |
+| `/gabe-scope` | Authors SCOPE.md (stable premise) + ROADMAP.md (phase plan). Multi-step, checkpoint-gated, Opus-heavy |
+| `/gabe-scope-change` | Scope-change router. Classifies your intended change → routes to `-addition` or `-pivot` |
+| `/gabe-scope-addition` | Additive scope change — inserts new REQs / phases / refs without changing premise |
+| `/gabe-scope-pivot` | Scope pivot — direction change, archives v{N} and creates v{N+1} |
+| `/gabe-plan` | KDBP-aware planning + per-phase tier decision (MVP / Enterprise / Scale) with trade-off matrix |
+| `/gabe-execute` | Phase execution — tier-cap task breakdown, mid-phase escalation gate, auto-ticks Exec column |
+| `/gabe-next` | Zero-logic router — reads PLAN.md and dispatches to the next gabe command (Exec → Review → Commit → Push) |
 | `/gabe-commit` | Commit quality gate — deterministic checks, interactive triage, defer/accept/fix per finding |
 | `/gabe-push` | Push, create PR, watch CI, promote branches — the post-commit shipping workflow |
-| `/gabe-plan` | KDBP-aware planning — persists plan to `.kdbp/PLAN.md`, lifecycle (complete/defer/cancel) with archive |
 | `/gabe-teach` | Human knowledge consolidation — tracks WHY/WHEN/WHERE topics from recent commits with Socratic verification |
 
 ### KDBP System
@@ -78,15 +88,19 @@ User-level values at `~/.kdbp/VALUES.md` apply across all projects.
 | I need to... | Use |
 |---|---|
 | Start a new project | `/gabe-init [name]` |
+| Scope a new project (SCOPE.md + ROADMAP.md) | `/gabe-scope` |
+| Change project scope | `/gabe-scope-change "description of change"` |
 | Check values alignment | `/gabe-align [shallow/standard/deep]` |
 | Understand a concept | `/gabe-lens [concept]` |
 | Find gaps in a design | `/gabe-roast [perspective] [target]` |
 | Assess a change | `/gabe-assess [change]` |
+| Create or manage a plan (with tier picker) | `/gabe-plan [goal]` |
+| Execute the current phase | `/gabe-execute` |
+| Advance automatically to next step | `/gabe-next` |
 | Review code | `/gabe-review` |
 | Check codebase health | `/gabe-health` |
 | Commit with quality checks | `/gabe-commit [message]` |
 | Push, create PR, watch CI | `/gabe-push` |
-| Create or manage a plan | `/gabe-plan [goal]` |
 | Consolidate architect-level understanding | `/gabe-teach [topics/status/free]` |
 | What tool do I need? | `/gabe-help` |
 
@@ -96,7 +110,29 @@ For application stack decisions (Python + FastAPI + PydanticAI + React + Bun), s
 
 ---
 
-## Gabe Lens
+## Install
+
+```bash
+git clone https://github.com/khujta/gabe-suite.git
+cd gabe-suite
+./install.sh              # Install all skills + commands
+./install.sh --dry-run    # Show what would be done
+./install.sh --uninstall  # Remove everything
+```
+
+After install, initialize a project:
+
+```
+/gabe-init [project-name]
+```
+
+This creates `.kdbp/`, installs hooks, and asks about project type and maturity.
+
+---
+
+## Gabe Lens (skill)
+
+> Everything from here through "Cognitive Suits" describes the `/gabe-lens` cognitive-translation skill — the single component that shares its name with the old suite. Other skills (`/gabe-review`, `/gabe-roast`, `/gabe-align`, etc.) are documented further below or in their respective SKILL.md files.
 
 ### See it in action
 
@@ -149,27 +185,9 @@ Ask `/gabe-lens enforcement tiers` and get this:
 
 That one-line handle — *"Hooks are gravity — docs are speed limit signs"* — stuck for weeks. The original 3-paragraph explanation didn't last a day.
 
-## Install
+### Usage
 
-```bash
-git clone https://github.com/khujta/gabe-suite.git
-cd gabe-suite
-./install.sh              # Install all skills + commands
-./install.sh --dry-run    # Show what would be done
-./install.sh --uninstall  # Remove everything
-```
-
-After install, initialize a project:
-
-```
-/gabe-init [project-name]
-```
-
-This creates `.kdbp/`, installs hooks, and asks about project type and maturity.
-
-## Usage
-
-### Full block (default)
+#### Full block (default)
 
 ```
 /gabe-lens [concept or question]
@@ -177,7 +195,7 @@ This creates `.kdbp/`, installs hooks, and asks about project type and maturity.
 
 All components: problem, analogy, map, constraint box, one-line handle. ~200-350 tokens.
 
-### Brief
+#### Brief
 
 ```
 /gabe-lens bf [concept]
@@ -185,7 +203,7 @@ All components: problem, analogy, map, constraint box, one-line handle. ~200-350
 
 Constraint box + one-line handle only. ~40-80 tokens. For previously introduced concepts.
 
-### Oneliner
+#### Oneliner
 
 ```
 /gabe-lens ol [concept]
@@ -193,7 +211,7 @@ Constraint box + one-line handle only. ~40-80 tokens. For previously introduced 
 
 Just the memorable phrase. ~5-15 tokens. For compaction handoffs or re-anchoring.
 
-### Annotate a document
+#### Annotate a document
 
 ```
 /gabe-lens an [file-path]
@@ -201,7 +219,7 @@ Just the memorable phrase. ~5-15 tokens. For compaction handoffs or re-anchoring
 
 Reads a file and produces a companion with Gabe Blocks for the 3-5 most critical concepts.
 
-## Compression modes
+### Compression modes
 
 | Context | Mode | Command | Tokens |
 |---|---|---|---|
@@ -209,7 +227,7 @@ Reads a file and produces a companion with Gabe Blocks for the 3-5 most critical
 | Referencing a known concept | Brief | `/gabe-lens bf` | ~40-80 |
 | Compaction handoff or re-anchoring | Oneliner | `/gabe-lens ol` | ~5-15 |
 
-## Analogy domains
+### Analogy domains
 
 Physical systems you can visualize in 3D, in preference order:
 
@@ -223,9 +241,9 @@ Physical systems you can visualize in 3D, in preference order:
 
 If no good physical analogy exists, the skill says so explicitly rather than forcing a weak metaphor.
 
-## Cognitive Suits
+### Cognitive Suits
 
-Not everyone thinks the same way. Gabe Lens adapts its output to match how your brain works.
+Not everyone thinks the same way. The Gabe Lens skill adapts its output to match how your brain works.
 
 | Suit | Style | Example handle for "caching" |
 |---|---|---|
@@ -234,7 +252,7 @@ Not everyone thinks the same way. Gabe Lens adapts its output to match how your 
 | **Abstract-Structural** | Patterns, types, relationships | "Every cache is a trade: space for time" |
 | **Narrative-Contextual** | Stories, characters, scenarios | "The barista remembers your order" |
 
-### Calibrate
+#### Calibrate
 
 ```
 /gabe-lens-calibrate
@@ -246,7 +264,7 @@ To reset to default: `/gabe-lens-calibrate reset`
 
 ---
 
-## Gabe Roast
+## Gabe Roast (skill)
 
 Adversarial gap review. Adopts a perspective (architect, UX designer, security auditor, etc.) and attacks a target to find what's missing, broken, or risky.
 
@@ -304,7 +322,7 @@ Gaps are grouped by **maturity level** (MVP / Enterprise / Scale), then by **imp
 
 ---
 
-## Gabe Assess
+## Gabe Assess (skill)
 
 Rapid change impact assessment. Pauses before an "obvious yes" to surface what a proposed change actually means before you commit.
 
@@ -375,9 +393,9 @@ One-line handles from both skills enhance compaction handoff notes by surviving 
 ## The origin story
 
 <details>
-<summary>How gabe-lens was built from a cognitive self-observation experiment</summary>
+<summary>How the Gabe Lens skill — and later the whole suite — was built from a cognitive self-observation experiment</summary>
 
-gabe-lens started as a personal experiment: **what happens when you use AI to reverse-engineer how your own brain learns?**
+The suite started as a single skill called `gabe-lens`. That skill started as a personal experiment: **what happens when you use AI to reverse-engineer how your own brain learns?** Over time, workflow commands (`/gabe-init`, `/gabe-commit`, `/gabe-plan`, `/gabe-execute`, `/gabe-push`, `/gabe-teach`, `/gabe-scope`) and companion skills (`/gabe-roast`, `/gabe-align`, `/gabe-assess`, `/gabe-review`, `/gabe-health`, `/gabe-help`, plus the consulted-only `gabe-docs` and `gabe-arch`) accreted around it. The umbrella became the Gabe Suite. The origin skill kept its name.
 
 I sat down with Claude and deliberately tried to learn a complex topic — attention mechanisms in neural networks. But the real goal wasn't understanding attention. It was watching *how my mind processed* the explanation, in real time, and having Claude observe and document the patterns.
 
