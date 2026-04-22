@@ -225,11 +225,35 @@ A stub diagram (contains `TODO`, `[Start] --> B`, or fewer than 3 labeled nodes)
 
 **Upgrade detection heuristic (deterministic, zero LLM cost):**
 
-A `## Key Diagrams` section contains a **stub** when ALL:
+A `## Key Diagrams` section contains a **stub** when ALL of the base conditions hold:
 
-- Mermaid fence exists
-- Text inside fence matches `^\s*(flowchart|sequenceDiagram|stateDiagram-v2|erDiagram|classDiagram)`
-- Body contains literal `TODO` OR has ≤3 distinct node/participant tokens
+1. Mermaid fence exists
+2. First non-blank line inside fence matches `^\s*(flowchart|sequenceDiagram|stateDiagram-v2|erDiagram|classDiagram|gitGraph|mindmap)` (diagram type declared)
+
+AND ANY of the stub signals fire:
+
+| # | Signal | Detection |
+|---|---|---|
+| a | Literal `TODO` | Case-insensitive substring match in fence body |
+| b | Scaffolder placeholder labels | Body contains `[Start]` OR `[End]` OR `[TODO]` as literal node labels |
+| c | Degenerate node count | ≤2 distinct node/participant tokens in the body (truly trivial — not a real diagram) |
+| d | Undersized body | Fence body <60 chars of non-whitespace non-comment content |
+
+A legitimate 3-node diagram with intent-labeled nodes — e.g.:
+
+````
+```mermaid
+flowchart TD
+    Submit[User submits form] --> Validate{Valid input?}
+    Validate -->|Yes| Store[Persist to DB]
+```
+````
+
+...passes ALL four stub signals (no `TODO`, no `[Start]`/`[End]`, 3 distinct nodes `Submit`/`Validate`/`Store`, body >60 chars) and is **not** flagged. The threshold sits intentionally between the scaffolder's generated stub (`A[Start] --> B[TODO]` — 2 nodes, contains both `[Start]` and `[TODO]`) and the minimum viable authored diagram (3 intent-labeled nodes).
+
+**Node counting for signal (c):** count distinct identifiers on the left of `-->`, `---`, `->>`, `-->>`, `o--o`, `||--o{`, and other Mermaid edge operators. For `sequenceDiagram`, count distinct `participant` declarations OR distinct message senders/receivers. For `erDiagram`, count distinct entity names. For `stateDiagram-v2`, count distinct state names (excluding `[*]`).
+
+**Rationale:** the prior "≤3 distinct node tokens" heuristic false-positives on valid minimal diagrams. The tightened version catches scaffolder placeholders explicitly (signal b) and reserves the node-count signal for truly degenerate cases (≤2 nodes).
 
 **Upgrade triggers:**
 

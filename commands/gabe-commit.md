@@ -290,7 +290,16 @@ For each mapping `(pattern, target, section, priority)`:
 3. **Target section exists + non-empty?** If `section` is non-empty, extract content between `## {section}` and next heading (or EOF):
    - No `## {section}` heading found → finding `Doc section missing: {target}#{section} (mapped from {pattern})`, severity = `priority`.
    - Section found but <80 non-comment/non-whitespace chars → finding `Doc section empty: {target}#{section} ({N} source files mapped)`, severity = `priority`.
-   - Otherwise → no finding for this row.
+   - Otherwise → no finding for this step (diagram coverage still checked in step 4).
+4. **Diagram coverage (per-doc-type matrix).** Only runs when step 3 passed (section populated ≥80 chars). Consult `gabe-docs/SKILL.md` "Per-doc-type diagram policy" matrix using `target` basename:
+   - `docs/AGENTS_USE.md` — diagram required when `section` is `Agent Design` (flowchart) or when any module file matching `pattern` uses tool-call adapters (sequenceDiagram). Severity: `medium`.
+   - `docs/architecture.md` — diagram required when `section` is `Data Model` (erDiagram), `API Endpoints` (sequenceDiagram), or the section contains >200 chars of prose describing a flow (flowchart). Severity: `medium`.
+   - `docs/architecture-patterns.md` — diagram required per pattern entry when the entry describes a flow / state / structural split (not pure rationale). Severity: `low`.
+   - All other `target` paths → no diagram check (out of scope for A2; wells covered by A3).
+
+   Detection: parse the section content for a `` ```mermaid `` fence. If no fence AND the target+section row above requires a diagram per matrix → finding `Doc section populated but diagram missing: {target}#{section} (matrix requires [flowchart|sequenceDiagram|erDiagram])`, severity per row above. Actions: `[add-diagram] [skip] [defer]`.
+
+   If a fence exists, stub-check via `gabe-docs/SKILL.md` stub-detection heuristic. If stub → finding `Doc section diagram is placeholder: {target}#{section}`, severity `low`. Actions: `[upgrade-diagram] [skip] [defer]`.
 
 ### Step A3: Well Docs audit
 
@@ -299,7 +308,7 @@ For each well with non-empty `Paths` AND non-empty `Docs`:
 1. **Docs file exists?** If not → finding `Well doc missing: {Docs} (well {G_N} {name})`, severity = `low`.
 2. **`## Topics (auto-appended)` section present?** If missing → finding `Missing ## Topics (auto-appended) section: {Docs} (teach Step 4d.1 can't append)`, severity = `medium`.
 3. **Purpose still placeholder AND ≥3 verified topics?** Count `### T[N] —` headings under `## Topics (auto-appended)`. Count non-comment/non-whitespace chars in `## Purpose` section. If topics ≥3 AND Purpose <80 chars → finding `Well Purpose empty despite {N} verified topics: {Docs}`, severity = `low` (info: teach Step 4d.4 will offer to draft next time).
-4. **Diagram still placeholder despite ≥2 verified topics?** Parse `## Key Diagrams` section. Stub detection per `gabe-docs/SKILL.md` heuristic: mermaid fence exists, body contains literal `TODO` OR has ≤3 distinct node/participant tokens. If stub detected AND verified-topic count ≥2 → finding `Well [G_N] {name} diagram still placeholder despite {M} verified topics: {Docs}`, severity = `low`. Actions: `[upgrade-diagram] [skip] [defer]`. Handler: see Step A7.
+4. **Diagram still placeholder despite ≥2 verified topics?** Parse `## Key Diagrams` section. Apply stub detection per `gabe-docs/SKILL.md` "Upgrade detection heuristic" (signals a-d: `TODO` literal, `[Start]`/`[End]` scaffolder labels, ≤2 node count, <60 chars body). If stub detected AND verified-topic count ≥2 → finding `Well [G_N] {name} diagram still placeholder despite {M} verified topics: {Docs}`, severity = `low`. Actions: `[upgrade-diagram] [skip] [defer]`. Handler: see Step A7.
 
 ### Step A4: Orphaned doc detection
 
@@ -333,6 +342,8 @@ Universe: [N source files] | [N doc files] | [N wells] | [N DOCS.md mappings]
 | 3 | medium | Missing ## Topics section: docs/wells/2-llm-pipeline.md              | [insert-heading] [skip] [defer]       |
 | 4 | low    | Orphaned doc: docs/legacy/old-routing.md                             | [archive] [map] [skip]                |
 | 5 | low    | Well Purpose empty despite 4 verified topics: docs/wells/3-api.md    | [defer-to-teach] [skip]               |
+| 6 | low    | Well G2 LLM Pipeline diagram still placeholder (3 verified topics)   | [upgrade-diagram] [skip] [defer]      |
+| 7 | medium | Doc section populated but diagram missing: docs/AGENTS_USE.md#Agent Design (matrix requires flowchart) | [add-diagram] [skip] [defer]          |
 
 ℹ … and 3 more uncovered files. Run with `full` flag to see all.
 
@@ -359,7 +370,11 @@ Execute each user action in order:
 | | `skip` | One-time dismissal | No |
 | Well Purpose empty | `defer-to-teach` | Print `ℹ docs/wells/{N}-{slug}.md: Purpose will be drafted on next /gabe-teach topics session (Step 4d.4 freshness prompt fires at ≥3 verified topics).` | No |
 | | `skip` | One-time dismissal | No |
-| Diagram placeholder | `upgrade-diagram` | Read well's verified topics from KNOWLEDGE.md Topics table + `## Purpose` + `## Key Decisions` from the well doc. Determine diagram type from per-well recommendation table in `gabe-docs/SKILL.md` (not re-decided — respect scaffold intent). Generate diagram body per gabe-docs upgrade rules (≤10 nodes, intent-labeled, analogy-consistent). Consult `gabe-docs/diagrams-library.md` if the well covers ≥3 layers or needs subgraph grouping. Replace stub fence content. LLM edits proposed, human confirms before write. | **Yes** |
+| Diagram placeholder (well-level, A3) | `upgrade-diagram` | Read well's verified topics from KNOWLEDGE.md Topics table + `## Purpose` + `## Key Decisions` from the well doc. Determine diagram type from per-well recommendation table in `gabe-docs/SKILL.md` (not re-decided — respect scaffold intent). Generate diagram body per gabe-docs upgrade rules (≤10 nodes, intent-labeled, analogy-consistent). Consult `gabe-docs/diagrams-library.md` if the well covers ≥3 layers or needs subgraph grouping. Replace stub fence content. LLM edits proposed, human confirms before write. | **Yes** |
+| | `skip` / `defer` | as above | No |
+| Diagram missing (non-well doc, A2 step 4) | `add-diagram` | Read `section` content + source files matching `pattern` (via `git log --oneline -10 -- {pattern-glob}` + file reads). Determine diagram type from per-doc-type matrix in `gabe-docs/SKILL.md` (matrix row dictates the type). Generate diagram body per SKILL.md skeletons (≤10 nodes, intent-labeled). Consult `diagrams-library.md` only if ≥3 layers/actors. Insert a new mermaid fence at end of `section`, before the next heading. LLM edits proposed, human confirms before write. | **Yes** |
+| | `skip` / `defer` | as above | No |
+| Diagram stub (non-well doc, A2 step 4) | `upgrade-diagram` | Same handler as well-level upgrade above, but seeds from mapped source files + section prose (no KNOWLEDGE.md topic lookup for non-well targets). Respects matrix-dictated type. | **Yes** |
 | | `skip` / `defer` | as above | No |
 | Uncovered source file | `map` | Same interactive prompt as orphaned-doc `map` but target defaults to a DOCS.md row with appropriate doc (prompt for doc + section too). Writes to DOCS.md. | No |
 | | `skip` | One-time dismissal | No |

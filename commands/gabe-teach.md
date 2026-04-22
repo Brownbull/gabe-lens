@@ -1089,9 +1089,22 @@ After Step 4d.4 completes (Purpose/Decisions drafted or skipped), score the just
 
 **Placement decision (deterministic):**
 
-1. If the well doc's `## Key Diagrams` section contains a **stub** (per `gabe-docs/SKILL.md` stub-detection heuristic: mermaid fence exists, body contains `TODO` OR ≤3 distinct node tokens) AND this is the **first or second** verified topic in the well → **upgrade the well-level stub** using this topic's content as the seed. Future topics may expand it via Step A3 `upgrade-diagram` in `/gabe-commit docs-audit`.
-2. Else if well-level diagram is already real (not stub) OR this is the 3rd+ verified topic in the well → **inline `#### Diagram`** under the `### T[N] —` block in `## Topics (auto-appended)`. Keeps the well-level diagram stable; topic-scoped diagrams live with their topic.
-3. Else (no `## Key Diagrams` section in well doc at all) → print one-line warning `⚠ Well doc missing ## Key Diagrams section — skipping diagram prompt; run /gabe-commit docs-audit to scaffold.` and move on.
+Count `N_verified` = number of `### T[N] —` headings under `## Topics (auto-appended)` in the well doc **after** Step 4d.1 has appended the just-verified topic. So if this topic is the first the well has ever seen, `N_verified = 1`. Count before 4d.1 = `N_verified - 1`.
+
+1. **Well-level upgrade** — fires when ALL:
+   - `N_verified ≤ 2` (current topic is the 1st or 2nd ever appended to this well)
+   - `## Key Diagrams` section exists in the well doc
+   - Section contents match stub heuristic per `gabe-docs/SKILL.md` "Upgrading a placeholder diagram"
+   
+   Behavior: upgrade the well-level stub using this topic's verification content as the seed. Subsequent topics won't re-trigger this rule (rule 2 takes over at `N_verified ≥ 3`). `/gabe-commit docs-audit` Step A3 is the safety net if the user declined all prompts.
+
+2. **Inline topic-level diagram** — fires when ANY:
+   - `N_verified ≥ 3` (well already has enough context, preserve authored well-level diagram)
+   - `N_verified ≤ 2` AND `## Key Diagrams` is real (not stub) — respect the authored content, add topic-scoped diagram inline instead
+   
+   Behavior: insert `#### Diagram` subsection under the `### T[N] —` block in `## Topics (auto-appended)`. Keeps the well-level diagram stable; topic-scoped diagrams live with their topic.
+
+3. **Skip** — fires when `## Key Diagrams` section is entirely absent from the well doc. Print one-line warning `⚠ Well doc missing ## Key Diagrams section — skipping diagram prompt; run /gabe-commit docs-audit to scaffold.` and move on. No diagram written this session; user must scaffold the section first.
 
 **Prompt:**
 
