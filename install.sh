@@ -84,8 +84,16 @@ if [ -d "$SCRIPT_DIR/templates" ]; then
     run "cp \"$SCRIPT_DIR/templates/\"*.md ~/.claude/templates/gabe/ 2>/dev/null || true"
     run "cp \"$SCRIPT_DIR/templates/\"*.yaml ~/.claude/templates/gabe/ 2>/dev/null || true"
     run "cp \"$SCRIPT_DIR/templates/\"*.json ~/.claude/templates/gabe/ 2>/dev/null || true"
-    TEMPLATE_COUNT=$(ls -1 "$SCRIPT_DIR/templates/" | wc -l)
+    TEMPLATE_COUNT=$(ls -1 "$SCRIPT_DIR/templates/" 2>/dev/null | grep -v '^tier-sections$' | wc -l)
     echo "  OK: $TEMPLATE_COUNT templates → ~/.claude/templates/gabe/"
+
+    # Tier-section catalog (subdirectory) — consumed by /gabe-plan to assemble trade-off matrices
+    if [ -d "$SCRIPT_DIR/templates/tier-sections" ]; then
+        run "mkdir -p ~/.claude/templates/gabe/tier-sections"
+        run "cp \"$SCRIPT_DIR/templates/tier-sections/\"*.md ~/.claude/templates/gabe/tier-sections/ 2>/dev/null || true"
+        SECTION_COUNT=$(ls -1 "$SCRIPT_DIR/templates/tier-sections/"*.md 2>/dev/null | wc -l)
+        echo "  OK: $SECTION_COUNT tier-sections → ~/.claude/templates/gabe/tier-sections/"
+    fi
 fi
 
 # Prompts (Option A — ship to runtime) — consumed by /gabe-scope family at execution time

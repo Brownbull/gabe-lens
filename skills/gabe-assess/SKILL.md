@@ -13,6 +13,8 @@ Pause before an "obvious yes" and take a photograph of what it actually means. W
 
 This is NOT a code review (use gabe-roast). This is NOT alignment checking (use gabe-align). This is the moment between "should we do X?" and "yes" — the triage instinct that asks: *what am I actually signing up for?*
 
+> **Rendering note.** Output templates in this spec wrapped in bare triple-backtick fences are spec-meta delimiters — render their contents as plain markdown at runtime so blast-radius tables display as tables, not monospace code. See `gabe-docs/SKILL.md` § "Runtime output rendering convention".
+
 ---
 
 ## When to Use

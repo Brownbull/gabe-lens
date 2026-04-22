@@ -13,6 +13,8 @@ Answer one question: **"What should I do next with the Gabe Suite?"**
 
 Scan the current project environment, detect what's configured, what's missing, and where the user is in their workflow. Then recommend specific commands with reasoning.
 
+> **Rendering note.** Output templates in this spec wrapped in bare triple-backtick fences are spec-meta delimiters — render their contents as plain markdown at runtime. Dashboards, workflow recommendations, and tables display as markdown, not monospace code. See `gabe-docs/SKILL.md` § "Runtime output rendering convention".
+
 This is NOT a man page. It reads the actual state and gives contextual advice.
 
 ---

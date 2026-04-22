@@ -11,6 +11,8 @@ Executes phase tasks from `.kdbp/PLAN.md`. Complements `/gabe-plan` (write plan)
 
 **Scope default.** Single phase. Arg overrides: `task` = single next task only, `all` = all remaining phases (autonomous), `<N>` = jump to phase N regardless of Current Phase pointer.
 
+> **Rendering note.** Output templates in this spec wrapped in bare triple-backtick fences are spec-meta delimiters — render their contents as plain markdown at runtime. See `gabe-docs/SKILL.md` § "Runtime output rendering convention".
+
 ## Procedure
 
 ### Step 0: Parse args + validate
@@ -36,15 +38,20 @@ Parse `$ARGUMENTS`:
 
 1. Read `.kdbp/PLAN.md`:
    - Current Phase pointer → integer N (or arg override)
-   - Target phase row: Phase name, Description, Complexity, Exec state
+   - Target phase row: Phase name, Description, **Tier**, Complexity, Exec state
+   - **Tier column lookup:**
+     - If Tier cell = `mvp` / `ent` / `scale` → use it directly
+     - If Tier cell missing (legacy plan, pre-v2.10) → default `mvp` silently. Do NOT prompt user mid-execute.
+     - Prototype flag: read from `## Phase Details → Phase N → Prototype:` entry. Default: `no`.
    - Scope section (if present) → list of Modified/New files
    - References section → docs/code pointers for this phase
    - Checkpoint section → verification commands
 2. Read `.kdbp/BEHAVIOR.md`:
-   - `maturity` (mvp/enterprise/scale) — gates test strictness
+   - `maturity` (mvp/enterprise/scale) — project-level baseline (separate from per-phase Tier)
    - `execute_default_mode: interactive | auto` (optional, default `auto`)
 3. Read `.kdbp/KNOWLEDGE.md` Gravity Wells table — determine which well(s) this phase touches (informational, appears in commit body).
 4. Read `.kdbp/PENDING.md` — surface any open items whose `File` matches target phase's Scope files (informational prompt before starting).
+5. **Load tier cap heuristics** from `.kdbp/DECISIONS.md` (find the phase's D-id entry) OR from `~/.claude/templates/gabe/tier-sections/*.md` `## Tier-cap enforcement` blocks. Used by Step 4.1 escalation gate.
 
 ### Step 2: Decompose phase into tasks
 
@@ -63,10 +70,20 @@ A phase row in PLAN.md is one-line per step. Real execution needs finer granular
 - Model: Haiku (cheap classification, per U6 value)
 - Output: numbered list of tasks
 
+**Tier-cap filter:** Before presenting tasks, prune any task that introduces a pattern above the phase's declared tier unless the task description explicitly justifies the escalation. Tier cap heuristics come from each matched section's `## Tier-cap enforcement` block (loaded Step 1.5).
+
+Examples of tier-cap pruning:
+- Phase tier = `mvp` + task says "add DI container" → prune (DI = Scale per Core section). Either drop the task, or if load-bearing, surface as escalation candidate via Step 4.1 mid-phase escalation gate.
+- Phase tier = `ent` + task says "add circuit breaker" → prune (circuit break = Scale per Core).
+- Phase tier = `mvp` + task says "add structured-output fallback chain" → prune (fallback chain = Scale per AI/Agent).
+
+The prune is informational, not silent — show pruned tasks under a separate `Tier-cap pruned (N):` list in the prompt below, so user can escalate if needed.
+
 **Present the task list** to the user with the Universal Action Menu on first phase only:
 
 ```
 GABE EXECUTE — Phase N: [name]
+TIER: [mvp|ent|scale] (prototype: [yes|no])
 EXEC STATE: ⬜ → 🔄
 COMPLEXITY: [low/medium/high]
 TASKS ([K]):
@@ -74,11 +91,17 @@ TASKS ([K]):
   T2. [task description]
   T3. [task description]
 
+Tier-cap pruned ([P]):
+  [pruned task] — reason: [section.dim] is [Ent|Scale] tier
+  [pruned task] — reason: ...
+
 CHECKPOINT CADENCE: per-task (D2.C default) | per-phase (--auto-commit)
 PENDING ITEMS IN SCOPE: [N or none]
 
-Proceed? [go] / [edit-tasks] / [abort]
+Proceed? [go] / [edit-tasks] / [escalate] / [abort]
 ```
+
+- `escalate` → jump to Step 4.1 mid-phase escalation gate to promote phase tier + reinstate pruned tasks.
 
 - `go` → begin Step 3
 - `edit-tasks` → user edits task list inline, re-present
@@ -123,7 +146,60 @@ For each task T_i in order:
      ```
    - Auto mode (`--auto-commit`): proceed to commit without prompt. Skip to Step 4.5.
 
-4.5. **Commit (when user picks `commit` or `--auto-commit` active):**
+### Step 4.1: Mid-phase tier escalation gate
+
+Fires when any of:
+- User picks `escalate` at the Step 2 Universal Action Menu
+- During Step 4 implementation, a task genuinely requires a pattern above the declared tier (e.g., mvp phase but the external API is flaky enough that retry logic is load-bearing)
+- A drift signal from `## Known drift signals` in a loaded section file fires during task implementation
+
+**Escalation prompt:**
+
+```
+⚠ TIER ESCALATION REQUESTED — Phase N
+CURRENT TIER: [current]
+TRIGGER: [task T[i] requires / drift signal / user-requested]
+DETAIL: [which section.dim forced the escalation, e.g. "AI/Agent.Structured output needs fallback chain"]
+
+Promote to: [next] / [next+1] / [cancel]
+
+Reason (required — one sentence):
+```
+
+**Promotion rules:**
+- From `mvp`: may promote to `ent` or `scale`
+- From `ent`: may promote to `scale`
+- Reason is mandatory. Blank input is refused with: `Escalation requires a reason (one sentence). Silent escalation is not allowed.`
+
+**On accept:**
+
+1. **Update PLAN.md Phases table** — change Tier cell to new tier for phase N. Bump Last Updated.
+2. **Append to DECISIONS.md** under the phase's existing D-entry (the one /gabe-plan wrote at Step 3.5.4):
+   ```markdown
+   ### Tier escalation — YYYY-MM-DD HH:MM
+   - **From:** [old tier]
+   - **To:** [new tier]
+   - **Trigger:** [task T[i] / drift signal / user]
+   - **Reason:** [user reason]
+   - **Reinstates dimensions:** [list of previously-suppressed or previously-capped dims that now apply at new tier]
+   ```
+3. **Reinstate pruned tasks** — any tasks previously pruned by Step 2 tier cap that fit within the new tier get added back to the task list.
+4. **Log to LEDGER.md:**
+   ```
+   ## YYYY-MM-DD HH:MM — TIER ESCALATION: Phase N — [name]
+   FROM: [old] → TO: [new]
+   REASON: [user reason]
+   DECISIONS: D[id] updated
+   ```
+5. Continue Step 4 implementation at the new tier.
+
+**On cancel:**
+- Halt phase. Exec stays `🔄`. User needs to either refactor task to stay within tier, build the needed pattern outside `/gabe-execute`, or re-invoke `/gabe-plan` to re-tier and replan.
+
+**De-escalation path (tier → lower):**
+Not supported mid-phase. Orphaned higher-tier patterns would require manual cleanup. To de-escalate, use `/gabe-plan update` or edit the Tier cell directly after reverting the over-built code.
+
+### Step 4.5: Commit (when user picks `commit` or `--auto-commit` active):
 
    **MUST invoke `/gabe-commit` inline.** Raw `git commit` / `git commit -m` at this step is prohibited. `/gabe-commit` is the sole owner of CHECK 6 (deferred), CHECK 7 (doc drift), CHECK 8 (structure), the per-hash `[hash] msg / FINDINGS: N / ACTIONS: …` LEDGER entry, PENDING.md updates, the `/gabe-teach topics` suggestion (Step 6.5), and the auto-tick of the `Commit` column (Step 6.6). Bypassing it silently drops all six responsibilities — the observed failure mode being: `Exec=✅` yet `Commit=⬜`, no `FINDINGS:` lines in LEDGER, no teach trigger, and `docs/AGENTS_USE.md` / `docs/wells/*.md` drift uncaught.
 
@@ -260,6 +336,7 @@ When last task T_K commits successfully:
 4. Append to `.kdbp/LEDGER.md`:
    ```
    ## [YYYY-MM-DD HH:MM] — PHASE EXEC COMPLETE: Phase N — [name]
+   TIER: [mvp|ent|scale] (escalated from [original]) if escalation happened, else "TIER: [tier]"
    TASKS: [K] tasks, [K] commits
    DEVIATIONS: [N structural, M minor] (see DEVIATIONS.md if any)
    ```

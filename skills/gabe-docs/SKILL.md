@@ -7,6 +7,41 @@ description: "Documentation standards for gabe-generated docs. CommonMark compli
 
 The house style for every markdown file the gabe-lens suite creates or touches. Distilled from BMAD tech-writer standards + gabe-lens-specific conventions (analogy-first openers, per-well diagram recommendations).
 
+## Runtime output rendering convention
+
+Gabe Suite spec files (`commands/gabe-*.md` + `skills/gabe-*/SKILL.md`) document intended output using triple-backtick fences as **visual delimiters for the spec reader**. At runtime these fences are **spec-meta** — do NOT echo them to the user.
+
+When a spec shows a block like:
+
+    ```
+    GABE COMMIT — docs-audit
+    | # | Sev | Finding | Actions |
+    |---|-----|---------|---------|
+    | 1 | med | Doc section empty: README.md#Setup | [update-docs] [skip] [defer] |
+    → Actions? (e.g., "1:defer 2:skip"):
+    ```
+
+…render the contents as **plain markdown**: tables render as tables, inline code with single backticks stays inline, prose stays prose, interactive prompts appear on their own lines. The outer triple-backtick fence is a delimiter for the spec reader, **not** a directive to wrap runtime output in a code block.
+
+Why this matters: when a command like `/gabe-commit docs-audit` echoes the fence literally, Claude Code renders the whole block as monospace code — markdown tables show as raw `| # | Sev | ...` text, the triage table becomes unreadable. The user cannot scan severity columns, click action tokens, or visually parse rows.
+
+**Exception: genuinely-code content.** When the fence content IS actual code or a shell transcript (lines start with `$`, `git`, `bash`, language keywords, JSON, YAML, diff format) AND should appear monospace for copy-paste fidelity → keep fenced at runtime.
+
+Tagged fences like ```bash, ```python, ```json, ```yaml, ```diff are **always** runtime code blocks — render as code at runtime. Only **bare** ``` fences containing markdown (tables, headers, prose with inline backticks, interactive prompts) are spec-meta delimiters to be stripped.
+
+**Decision rule — when in doubt:**
+
+| Fence content | Runtime behavior |
+|---|---|
+| Markdown table (`\| ... \|` rows) | Strip fence, render as markdown table |
+| Interactive prompt with `→` or `[action]` tokens | Strip fence, render as prose + inline code |
+| Heading / bullet list / mixed prose | Strip fence, render as markdown |
+| Shell transcript (`$ command` / `>>> expr`) | Keep fenced, render as code block |
+| YAML / JSON / diff / SQL / code in any language | Keep fenced (prefer tagged fence) |
+| Mermaid diagram body | Keep fenced with ` ```mermaid ` — always code |
+
+Commands/skills that produce user-facing triage tables (`/gabe-commit`, `/gabe-commit docs-audit`, `/gabe-review`, `/gabe-teach`, `/gabe-assess`, `/gabe-roast`, `/gabe-push`) MUST apply this convention. A one-line inline reminder sits in each affected spec header.
+
 ## Three load-bearing rules
 
 1. **CommonMark strict.** No Setext, no ambiguous indented code blocks, no mixed list markers.

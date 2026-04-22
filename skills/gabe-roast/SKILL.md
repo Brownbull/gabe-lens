@@ -13,6 +13,8 @@ Stress-test a target (file, folder, plan, architecture, or concept) from a speci
 
 This skill does not produce generic checklists. It adopts a perspective, reads deeply, and attacks like someone whose job depends on finding what's wrong.
 
+> **Rendering note.** Output templates in this spec wrapped in bare triple-backtick fences are spec-meta delimiters — render their contents as plain markdown at runtime so gap tables and severity classifications display as tables. See `gabe-docs/SKILL.md` § "Runtime output rendering convention".
+
 ---
 
 ## Required Inputs

@@ -9,6 +9,8 @@ Countermeasure for "the human can't keep up with AI-paced changes." Keeps the hu
 
 **Design principle — teach-first, config-last.** Every bare-ish invocation renders a lesson or narrative, never a dashboard. Dashboards, catalog browsing, wells editing, and history browsing all live behind explicit subcommands (`status`, `arch browse`, `wells`, `history`, `arch dashboard`). When the user invokes `/gabe-teach` with no clear configuration intent, pick the most relevant teaching surface and render it immediately. Ask the same four verbs everywhere so nothing has to be memorized: `[explain]` / `[next]` / `[test]` / `[skip]` — see the **Universal Action Menu** section below.
 
+> **Rendering note.** Output templates in this spec wrapped in bare triple-backtick fences are spec-meta delimiters — render contents as plain markdown at runtime. Lesson bodies, well dashboards, topic tables, and prompts render as markdown, not monospace code. Tagged fences (```python, ```mermaid, etc.) stay fenced. See `gabe-docs/SKILL.md` § "Runtime output rendering convention".
+
 ## Procedure
 
 ### Step 0: Detect mode

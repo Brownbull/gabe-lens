@@ -13,6 +13,8 @@ Review code changes and price every finding — what it costs to fix now, what i
 
 This is NOT a generic checklist review. Every finding gets a **Defer Risk** (consequence + probability) and a **Maturity Gate** (MVP/Enterprise/Scale). The output is a risk matrix with a **Review Confidence Score** that lets humans make informed ship/defer decisions — and an interactive **Triage** loop to resolve findings on the spot.
 
+> **Rendering note.** Output templates in this spec wrapped in bare triple-backtick fences (no language tag) are spec-meta delimiters — render contents as plain markdown at runtime so findings tables display as tables, not monospace code. Tagged fences (```bash, ```diff, etc.) stay fenced at runtime. See `gabe-docs/SKILL.md` § "Runtime output rendering convention".
+
 ---
 
 ## When to Use
@@ -99,10 +101,13 @@ For each changed file, check these dimensions:
 | **Error handling** | Unhandled exceptions, fail-open without test, swallowed errors | HIGH |
 | **Test coverage** | New branches without corresponding test changes | HIGH |
 | **Logic** | Off-by-one, null handling, wrong condition, unreachable code | HIGH |
+| **Tier drift** | Code patterns above phase's declared Tier (MVP/Enterprise/Scale) | HIGH |
 | **Performance** | N+1 queries, unbounded loops, missing indexes, memory leaks | MEDIUM |
 | **Style** | Naming, formatting, dead code, console.log in production | LOW |
 
 **Confidence gate:** Only report findings with >80% confidence. If uncertain, investigate further before reporting.
+
+**Tier drift detection:** When `.kdbp/PLAN.md` declares a phase Tier and the diff contains patterns above that tier, emit a `TIER_DRIFT` finding. See Step 4.75 Sub-check 5d for procedure and resolution options (downgrade vs amend-phase-tier).
 
 ### Step 3: Branch-Test Gap Detection
 
@@ -426,9 +431,84 @@ Precondition: trigger hit AND no row in `.kdbp/DOCS.md` references any file in t
 
 **Race handling:** DECISIONS.md may be appended by `/gabe-push` too (starting in Phase 5). Dedup is by title case-insensitive match. If two writers race on `D[N]` computation, Edit tool's match-and-replace will fail on one of them — the losing writer retries with fresh read.
 
+#### Sub-check 5d — Tier drift detection
+
+Purpose: "Did this diff introduce code patterns above the phase's declared Tier?"
+
+Skip silently if any of:
+- `.kdbp/PLAN.md` doesn't exist OR doesn't contain `status: active`
+- Current phase row lacks a `Tier` cell (legacy plan, pre-v2.10)
+- Phase Tier = `scale` (ceiling — no patterns above Scale to flag)
+- `.kdbp/SCOPE.md` marked `status: pivoted`
+
+**Procedure (deterministic + pattern scan):**
+
+1. Read `.kdbp/PLAN.md`:
+   - Current Phase N → Tier cell value (`mvp` | `ent` | `scale`)
+   - `## Phase Details → Phase N → Types:` list
+2. Load section files:
+   - `~/.claude/templates/gabe/tier-sections/core.md` (always)
+   - For each matched type, load corresponding `tier-sections/*.md`
+3. For each loaded section, extract `## Known drift signals` table. Each row has `Pattern`, `Tier floor`, `Finding severity`.
+4. Scan diff for each pattern. Detection is substring/regex match on added lines (`git diff` context, skip removed). Patterns are either:
+   - Import/symbol literal (e.g. `@retry`, `tenacity.retry`, `launchdarkly-server-sdk`, `BroadcastChannel`)
+   - File-path glob (e.g. `evals/*.json`, `migrations/alembic/env.py`)
+   - AST-ish (e.g. decorator name at function scope — close approximation via regex on `^@decorator_name` at start-of-line after indent)
+5. For each matched pattern where `Tier floor > phase Tier`:
+   - Emit a TIER_DRIFT finding in the Step 4 findings table.
+   - Severity inherits from the `Finding severity` column (TIER_DRIFT-HIGH / MED / LOW) but use HIGH as default if ambiguous.
+   - Description: `[Section.Dimension] pattern detected — tier floor [Ent|Scale], phase tier [current]`
+   - File/line = first match location.
+
+**Prototype shift:** If phase is tagged `prototype: true`, shift every TIER_DRIFT severity down one notch (HIGH→MED, MED→LOW, LOW→suppressed). Matches the Δ-grade shift in `tier-delta-scale.md`.
+
+**Dedup:** If multiple patterns in the same section×dimension hit, emit ONE finding (not one per occurrence). Concatenate matched pattern list in the finding description.
+
+**Output — TIER_DRIFT block:**
+
+Rendered alongside other 4.75 sub-checks when any TIER_DRIFT finding fires:
+
+```
+### Tier Drift Detection
+
+Phase N ([name]) — declared Tier: [mvp|ent] (prototype: [yes|no])
+
+Patterns detected above tier:
+
+  [HIGH] Core.Abstractions — Scale-tier pattern found
+    Match: `container.resolve(...)` — DI container usage
+    File: app/agent/factory.py:12
+    Reason: `abstractions: + DI` lives at Scale per core.md
+
+  [HIGH] AI/Agent.Structured output — Scale-tier pattern found
+    Match: fallback chain (regex → rule → default)
+    File: app/agent/triage_fallback.py:33-48
+    Reason: `+ fallback chain` lives at Scale per ai-agent.md
+
+Resolution per finding:
+
+  [downgrade]     Rip out the pattern, stay at tier [mvp|ent]
+  [amend-tier]    Promote phase tier → log reason to DECISIONS.md
+  [accept-drift]  Keep code, accept drift as known risk (one-time)
+  [defer]         Revisit next review (logs to PENDING.md)
+```
+
+**Action handlers:**
+
+| Action | Behavior |
+|--------|----------|
+| `downgrade` | Informational. No auto-rip. User expected to remove code in follow-up commit. Finding stays open, re-surfaces next `/gabe-review` until code is gone. |
+| `amend-tier` | Prompt: "Why promote Phase N from [current] to [new]? (one sentence)". Update PLAN.md Tier cell. Append `### Tier escalation` block to the phase's DECISIONS.md D-entry. Log LEDGER: `TIER ESCALATION: Phase N from [old] to [new] — via review`. Finding resolved (removed from current run). |
+| `accept-drift` | Adds a `drift-accepted` note to the phase's DECISIONS.md D-entry with date + pattern. Finding resolved for this run. Re-surfaces next run if the pattern pops up elsewhere (prevents silent permanent drift). |
+| `defer` | Append to PENDING.md: `\| P[N] \| today \| gabe-review \| TIER_DRIFT: [section.dim] at [file] \| [file] \| [tier] \| medium \| moderate \| 0 \| open \|`. Source = `gabe-review`. |
+
+**Session-scoped dedup:** If same pattern + file fires in multiple consecutive reviews, apply escalation (2nd → tag `⚠ RECURRING`, 3rd → promote to BLOCK). Same escalation pattern as general deferred items.
+
+**Default-on-drop-through:** Treat as `defer`. Unresolved drift goes to PENDING.md — surfaces next review instead of vanishing.
+
 #### Plan Alignment summary block
 
-If 5a produced output OR 5c produced output OR 5b produced a candidate, wrap in a single "Plan Alignment" block under Step 4.75's heading. Order: 5a, 5c, 5b. If all three are empty, skip the block entirely (don't render an empty heading).
+If 5a produced output OR 5c produced output OR 5b produced a candidate OR 5d produced a TIER_DRIFT finding, wrap in a single "Plan Alignment" block under Step 4.75's heading. Order: 5a, 5c, 5b, 5d. If all four are empty, skip the block entirely (don't render an empty heading).
 
 ### Step 5: Triage
 
@@ -734,6 +814,7 @@ If the pass condition is not met (BLOCK verdict or unresolved issues above gate)
    CONFIDENCE: [score]/100
    DEFERRED: [list of IDs added to PENDING.md, or "none"]
    ALIGNMENT: [ALIGNED | DRIFTED | MISALIGNED | SKIP]
+   TIER: [mvp | ent | scale | unset] | DRIFT: [none | N findings (escalated X, accepted Y, deferred Z)]
    TICK: [tick_outcome from step 2]
    ```
 4. This LEDGER entry is the single audit artifact for `/gabe-review` runs. Do NOT duplicate into another file (KNOWLEDGE.md, session files, etc.). `/gabe-next` and humans read LEDGER to answer "did review run? what did it say? why didn't it tick?".

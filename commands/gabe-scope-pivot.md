@@ -14,6 +14,8 @@ Handles direction-shifting scope changes. Unlike addition, a pivot restructures 
 - Pivot rationale recorded in Change Log with reference to archived v{N}
 - Research directory re-archived if regenerating (optional prompt)
 
+> **Rendering note.** Output templates in this spec wrapped in bare triple-backtick fences are spec-meta delimiters — render their contents as plain markdown at runtime. Tagged fences (```yaml, ```diff) stay fenced. See `gabe-docs/SKILL.md` § "Runtime output rendering convention".
+
 ## Procedure
 
 ### Step 1: Pre-flight

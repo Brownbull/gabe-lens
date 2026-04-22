@@ -7,6 +7,8 @@ description: "Push, create PR, watch CI, promote branches — the post-commit sh
 
 The stupidest way to ship. Push, PR, watch CI, promote. First run auto-detects your setup; every run after that repeats the same flow.
 
+> **Rendering note.** Output templates in this spec wrapped in bare triple-backtick fences are spec-meta delimiters — render their contents as plain markdown at runtime. Tagged fences (```bash, ```json, ```diff) stay fenced. See `gabe-docs/SKILL.md` § "Runtime output rendering convention".
+
 ## Procedure
 
 ### Step 1: Validate prerequisites

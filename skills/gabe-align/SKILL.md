@@ -14,6 +14,8 @@ Two responsibilities:
 1. **Manual alignment checks** — test proposed work against curated values BEFORE building. Three modes: shallow (quick), standard (full), deep (full + brief).
 2. **Automatic checkpoint** — at commit/PR boundaries, evaluate values + test scenario coverage. Fires via hooks, no manual invocation needed.
 
+> **Rendering note.** Output templates in this spec wrapped in bare triple-backtick fences are spec-meta delimiters — render their contents as plain markdown at runtime. Alignment tables and verdicts display as markdown. See `gabe-docs/SKILL.md` § "Runtime output rendering convention".
+
 ---
 
 ## Modes

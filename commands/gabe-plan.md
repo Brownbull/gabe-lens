@@ -1,11 +1,19 @@
 ---
 name: gabe-plan
-description: "KDBP-aware planning with lifecycle management. Creates plans in .kdbp/PLAN.md, detects active plans, archives completed/deferred/cancelled plans. Usage: /gabe-plan [goal]"
+description: "KDBP-aware planning with lifecycle management + tier decision per phase (MVP/enterprise/scale). Creates plans in .kdbp/PLAN.md, detects active plans, archives completed/deferred/cancelled plans. Usage: /gabe-plan [goal] [--full-catalog]"
 ---
 
 # Gabe Plan
 
-KDBP-aware planner. Same planning logic as `/plan`, but persists to `.kdbp/PLAN.md` with lifecycle management.
+KDBP-aware planner. Same planning logic as `/plan`, but persists to `.kdbp/PLAN.md` with lifecycle management + per-phase tier decision (MVP / Enterprise / Scale) with trade-off matrix.
+
+> **Rendering note.** Output templates in this spec wrapped in bare triple-backtick fences are spec-meta delimiters — render their contents as plain markdown at runtime. Tagged fences (```yaml, ```json, ```bash) stay fenced. See `gabe-docs/SKILL.md` § "Runtime output rendering convention".
+
+**Flags:**
+
+| Flag | Meaning |
+|------|---------|
+| `--full-catalog` | Skip Layer 2 LLM dimension filter. Render ALL dimensions of matched sections. Default: filtered. |
 
 ## Procedure
 
@@ -55,11 +63,145 @@ Execute the standard planning process:
    - Description (one sentence)
    - Key files likely affected
    - Estimated complexity: low / medium / high
+   - **Types** — phase type tags (drives Step 3.5 section assembly). Examples: `[ai-agent, integration]`, `[data-migration, multi-tenant]`, `[user-facing, client-state]`. See `~/.claude/templates/gabe/tier-sections/tier-section-index.md` for canonical tag list.
 3. **Identify dependencies** between phases.
 4. **Assess risks** — Flag anything that could block progress.
 5. **Present the plan** and WAIT for user confirmation.
 
 If user says "modify": adjust and re-present. If "no" or "cancel": stop without writing.
+
+### Step 3.5: Tier decision per phase — MVP / Enterprise / Scale
+
+After the user confirms the phase list (Step 3), run the tier-decision flow **per phase in order**. This is the premature-optimization gate — every phase picks a tier, sees the trade-offs explicitly, and logs what is being traded away.
+
+**Rationale:** Code at the wrong tier rots fast. Over-engineered MVPs become unmaintainable; under-engineered Scale phases leak data. The tier decision makes the choice active and logged, not implicit and forgotten. Aligns with user value U2 (Plan Light, Build Real).
+
+#### 3.5.1 — Assemble the matrix per phase
+
+For each phase:
+
+1. **Read phase `types: [...]` tag list.**
+2. **Load section files:**
+   - Always: `~/.claude/templates/gabe/tier-sections/core.md`
+   - For each matched tag, load the corresponding section file per `tier-section-index.md` mapping.
+3. **Layer 2 — Dimension filter (skip if `--full-catalog` flag set):**
+   - LLM (Haiku, cheap per U6) reads phase Description + types + typical code signals → picks relevant dimensions per non-Core section.
+   - **Core always renders all 4 dimensions unfiltered.** Layer 3 rule.
+   - Suppressed dimensions logged to DECISIONS.md (see 3.5.4) with one-line reason each.
+4. **Grade override (Layer hybrid):**
+   - LLM may re-score any Δ cell per phase context. Default Δ stays unless LLM has specific reason (phase is bigger-than-typical, unusual risk, etc.).
+   - Each override logged to DECISIONS.md with reason.
+5. **Prototype-tag detection:** Ask user `Is this phase a throwaway prototype? [y/N]`. Default: no. If `y`, apply Δ shift per `tier-delta-scale.md` (XL→L, L→M, M→S, S→S floor).
+
+#### 3.5.2 — Render the decision prompt
+
+Render combined matrix. Each section gets its own 6-col table (Dimension | MVP | Δ(M→E) | Enterprise | Δ(E→S) | Scale). Row width enforced at 110 chars (20/20/6/20/6/19 content budget). Section files already obey this; renderer must not widen.
+
+Render format:
+
+```
+PHASE N — [phase name]
+TYPES: [tag list]
+PROTOTYPE: [yes|no]
+
+SECTION: Core
+| Dimension            | MVP                  | Δ(M→E) | Enterprise           | Δ(E→S) | Scale               |
+|----------------------|----------------------|--------|----------------------|--------|---------------------|
+| Testing              | happy path           | L      | + edges              | M      | + fuzz + load eval  |
+| ...
+
+SECTION: [section name]
+| ... dimensions filtered per 3.5.1 step 3 ...
+
+[more sections ...]
+
+────────────────────────────────────────────────────────────────────────────────────────────────────
+Effort (rough)      | 2h                   |        | 1d                   |        | 3d+                 |
+Net Δ deferred      | 0                    |        | [L × n, XL × n]      |        | [L × n, M × n]      |
+
+Pick tier: [mvp | enterprise | scale]
+Default: mvp (cheap, honest baseline — escalation requires reason).
+
+Reason (optional):
+```
+
+**Effort footer guideline:**
+- MVP: 1-4h typical
+- Enterprise: 1-3d typical
+- Scale: 3d+ typical
+
+Numbers are reference, not oracle. LLM tailors per phase complexity.
+
+**Δ deferred rollup:** Sum all Δ(M→E) cells for MVP column, all Δ(E→S) for Enterprise column. Shows what's being traded for the faster tier. "MVP: L × 4, XL × 2 deferred" means picking MVP accepts 4 Large and 2 Critical risks.
+
+#### 3.5.3 — User picks tier
+
+Wait for user input:
+- `mvp` / `enterprise` / `scale` — tier selected
+- `--full-catalog` typed inline — re-render without Layer 2 suppression, user picks again
+- `show-all` — alias for `--full-catalog`
+- `edit-types` — user revises phase types, restart from 3.5.1
+- `abort` — exit /gabe-plan without writing PLAN.md
+
+**Default recommendation:**
+- If user types nothing or `default`: recommend **mvp**. Cheap, honest, escape hatch always available via escalation at execute time.
+
+**Escalation reason required for Enterprise + Scale:**
+- If user picks `enterprise` or `scale`, prompt: "Why this tier over mvp? (one sentence)"
+- Reason goes to DECISIONS.md for audit. Blocks silent over-engineering.
+
+**De-escalation free:**
+- `mvp` pick needs no justification. "Plan light, build real" default.
+
+#### 3.5.4 — Log to DECISIONS.md
+
+Append one entry per phase:
+
+```markdown
+## D[next_id] — Phase [N] tier: [chosen] (YYYY-MM-DD)
+
+**Phase:** [phase name]
+**Types:** [tag list]
+**Tier chosen:** [mvp | enterprise | scale]
+**Prototype:** [yes | no]
+**Reason:** [user reason, or "default MVP pick per U2" if mvp with no reason]
+
+### Sections rendered
+- Core (always)
+- [section X]: [N dims, M suppressed] → see "Dimensions suppressed" below
+
+### Dimensions suppressed (Layer 2 filter)
+- [section.dim] — reason: [LLM reason]
+- [section.dim] — reason: [LLM reason]
+
+### Grade overrides (if any)
+- [section.dim].Δ(M→E): default [X] → override [Y]. Reason: [LLM reason]
+
+### Δ deferred by tier choice
+- L × [count], XL × [count], M × [count], S × [count]
+- Load-bearing items skipped (Δ = XL or L on M→E if mvp chosen):
+  - [section.dim]: [consequence phrase from Scale column]
+
+### Review trigger (when to escalate this phase)
+- [suggested condition — e.g., "when prod traffic > 100 req/day", "when 2nd incident hits", "when we add 3rd integration partner"]
+
+### Status
+- accepted
+```
+
+`D[next_id]`: read DECISIONS.md, compute max existing ID + 1. If file missing, start at `D1`.
+
+#### 3.5.5 — Store tier in PLAN.md phase row
+
+PLAN.md Phases table now includes `Tier` column (see Step 4 template). Write the chosen tier into the row.
+
+Also write a `## Phase Details` block per phase with:
+- Types list
+- Tier chosen
+- Prototype flag
+- Sections considered
+- Suppressed dimensions count
+- Link to DECISIONS.md entry (`See D[id] for accepted trade-offs`)
 
 ### Step 4: Write plan to `.kdbp/PLAN.md`
 
@@ -83,18 +225,33 @@ Only after user confirms. Write with this structure:
 
 ## Phases
 
-| # | Phase | Description | Complexity | Exec | Review | Commit | Push |
-|---|-------|-------------|------------|------|--------|--------|------|
-| 1 | [name] | [description] | low/med/high | ⬜ | ⬜ | ⬜ | ⬜ |
-| 2 | [name] | [description] | low/med/high | ⬜ | ⬜ | ⬜ | ⬜ |
-| 3 | [name] | [description] | low/med/high | ⬜ | ⬜ | ⬜ | ⬜ |
+| # | Phase | Description | Tier | Complexity | Exec | Review | Commit | Push |
+|---|-------|-------------|------|------------|------|--------|--------|------|
+| 1 | [name] | [description] | mvp | low/med/high | ⬜ | ⬜ | ⬜ | ⬜ |
+| 2 | [name] | [description] | ent | low/med/high | ⬜ | ⬜ | ⬜ | ⬜ |
+| 3 | [name] | [description] | scale | low/med/high | ⬜ | ⬜ | ⬜ | ⬜ |
 
 <!-- Exec is written by /gabe-execute: ⬜ not started, 🔄 in progress, ✅ complete -->
 <!-- Review/Commit/Push auto-ticked by /gabe-review, /gabe-commit, /gabe-push -->
-<!-- A phase is complete when all four columns are ✅ -->
+<!-- A phase is complete when all four status columns are ✅ -->
 <!-- /gabe-next routes to the next command based on column state (Exec → Review → Commit → Push → advance phase) -->
+<!-- Tier column values: mvp | ent | scale. Read by /gabe-execute (tier-cap) and /gabe-review (TIER_DRIFT finding). -->
 <!-- Manual override is fine — edit cells by hand any time -->
 <!-- Legacy plans with a single Status column still work; auto-tick is a silent no-op -->
+<!-- Legacy plans without Tier column: /gabe-execute reads tier=mvp default; /gabe-review skips TIER_DRIFT silently -->
+
+## Phase Details
+
+### Phase 1 — [name]
+- **Types:** [tag list, e.g. `ai-agent, integration`]
+- **Tier:** [mvp | ent | scale]
+- **Prototype:** [yes | no]
+- **Sections considered:** Core, [matched sections]
+- **Suppressed dimensions:** [count, or "none" if --full-catalog was used]
+- **Trade-offs accepted:** See DECISIONS.md [D-id]
+
+### Phase 2 — [name]
+...
 
 
 ## Current Phase
@@ -122,8 +279,12 @@ Append to `.kdbp/LEDGER.md`:
 
 ```
 ## [YYYY-MM-DD HH:MM] — PLAN CREATED: [goal]
-PHASES: [N] | COMPLEXITY: [overall] | MATURITY: [mvp/enterprise/scale]
+PHASES: [N] | COMPLEXITY: [overall] | MATURITY: [project-level from BEHAVIOR.md]
+TIERS: mvp × [n], ent × [n], scale × [n] | PROTOTYPES: [n]
+DECISIONS: D[first] → D[last] ([N] phase tier decisions logged)
 ```
+
+Tier distribution gives a quick read on "how much we're trying to do." A plan of 6 phases with 5 scale + 1 ent is a warning sign — over-scoping detectable at plan creation, before code hits.
 
 ### Step 6: Archive mechanics
 
@@ -180,15 +341,17 @@ PHASES COMPLETED: [N of M]
 GABE PLAN: [goal]
 
 STATUS: ✅ Plan written to .kdbp/PLAN.md
-PHASES: [N] phases | Current: Phase 1 — [name]
-TRACKERS: Review ⬜ | Commit ⬜ | Push ⬜ (auto-ticked by gabe-review/commit/push)
-MATURITY: [mvp/enterprise/scale]
+PHASES: [N] phases | Current: Phase 1 — [name] (tier: [mvp/ent/scale])
+TRACKERS: Exec ⬜ | Review ⬜ | Commit ⬜ | Push ⬜ (auto-ticked as phases advance)
+TIERS: mvp × [n], ent × [n], scale × [n] | PROTOTYPES: [n]
+DECISIONS: D[first] → D[last] logged (per-phase tier trade-offs)
 LEDGER: ✅ logged
 
 Next steps:
-  1. Start Phase 1 — [brief description]
-  2. Run /gabe-review, /gabe-commit, /gabe-push as you progress — they tick the row
-  3. Run /gabe-plan when done to archive as completed
+  1. Start Phase 1 — [brief description] — tier [mvp/ent/scale]
+  2. Run /gabe-execute to implement. Tasks capped to chosen tier.
+  3. Escalate mid-phase via /gabe-execute if tier underscoped (logged to DECISIONS.md).
+  4. Run /gabe-plan when done to archive as completed.
 ```
 
 ### Updating an active plan mid-work

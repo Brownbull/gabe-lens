@@ -7,6 +7,8 @@ description: "Commit quality gate — deterministic checks, interactive triage, 
 
 Deterministic commit quality gate. Runs checks, shows findings, lets you act on each one. Most actions cost zero tokens — LLM involvement is explicit and opt-in.
 
+> **Rendering note.** Output templates in this spec wrapped in bare triple-backtick fences (without a language tag) are **spec-meta delimiters**, not runtime code blocks. Render their contents as plain markdown at runtime — markdown tables render as tables, not as monospace code. Tagged fences (```bash, ```json, etc.) and ```mermaid fences ARE runtime code blocks, keep them fenced. See `gabe-docs/SKILL.md` § "Runtime output rendering convention" for the decision rule.
+
 ## Procedure
 
 ### Step 0: Subcommand dispatch
