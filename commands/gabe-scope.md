@@ -21,6 +21,8 @@ The backbone authoring command. Produces two linked artifacts for a new project:
 **This command delivers the full 8-step workflow** (Steps 0 through 8 + pre-flight Step 0 + Reference Frame Step 0.5).
 
 > **Rendering note.** Output templates in this spec wrapped in bare triple-backtick fences are spec-meta delimiters — render their contents as plain markdown at runtime (dashboards, candidate lists, prompts, next-step menus). Tagged fences (```bash, ```yaml, ```jsonl, ```mermaid, ```markdown) stay fenced because they are literal file contents or commands. See `gabe-docs/SKILL.md` § "Runtime output rendering convention".
+>
+> **Behavioural rule at runtime:** when presenting dashboards, candidate lists, menus, prompts, or next-step blocks to the user, NEVER emit a bare `` ``` `` fence around them. Those UI surfaces must render as markdown (headings, tables, bullet lists, inline code). If an example in this spec uses indentation that looks like preformatted text (e.g., 2-space-indented lines), re-express it as a markdown table or bulleted list — do not preserve the indentation by wrapping in a code fence. Only use fenced blocks when emitting literal file contents, shell commands, JSON payloads, or Mermaid diagrams, and always tag the language (```bash, ```yaml, ```jsonl, ```mermaid, ```markdown, ```text).
 
 ## Procedure
 
@@ -65,18 +67,28 @@ Runs on fresh scope only (skipped on `--resume` if frame was already loaded).
 # Parent-project .kdbp/ if present
 ```
 
-For each candidate, extract first `#` heading or first non-blank line as preview. Present:
+For each candidate, extract first `#` heading or first non-blank line as preview.
 
-Reference Frame candidates found:
+**Present as a markdown table — DO NOT wrap in triple-backtick fences.** Paths go in inline backticks so they render monospace inside the table cell, not as a preformatted block. If the scan hits a lot of candidates, group under `###` sub-headings by scan location (e.g., `### ./docs/`, `### ~/.claude/rules/common/`) with one table per group.
 
-  [1] ~/.claude/rules/common/coding-style.md
-      "# Coding Style" — immutability, file size, error handling
-  [2] ./docs/architecture-patterns.md
-      "# Architecture Patterns" — project-level patterns ledger
-  [3] refrepos/setup/ai-stack/README.md
-      "# AI Stack (Gabe Lens)" — LLM integration patterns
+Example output layout (rendered markdown, not fenced):
 
-Pick: `a <N>` to add, `bulk-add` for all, `s` to skip, `m` to enter manual entry, `done` to proceed.
+### ~/.claude/rules/common/
+
+| # | Path | Preview |
+|---|------|---------|
+| 1 | `~/.claude/rules/common/coding-style.md` | Immutability, file size, error handling |
+| 2 | `~/.claude/rules/common/testing.md` | 80% coverage, TDD workflow |
+
+### ./docs/
+
+| # | Path | Preview |
+|---|------|---------|
+| 3 | `./docs/architecture-patterns.md` | Project-level patterns ledger |
+
+**Pick:** `a <N>` to add one (default weight `s` / load `auto`) · `bulk-add <range>` to add multiple · `s` to skip · `m` for manual entry · `done` to proceed.
+
+**Runtime invariant:** when you surface this list, emit real markdown (headings + tables + inline-code paths). Never wrap the list in a bare `` ``` `` fence — that collapses it into a monospace code block in the UI and loses the table rendering.
 
 **(b) Manual entry.** For refs not surfaced by auto-scan, prompt:
 
