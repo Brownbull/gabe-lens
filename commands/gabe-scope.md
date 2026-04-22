@@ -20,6 +20,8 @@ The backbone authoring command. Produces two linked artifacts for a new project:
 
 **This command delivers the full 8-step workflow** (Steps 0 through 8 + pre-flight Step 0 + Reference Frame Step 0.5).
 
+> **Rendering note.** Output templates in this spec wrapped in bare triple-backtick fences are spec-meta delimiters — render their contents as plain markdown at runtime (dashboards, candidate lists, prompts, next-step menus). Tagged fences (```bash, ```yaml, ```jsonl, ```mermaid, ```markdown) stay fenced because they are literal file contents or commands. See `gabe-docs/SKILL.md` § "Runtime output rendering convention".
+
 ## Procedure
 
 ### Step 0: Re-invocation check (pre-flight)
@@ -65,7 +67,6 @@ Runs on fresh scope only (skipped on `--resume` if frame was already loaded).
 
 For each candidate, extract first `#` heading or first non-blank line as preview. Present:
 
-```
 Reference Frame candidates found:
 
   [1] ~/.claude/rules/common/coding-style.md
@@ -76,23 +77,20 @@ Reference Frame candidates found:
       "# AI Stack (Gabe Lens)" — LLM integration patterns
 
 Pick: `a <N>` to add, `bulk-add` for all, `s` to skip, `m` to enter manual entry, `done` to proceed.
-```
 
 **(b) Manual entry.** For refs not surfaced by auto-scan, prompt:
 
-```
 Enter ref:
-  path  : <absolute local path | relative path | URL>
-  role  : <one-line purpose, mandatory>
-  weight: [a] authoritative (hard constraint) / [s] suggestive (soft default) / [c] contextual (framing only) — default s
-  load  : [f] full_read / [i] index_only / [z] summarize (cached) — default based on file size (>3k tokens → summarize or index_only)
-```
+  - path  : `<absolute local path | relative path | URL>`
+  - role  : one-line purpose, mandatory
+  - weight: `[a]` authoritative (hard constraint) / `[s]` suggestive (soft default) / `[c]` contextual (framing only) — default `s`
+  - load  : `[f]` full_read / `[i]` index_only / `[z]` summarize (cached) — default based on file size (>3k tokens → summarize or index_only)
 
 For `summarize` mode, invoke Sonnet via `prompts/reference-summarizer.md`. Cache summary to `scope-references.yaml`.
 
 **(c) Confirm + write.** Display final frame. User approves → write to `.kdbp/scope-references.yaml`. Validate against `schemas/scope-references.schema.json` — reject on schema failure.
 
-**Empty frame is valid.** "No references declared. Proceeding without framing block — all reasoning will be from intake + research only. Confirm? [Y/n]"
+**Empty frame is valid.** `No references declared. Proceeding without framing block — all reasoning will be from intake + research only. Confirm? [Y/n]`
 
 **Checkpoint 0.5:** Reference Frame committed. session.json updated: `reference_frame_loaded: true`, `current_step: step-1-intake`.
 
@@ -102,13 +100,13 @@ For `summarize` mode, invoke Sonnet via `prompts/reference-summarizer.md`. Cache
 
 **Flow — 5 core questions + up to 10 follow-ups:**
 
-```
-Q1 (one-liner)      — "In one sentence, what are you building?"
-Q2 (primary user)   — "Who hurts the most from not having this, and what are they doing today instead?"
-Q3 (why now)        — "What changed in the world or your context that makes this buildable or necessary now?"
-Q4 (success shape)  — "In 6 months, if this works, what's different? (observable, not aspirational)"
-Q5 (anti-vision)    — "What would you refuse to build, even if users asked?"
-```
+| # | Focus | Question |
+|---|-------|----------|
+| Q1 | one-liner | In one sentence, what are you building? |
+| Q2 | primary user | Who hurts the most from not having this, and what are they doing today instead? |
+| Q3 | why now | What changed in the world or your context that makes this buildable or necessary now? |
+| Q4 | success shape | In 6 months, if this works, what's different? (observable, not aspirational) |
+| Q5 | anti-vision | What would you refuse to build, even if users asked? |
 
 User can type `skip` on any core question (records to Open Questions) or `pause` (saves session.json, exits command).
 
@@ -153,13 +151,11 @@ After Q5 answered (or skipped) and follow-up queue drained:
 
 **(a) Research width prompt.** Before spawning:
 
-```
-Research width (default: standard):
+Research width (default: **standard**):
 
-  [q] Quick    (2 agents: domain + pitfalls)    — ~$0.05, ~1 min
-  [s] Standard (4 agents: + stack, user-patterns) — ~$0.10, ~2 min  [default]
-  [d] Deep     (5-6 agents: + integrations, competitive) — ~$0.20, ~3 min
-```
+- `[q]` Quick — 2 agents: domain + pitfalls — ~$0.05, ~1 min
+- `[s]` Standard — 4 agents: + stack, user-patterns — ~$0.10, ~2 min  **[default]**
+- `[d]` Deep — 5-6 agents: + integrations, competitive — ~$0.20, ~3 min
 
 User picks. Save to `session.json.research_width`.
 
@@ -257,15 +253,13 @@ Invoke `prompts/req-decomposer.md` with `{success_criteria, architecture_posture
 
 **Coverage check (deterministic post-LLM):** verify every SC from §7 has ≥1 REQ in `covers_sc`. If `scs_uncovered` is non-empty:
 
-```
 ⚠ Coverage incomplete: SCs without REQs: {SC-02, SC-05}
 
 Options:
-  [r] Regenerate — ask Opus to produce REQs covering missing SCs
-  [a] Add REQ manually — enter REQ text + which SCs it covers
-  [f] --force — finalize with gap; records finalize_forced_at in session.json
-  [b] Back — revise SCs instead (returns to Step 5)
-```
+- `[r]` Regenerate — ask Opus to produce REQs covering missing SCs
+- `[a]` Add REQ manually — enter REQ text + which SCs it covers
+- `[f]` `--force` — finalize with gap; records `finalize_forced_at` in session.json
+- `[b]` Back — revise SCs instead (returns to Step 5)
 
 **Write:** draft §12 with `{#req-NN}` anchors and coverage matrix table. Marker `[PENDING APPROVAL — step-7.1]`.
 
@@ -275,16 +269,14 @@ Options:
 
 Zero LLM. Pure prompt:
 
-```
 How should we split into phases?
 
-  [c] Coarse    (3-5 phases, milestone-sized)
-  [s] Standard  (5-8 phases, sprint-sized)  [default]
-  [f] Fine      (8-12 phases, iteration-sized)
-  [N] Custom    (enter integer N between 2 and 20)
+- `[c]` Coarse — 3-5 phases, milestone-sized
+- `[s]` Standard — 5-8 phases, sprint-sized  **[default]**
+- `[f]` Fine — 8-12 phases, iteration-sized
+- `[N]` Custom — enter integer N between 2 and 20
 
 Pick:
-```
 
 Save to `session.json.granularity` (+ `custom_granularity_count` if custom).
 
@@ -307,14 +299,12 @@ Invoke `prompts/phase-skeleton-and-populator.md` with `{mode: skeleton, success_
 
 Mismatch → announce and offer options:
 
-```
 ⚠ Skeleton returned 4 phases; standard granularity expects 5-8.
 
 Options:
-  [r] Regenerate — re-prompt with explicit count hint
-  [a] Accept anyway — proceed with 4 phases
-  [c] Change granularity — back to Step 7.2
-```
+- `[r]` Regenerate — re-prompt with explicit count hint
+- `[a]` Accept anyway — proceed with 4 phases
+- `[c]` Change granularity — back to Step 7.2
 
 **Write:** draft §3 Phase Detail sections of ROADMAP.md with `{#phase-N}` anchors. Each phase section has Name, Goal, Why paragraph. Status `pending`. Depends-on / Parallel-with / Covers REQs fields present but empty `—`. Marker `[PENDING APPROVAL — step-7.3]`.
 
@@ -363,10 +353,8 @@ Any false → abort with specific remediation. Also run the `markdown_anchors_re
 
 **(b) Write finalized files.**
 
-```
-.kdbp/SCOPE.md              # replaces any prior draft
-.kdbp/ROADMAP.md            # replaces any prior draft
-```
+- `.kdbp/SCOPE.md` — replaces any prior draft
+- `.kdbp/ROADMAP.md` — replaces any prior draft
 
 Remove ALL `[PENDING APPROVAL — step-N]` markers. Append `init` row to §15 Change Log and §6 Roadmap Change Log with today's date.
 
@@ -404,33 +392,31 @@ Append tombstone row to `.kdbp/CHANGES.jsonl`:
 
 **(f) Git-commit prompt.** Surface suggested commit message:
 
-```
 Suggested git commit:
 
-  feat(scope): initial scope + roadmap for {project name}
+```text
+feat(scope): initial scope + roadmap for {project name}
 
-  Adds .kdbp/SCOPE.md v1 (premise) and .kdbp/ROADMAP.md v1
-  ({phases_total} phases at {granularity} granularity).
-  Reference Frame: {N} refs declared ({counts by weight}).
+Adds .kdbp/SCOPE.md v1 (premise) and .kdbp/ROADMAP.md v1
+({phases_total} phases at {granularity} granularity).
+Reference Frame: {N} refs declared ({counts by weight}).
+```
 
 Options:
-  [c] Commit now (runs git add + git commit)
-  [s] Show the diff first
-  [n] Skip — I'll commit manually
-```
+- `[c]` Commit now (runs git add + git commit)
+- `[s]` Show the diff first
+- `[n]` Skip — I'll commit manually
 
 Do NOT auto-push. Do NOT amend prior commits.
 
 **(g) Announce next step.**
 
-```
 Scope authoring complete.
 
 Next:
-  /gabe-plan 1        — decompose Phase 1 into tasks
-  /gabe-scope-change  — if anything needs adjusting (routes to -addition or -pivot)
-  /gabe-teach scope   — learn the scope you just authored (future phase)
-```
+- `/gabe-plan 1` — decompose Phase 1 into tasks
+- `/gabe-scope-change` — if anything needs adjusting (routes to -addition or -pivot)
+- `/gabe-teach scope` — learn the scope you just authored (future phase)
 
 **Checkpoint 8:** SCOPE.md frozen. Only `/gabe-scope-change` can modify it from here.
 
@@ -442,20 +428,18 @@ Next:
 
 When an authoritative reference frame entry conflicts with the user's direction, emit:
 
-```
 ⚠ Conflict detected
 
-  Your answer / draft:  {summary of user direction}
-  Authoritative ref:    {ref-id} — {role}
-  Conflicting passage:  {excerpt or summary from ref}
+- **Your answer / draft:** {summary of user direction}
+- **Authoritative ref:** {ref-id} — {role}
+- **Conflicting passage:** {excerpt or summary from ref}
 
-  Options:
-    [a] Accept the ref — align my answer/draft to the ref
-    [o] Override the ref — record override + rationale in SCOPE.md Change Log
-    [p] Pause — I need to update the ref file first, then resume
+Options:
+- `[a]` Accept the ref — align my answer/draft to the ref
+- `[o]` Override the ref — record override + rationale in SCOPE.md Change Log
+- `[p]` Pause — I need to update the ref file first, then resume
 
-Pick [a/o/p]:
-```
+Pick `[a/o/p]`:
 
 On override, append to §15 Change Log a `{date, type: override, ref_id, rationale}` row AND update the ref entry's audit trail in scope-references.yaml with `overridden_at: {timestamp}`.
 

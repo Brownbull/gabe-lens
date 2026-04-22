@@ -15,6 +15,8 @@ Handles additive scope changes. Inserts new content without touching primary use
 - Prior phase IDs are immutable. New phases use decimal IDs (e.g., `2.1` between `2` and `3`).
 - Prior REQ IDs are immutable. New REQs append with the next sequential ID.
 
+> **Rendering note.** Output templates in this spec wrapped in bare triple-backtick fences are spec-meta delimiters — render their contents as plain markdown at runtime. Tagged fences (```jsonl) stay fenced. See `gabe-docs/SKILL.md` § "Runtime output rendering convention".
+
 ## Procedure
 
 ### Step 1: Pre-flight

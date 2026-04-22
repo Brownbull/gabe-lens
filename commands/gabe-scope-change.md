@@ -9,6 +9,8 @@ Single entry point for modifying a finalized SCOPE.md or ROADMAP.md. Classifies 
 
 **Why a router and not two commands the user picks from?** Because misclassifying a pivot as an addition corrupts version history. The classifier uses the declared 9 rules + Opus reasoning + rationale, so the user sees *why* it routed each way. User can override with a flag, but the default is classifier-driven to prevent silent scope corruption.
 
+> **Rendering note.** Output templates in this spec wrapped in bare triple-backtick fences are spec-meta delimiters — render their contents as plain markdown at runtime. Tagged fences (```jsonl) stay fenced. See `gabe-docs/SKILL.md` § "Runtime output rendering convention".
+
 ## Procedure
 
 ### Step 1: Pre-flight
@@ -32,19 +34,16 @@ Otherwise invoke `prompts/scope-change-classifier.md` (Opus) with `{current_scop
 
 Render classification result:
 
-```
-Classification: pivot (trigger: primary_user, confidence: high)
+**Classification:** pivot (trigger: `primary_user`, confidence: high)
 
-Rationale: Primary User shifts from solo knowledge workers to enterprise teams.
-Downstream collaboration, access controls, and compliance reqs will cascade.
+**Rationale:** Primary User shifts from solo knowledge workers to enterprise teams. Downstream collaboration, access controls, and compliance reqs will cascade.
 
-Suggested: /gabe-scope-pivot
+**Suggested:** `/gabe-scope-pivot`
 
 Options:
-  [p] Proceed with /gabe-scope-pivot
-  [a] Override → /gabe-scope-addition (records override rationale)
-  [c] Cancel
-```
+- `[p]` Proceed with `/gabe-scope-pivot`
+- `[a]` Override → `/gabe-scope-addition` (records override rationale)
+- `[c]` Cancel
 
 On `proceed`: exec suggested command with the description as its argument.
 On `override`: prompt for rationale ("why is this not a pivot?"), append rationale + override flag to Change Log, exec the opposite command.
