@@ -496,26 +496,82 @@ Execute each user action in order:
 
 ### Step A8: Log to LEDGER.md
 
-Always (even if no actions taken):
+Always (even if no actions taken). Append to `.kdbp/LEDGER.md` — this IS file content, keep fenced with ```markdown to signal literal write target (not runtime display):
 
-```
+```markdown
 ## {YYYY-MM-DD HH:MM} — docs-audit
 UNIVERSE: {N} files, {N} docs, {N} wells, {N} mappings
 FINDINGS: {total} ({critical_count} critical, {high_count} high, {medium_count} medium, {low_count} low)
 ACTIONS: {1:create 2:update-docs 3:insert-heading 4:archive 5:skip}
 DEFERRED: {count} (→ PENDING.md)
+NOTABLE: {N_notable} notable, {N_minor} minor (see Step A8.5 digest)
 ```
+
+`NOTABLE` line omitted entirely if both counts are zero (nothing written).
+
+### Step A8.5: Notable Updates digest
+
+**Runs only when at least one action wrote to disk.** If the session was pure triage (all findings skipped / deferred, nothing modified), skip this step silently — per user intent: "if we don't update anything, that's it and that's okay."
+
+Purpose: as a solo developer, you just sat through a triage run and approved N writes. You can't remember every one. The digest tells you which of the changes deserve a real review pass and which are routine housekeeping you can skim. Surfacing the boundary up front prevents both complacency (missing a semantic shift) and audit fatigue (re-reading every DOCS.md row change).
+
+**Classification heuristic (deterministic, zero LLM cost):**
+
+Bucket each applied action into **Notable** or **Minor** by inspecting the action + target doc's priority + post-write size:
+
+| Write kind | Bucket | Why |
+|---|---|---|
+| `add-diagram` where per-doc-type matrix REQUIRED a diagram | **Notable** | New visual semantic content enters reader understanding |
+| `upgrade-diagram` that replaced stub with ≥5-node real diagram | **Notable** | Diagram now actually tells a story — worth reading once |
+| `update-docs` on mapping with priority `critical` or `high` | **Notable** | User-facing prose in load-bearing docs; LLM might have drifted |
+| `create` (new doc file scaffolded) | **Notable** | New home for future content — name + H1 structure locked now |
+| `add-diagram` / `update-docs` in `docs/wells/*.md` where well has ≥3 verified topics | **Notable** | High-gravity well — architectural narrative anchor |
+| `insert-heading` (empty Topics heading added to well doc) | Minor | Mechanical — enables future teach appends, no content yet |
+| `create-section` (empty heading stub) | Minor | Placeholder only; `update-docs` later will fill it |
+| `map` / `update-mapping` / `fix-DOCS.md` | Minor | DOCS.md row edit; no doc content changed |
+| `archive` | Minor | File relocation; history preserved |
+| `update-docs` on mapping with priority `medium` or `low` | Minor | Auxiliary docs; glance at diff is enough |
+| `add-diagram` / `upgrade-diagram` in ADR / README (optional per matrix) | Minor | Optional slot; reader doesn't expect diagram there |
+| `add-diagram` / `upgrade-diagram` producing diagram with <5 nodes | Minor | Skeleton-level; not enough content to mislead |
+
+For each Notable write, compute a **one-line "why it deserves revision"** — a terse sentence (≤15 words) grounded in the actual change (not a template):
+
+- NEW diagram → what flow / entity / state it captures
+- Upgraded diagram → what semantic concept it now represents (vs the TODO stub)
+- Prose rewrite → which section was rewritten + whether it introduces new vocabulary
+- New scaffold → H1 + top-level sections chosen
+
+For Minor writes, no per-item reason — just a one-line bullet with target path.
+
+**Render as plain markdown at runtime — do not wrap in a fence** (same rule as Steps A6 / 4; user needs to scan, not read monospace):
+
+#### Notable updates (review recommended)
+
+- **docs/AGENTS_USE.md#Agent Design** — NEW flowchart (12 nodes). Captures agent loop from API entry through guardrails → classifier → triage → ticket creation. Verify the nodes match your mental model.
+- **docs/wells/2-llm-pipeline.md** — diagram upgraded from stub → 8-node state machine covering tier1→tier4 fallback chain. Check severity thresholds match actual runtime behavior.
+- **docs/architecture.md#Data Model** — NEW erDiagram (6 entities, 4 relations). Pulled from `app/db/models.py` — verify cardinality on `User → Ticket` and `Ticket → Event`.
+
+#### Minor updates (routine)
+
+- **docs/AGENTS_USE.md#Prompts** — empty section scaffolded; TODO marker inserted.
+- **.kdbp/DOCS.md** — 3 mappings updated to point at `docs/archive/` paths (v2-dogfood + v2-patch moved).
+- **docs/legacy/old-routing.md** → **docs/archive/2026-04-21-old-routing.md** — archived.
+
+If ONLY Notable writes happened → render only the Notable section. If ONLY Minor → only Minor. If both → both, Notable first (never reverse — user should see the important stuff before scanning housekeeping).
 
 ### Step A9: Closing summary
 
-```
-✅ docs-audit complete.
-   {N} findings triaged.
-   {M} files modified (unstaged — run /gabe-commit to stage + commit).
-   {K} items deferred to PENDING.md.
-```
+Render as plain markdown, not fenced:
 
-If `{M} > 0`, print: `→ Next: run /gabe-commit "docs(audit): apply accumulated doc-drift fixes" to commit.`
+> ✅ **docs-audit complete.**
+>
+> - `{N}` findings triaged.
+> - `{M}` files modified (unstaged — run `/gabe-commit` to stage + commit).
+> - `{K}` items deferred to PENDING.md.
+
+If `{M} > 0`, append on a new line: `→ Next: run /gabe-commit "docs(audit): apply accumulated doc-drift fixes" to commit.`
+
+If Step A8.5 ran and printed a Notable section: `→ Review the Notable Updates digest above before committing — the LLM-generated diagrams / prose rewrites are the main risk surface.`
 
 ---
 
