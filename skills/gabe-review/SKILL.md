@@ -443,22 +443,28 @@ Skip silently if any of:
 
 **Procedure (deterministic + pattern scan):**
 
-1. Read `.kdbp/PLAN.md`:
-   - Current Phase N → Tier cell value (`mvp` | `ent` | `scale`)
+1. Read active lane `PLAN.md`:
+   - Current Phase N → Tier cell: parse `phase_tier` = leading token (strip `(overrides...)` compact notation)
+   - `## Phase Details → Phase N` YAML block → `dim_overrides` list (each entry `{section, dim, tier, reason}`); empty/missing = no overrides
    - `## Phase Details → Phase N → Types:` list
 2. Load section files:
    - `~/.claude/templates/gabe/tier-sections/core.md` (always)
    - For each matched type, load corresponding `tier-sections/*.md`
-3. For each loaded section, extract `## Known drift signals` table. Each row has `Pattern`, `Tier floor`, `Finding severity`.
+3. For each loaded section, extract `## Known drift signals` table. Each row has `Pattern`, `Tier floor`, `Finding severity`, **`Dim`** (which dimension within the section the pattern belongs to — added for override-awareness; fall back to section-wide match when the column is absent on legacy section files).
 4. Scan diff for each pattern. Detection is substring/regex match on added lines (`git diff` context, skip removed). Patterns are either:
    - Import/symbol literal (e.g. `@retry`, `tenacity.retry`, `launchdarkly-server-sdk`, `BroadcastChannel`)
    - File-path glob (e.g. `evals/*.json`, `migrations/alembic/env.py`)
    - AST-ish (e.g. decorator name at function scope — close approximation via regex on `^@decorator_name` at start-of-line after indent)
-5. For each matched pattern where `Tier floor > phase Tier`:
+5. For each matched pattern, resolve the **effective tier** for its section + dim:
+   - Look up `dim_overrides` for `{section, dim}` where section matches the loaded section file and dim matches the pattern's `Dim` column
+   - Match found → effective tier = override tier
+   - No match → effective tier = `phase_tier`
+6. For each matched pattern where `Tier floor > effective tier`:
    - Emit a TIER_DRIFT finding in the Step 4 findings table.
    - Severity inherits from the `Finding severity` column (TIER_DRIFT-HIGH / MED / LOW) but use HIGH as default if ambiguous.
-   - Description: `[Section.Dimension] pattern detected — tier floor [Ent|Scale], phase tier [current]`
+   - Description: `[Section.Dim] pattern detected — tier floor [Ent|Scale], effective tier [current]` — if the effective tier came from an override, append `(override: <reason>)` so operator sees why escalation was permitted up to override but still crossed.
    - File/line = first match location.
+   - **Dim override allow-path:** when `Tier floor ≤ effective tier`, the pattern is within the permitted ceiling for that dim — no TIER_DRIFT. Do not emit an informational finding for legitimate override-permitted work; operator approved this at plan time.
 
 **Prototype shift:** If phase is tagged `prototype: true`, shift every TIER_DRIFT severity down one notch (HIGH→MED, MED→LOW, LOW→suppressed). Matches the Δ-grade shift in `tier-delta-scale.md`.
 
