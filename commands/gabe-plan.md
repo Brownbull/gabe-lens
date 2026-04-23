@@ -97,6 +97,15 @@ For each phase:
 
 Render combined matrix. Each section gets its own 6-col table (Dimension | MVP | Δ(M→E) | Enterprise | Δ(E→S) | Scale). Row width enforced at 110 chars (20/20/6/20/6/19 content budget). Section files already obey this; renderer must not widen.
 
+**Rendering invariants (runtime behaviour, U4 mechanical enforcement):**
+
+1. **Core section ALWAYS renders as the full 4-dimension 6-column markdown table — never as prose, never collapsed, never abbreviated.** The invariant holds even when Core is the ONLY section rendered (phases tagged `core-only`, `[core-only]`, or with no additional type tags). A `core-only` phase is not a reason to compress the matrix — it is the signal that Core IS the whole decision surface for that phase and must be shown explicitly so the tier trade-off is visible.
+2. **Every non-Core section that passes Step 3.5.1 loading renders as its own 6-col table.** Even when the Layer 2 filter keeps only one dimension, render the single-row table. Do not substitute bullet lists or prose.
+3. **Prose commentary is additive, never substitutive.** Tier-pressure callouts, red-line flags, "Proposed tier" recommendations, and rationale paragraphs appear **after** the table, not in place of it. The operator must be able to read each phase's rendered matrix identically in shape — same columns, same row count for Core, same section order.
+4. **One phase, one section group, same rendering.** A `[core-only]` phase and a `[ai-agent, integration]` phase differ only in how many section tables appear — not in whether the tables appear. No phase should display "(all 4 — this phase IS observability)" without the underlying table.
+
+This is a U4-level enforcement point: do not rely on prompt instructions to hold the line at runtime. When emitting Step 3.5.2 output, the renderer emits the section table header first, then the full row body, then prose commentary after. Any deviation is a bug.
+
 Render format:
 
 ```
