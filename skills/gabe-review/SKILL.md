@@ -443,7 +443,7 @@ Skip silently if any of:
 
 **Procedure (deterministic + pattern scan):**
 
-1. Read active lane `PLAN.md`:
+1. Read `.kdbp/PLAN.md`:
    - Current Phase N → Tier cell: parse `phase_tier` = leading token (strip `(overrides...)` compact notation)
    - `## Phase Details → Phase N` YAML block → `dim_overrides` list (each entry `{section, dim, tier, reason}`); empty/missing = no overrides
    - `## Phase Details → Phase N → Types:` list
