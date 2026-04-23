@@ -43,7 +43,12 @@ gabe-suite/                   # current local folder: gabe_lens/ (rename deferre
   prompts/*.md                — /gabe-scope prompt library
   schemas/*.json              — JSON Schemas for scope-session + scope-references
   assets/                     — Images for README
-  docs/                       — Design docs + implementation plans
+  docs/                       — User docs (start at docs/WORKFLOW.md)
+    README.md                 — Doc index
+    WORKFLOW.md               — State machine + command flow (primary)
+    GAPS.md                   — Remaining workflow gaps + options
+    architecture/             — Requirements, diagram standards, data contracts, stack ref
+    archive/                  — Retired dogfood + historical design docs
   README.md                   — Public-facing documentation
   CLAUDE.md                   — This file
   install.sh                  — Install suite to ~/.claude/

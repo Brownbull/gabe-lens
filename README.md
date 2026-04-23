@@ -104,9 +104,16 @@ User-level values at `~/.kdbp/VALUES.md` apply across all projects.
 | Consolidate architect-level understanding | `/gabe-teach [topics/status/free]` |
 | What tool do I need? | `/gabe-help` |
 
-### Architecture Reference
+### Documentation
 
-For application stack decisions (Python + FastAPI + PydanticAI + React + Bun), see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+| Doc | Purpose |
+|-----|---------|
+| [docs/WORKFLOW.md](docs/WORKFLOW.md) | State machine + command flow — start here |
+| [docs/GAPS.md](docs/GAPS.md) | Remaining workflow gaps + options |
+| [docs/architecture/requirements.md](docs/architecture/requirements.md) | Design invariants + non-goals |
+| [docs/architecture/diagram-standards.md](docs/architecture/diagram-standards.md) | Mermaid conventions for suite docs |
+| [docs/architecture/scope-data-contracts.md](docs/architecture/scope-data-contracts.md) | `/gabe-scope` output contract |
+| [docs/architecture/stack.md](docs/architecture/stack.md) | Recommended application stack (Python + FastAPI + PydanticAI + React + Bun) for downstream projects |
 
 ---
 
