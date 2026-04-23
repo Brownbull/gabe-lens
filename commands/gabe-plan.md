@@ -88,9 +88,20 @@ For each phase:
    - LLM (Haiku, cheap per U6) reads phase Description + types + typical code signals → picks relevant dimensions per non-Core section.
    - **Core always renders all 4 dimensions unfiltered.** Layer 3 rule.
    - Suppressed dimensions logged to DECISIONS.md (see 3.5.4) with one-line reason each.
-4. **Grade override (Layer hybrid):**
+4. **Per-dim tier override (Layer hybrid):**
    - LLM may re-score any Δ cell per phase context. Default Δ stays unless LLM has specific reason (phase is bigger-than-typical, unusual risk, etc.).
-   - Each override logged to DECISIONS.md with reason.
+   - **Cross-tier override** (promoting a specific dim one or more tiers above the phase's base tier — e.g., whole phase at `ent` but Observability needs `scale` because of compliance / REQ-level mandate / load-bearing dependency) produces a **per-dim tier override** record, not a generic Δ edit. Structure:
+     ```yaml
+     dim_overrides:
+       - section: Core
+         dim: Observability
+         tier: scale             # target tier for this dim
+         reason: "REQ-21 + U8 mandate OTel exporter at P1 exit"
+     ```
+   - Structured overrides flow into (a) the rendered prompt's "Tier overrides (this phase)" footer, (b) `DECISIONS.md` `### Per-dim tier overrides` subsection, (c) `PLAN.md` phase row compact notation + Phase Details YAML block. All three are populated from the same structured list to keep them synchronized.
+   - **Semantics.** `phase_tier` remains the **single base tier** for the phase and drives effort estimate + typical tier-cap filter. `dim_overrides` explicitly permits named dimensions to operate at a **higher** tier than the base without promoting the whole phase. Consumers that enforce tier caps (`/gabe-execute` Step 2 prune, `/gabe-review` TIER_DRIFT) MUST consult overrides and allow tasks / patterns at the per-dim tier, not just the base.
+   - **Downgrades not allowed via override.** Never use `dim_overrides` to permit a dim at a *lower* tier than the phase's base — that's a tier-mismatch signal that either the phase is over-tiered or the dim genuinely belongs in a separate phase. Reject such proposals at Step 3.5.2 render time with: `⛔ Dim override cannot be below phase tier. If <dim> is lower-tier than phase, reduce phase_tier or split the phase.`
+   - Each override logged to `DECISIONS.md` with reason (see 3.5.4).
 5. **Prototype-tag detection:** Ask user `Is this phase a throwaway prototype? [y/N]`. Default: no. If `y`, apply Δ shift per `tier-delta-scale.md` (XL→L, L→M, M→S, S→S floor).
 
 #### 3.5.2 — Render the decision prompt
@@ -105,6 +116,29 @@ Render combined matrix. Each section gets its own 6-col table (Dimension | MVP |
 4. **One phase, one section group, same rendering.** A `[core-only]` phase and a `[ai-agent, integration]` phase differ only in how many section tables appear — not in whether the tables appear. No phase should display "(all 4 — this phase IS observability)" without the underlying table.
 
 This is a U4-level enforcement point: do not rely on prompt instructions to hold the line at runtime. When emitting Step 3.5.2 output, the renderer emits the section table header first, then the full row body, then prose commentary after. Any deviation is a bug.
+
+**Per-dim tier override rendering (runs when `dim_overrides` is non-empty):**
+
+After all section tables for the phase, emit a **Tier overrides (this phase)** subsection listing each override with the target tier + reason. This is the operator's chance to see exactly which dims escalate above the base tier before picking. Format:
+
+```markdown
+**Tier overrides (this phase):**
+
+| Section.Dim | Base tier | Override tier | Reason |
+|-------------|-----------|---------------|--------|
+| Core.Observability | ent | scale | REQ-21 + U8 mandate OTel exporter at P1 exit |
+| Data.Backup | mvp | ent | Financial data — backup before first user write |
+```
+
+The override table is always rendered as a markdown table, never prose. Skipped entirely when `dim_overrides` is empty (most phases).
+
+Inside the section's main table (Core / Data / …), the dim row whose cell is overridden gets its chosen-tier cell marked with a trailing ★:
+
+```markdown
+| Observability        | print/log            | M      | structured log       | L      | + metrics + traces ★ |
+```
+
+The ★ marks the **target tier** the operator is committing to for that dim — visual cursor for the Tier overrides footer. Non-overridden dims remain unmarked.
 
 Render format:
 
@@ -183,7 +217,24 @@ Append one entry per phase:
 - [section.dim] — reason: [LLM reason]
 - [section.dim] — reason: [LLM reason]
 
-### Grade overrides (if any)
+### Per-dim tier overrides (if any)
+
+Structured list. Each entry records section, dim, target tier, and reason. Consumers (`/gabe-execute` tier-cap, `/gabe-review` TIER_DRIFT) parse this block to permit per-dim escalation above `phase_tier`.
+
+```yaml
+dim_overrides:
+  - section: Core
+    dim: Observability
+    tier: scale
+    reason: REQ-21 + U8 mandate OTel exporter at P1 exit
+  - section: Data
+    dim: Backup
+    tier: ent
+    reason: Financial data requires backup before first user write
+```
+
+### Δ cell overrides (if any — intra-tier LLM re-scoring, distinct from per-dim tier overrides above)
+
 - [section.dim].Δ(M→E): default [X] → override [Y]. Reason: [LLM reason]
 
 ### Δ deferred by tier choice
@@ -200,17 +251,55 @@ Append one entry per phase:
 
 `D[next_id]`: read DECISIONS.md, compute max existing ID + 1. If file missing, start at `D1`.
 
-#### 3.5.5 — Store tier in PLAN.md phase row
+#### 3.5.5 — Store tier + per-dim overrides in PLAN.md
 
-PLAN.md Phases table now includes `Tier` column (see Step 4 template). Write the chosen tier into the row.
+**PLAN.md Phases table `Tier` column format:**
 
-Also write a `## Phase Details` block per phase with:
-- Types list
-- Tier chosen
-- Prototype flag
-- Sections considered
-- Suppressed dimensions count
-- Link to DECISIONS.md entry (`See D[id] for accepted trade-offs`)
+- No overrides → base tier only: `ent`
+- With overrides → compact notation: `ent (Obs→scale)` or `ent (Obs→scale, Backup→ent)` for multiple — preserves at-a-glance readability in the Phases table while full structure lives in Phase Details
+- Dim short-names use the first word of the dim (e.g., `Observability` → `Obs`, `Error handling` → `Err`) to keep the cell compact. Full dim name stays in Phase Details.
+
+**PLAN.md `## Phase Details` block per phase contains a YAML fenced block with structured data that `/gabe-execute` and `/gabe-review` parse directly** (per U4 — downstream consumers read structure, not prose):
+
+```yaml
+phase: N
+types: [tag1, tag2]
+phase_tier: ent
+prototype: false
+dim_overrides:
+  - section: Core
+    dim: Observability
+    tier: scale
+    reason: REQ-21 + U8 mandate OTel exporter at P1 exit
+  - section: Data
+    dim: Backup
+    tier: ent
+    reason: Financial data requires backup before first user write
+sections_considered: [Core, Data, Integration]
+suppressed_dims_count: 3
+decisions_entry: D5
+```
+
+When `dim_overrides` is empty, the list is written as `dim_overrides: []` (not omitted) so downstream parsers have a stable schema.
+
+Prose summary below the YAML block stays for human reading:
+
+```markdown
+### Phase N Details
+
+```yaml
+phase: N
+phase_tier: ent
+dim_overrides: [...]
+...
+```
+
+- **Tier chosen:** `ent` with Observability override → `scale`
+- **Prototype:** no
+- **Sections considered:** Core, Data, Integration
+- **Suppressed dims:** 3 (see D5 for full list)
+- **See `DECISIONS.md` D5 for accepted trade-offs.**
+```
 
 ### Step 4: Write plan to `.kdbp/PLAN.md`
 
