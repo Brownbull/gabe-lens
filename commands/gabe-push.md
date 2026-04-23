@@ -171,7 +171,7 @@ If the Edit fails due to a concurrent writer (shouldn't happen — push is the s
 
 **Example rendering:**
 
-```
+```markdown
 | P7 | 2026-04-17 14:22 | feature/add-auth → main | #42 | ✅ 3/3 (47s) | promoted main → prod | — |
 | P8 | 2026-04-17 15:08 | fix/ci-typo → main | #43 | ❌ 1/3 (12s) — failed: lint | auto-fix applied: lint; CI re-run after fix | — |
 ```
@@ -218,27 +218,28 @@ Read `.kdbp/PENDING.md`. For every row where `Source` column = `classifier` AND 
   ```
 - If `is_operational_decision == false`: drop silently.
 
-**Interactive triage** (output block):
+**Interactive triage** (rendered as markdown, not code):
 
-```
 ### Operational Decision Candidate
 
-  Detected: [trigger reason]
-  Proposed DECISIONS.md entry (tagged `operational`):
+**Detected:** [trigger reason]
 
-    Date:           2026-04-17
-    Decision:       [title]
-    Rationale:      [rationale]
-    Alternatives:   [alt 1]
-                    [alt 2]
-    Status:         active,operational
-    Review Trigger: [review_trigger]
+**Proposed DECISIONS.md entry** (tagged `operational`):
 
-  [accept]  Append to .kdbp/DECISIONS.md as D[next_id] with `operational` tag
-  [note]    Write one-liner to today's DEPLOYMENTS.md Decisions column instead (lighter weight)
-  [defer]   Write to .kdbp/PENDING.md with source=classifier — re-surface next run
-  [drop]    Don't record (session-scoped dedup on title)
-```
+| Field | Value |
+|-------|-------|
+| Date | 2026-04-17 |
+| Decision | [title] |
+| Rationale | [rationale] |
+| Alternatives | [alt 1] · [alt 2] |
+| Status | active,operational |
+| Review Trigger | [review_trigger] |
+
+Actions:
+- `[accept]` — append to `.kdbp/DECISIONS.md` as `D[next_id]` with `operational` tag
+- `[note]` — write one-liner to today's `DEPLOYMENTS.md` Decisions column instead (lighter weight)
+- `[defer]` — write to `.kdbp/PENDING.md` with `source=classifier` — re-surface next run
+- `[drop]` — don't record (session-scoped dedup on title)
 
 **Action handlers:**
 
@@ -266,13 +267,76 @@ Humans can disable the classifier entirely by adding `push_operational_classifie
 ### Step 8: Record to ledger
 
 Append to `.kdbp/LEDGER.md`:
-```
+
+```markdown
 ## [date] [time] — PUSH [branch] -> [target]
 PR: [url]
 CI: [all passed | N failed | skipped | no CI]
 PROMOTION: [promoted to X | skipped | N/A]
 DEPLOYMENTS: P[N]  (added row to .kdbp/DEPLOYMENTS.md)
 ```
+
+### Step 8.5: Auto-commit post-push bookkeeping (**zero user ceremony**)
+
+Steps 2, 7.5, 7.5b, and 8 leave dirty files in the working tree — `.kdbp/PUSH.md` (if just created), `.kdbp/DEPLOYMENTS.md`, `.kdbp/LEDGER.md`, and possibly `.kdbp/DECISIONS.md` (on `accept` in 7.5b) or `.kdbp/PENDING.md` (on `defer`). Leaving them dirty forces the user to run another `/gabe-commit` cycle for audit writes the push itself produced. That is the wrong boundary — bookkeeping is owned by the command that wrote it.
+
+This step commits those writes automatically and returns the working tree to a clean state. Does NOT push the bookkeeping commit — it stays local and is carried by the next real `/gabe-push` invocation (or the user's next push if they run one manually).
+
+**Preconditions:** Step 4 (push) completed successfully. If push failed or was aborted, skip this step — the bookkeeping writes stay dirty and surface on the next run alongside a retry.
+
+**Procedure:**
+
+1. **Compute the bookkeeping file set.** Start empty, add only these paths if modified this run:
+   - `.kdbp/PUSH.md` (when Step 2 created it)
+   - `.kdbp/DEPLOYMENTS.md` (always, since Step 7.5 appended)
+   - `.kdbp/LEDGER.md` (always, since Step 8 appended)
+   - `.kdbp/DECISIONS.md` (only when Step 7.5b action was `accept`)
+   - `.kdbp/PENDING.md` (only when Step 7.5b action was `defer` OR when re-surfaced PENDING rows were resolved)
+
+2. **Stage explicitly — path-scoped, never `git add -A`:**
+
+   ```bash
+   git add <each path in the set>
+   ```
+
+4. **Detect no-op.** Run `git diff --cached --quiet`. Exit code 0 → nothing to commit, skip to step 7. Otherwise continue.
+
+5. **Commit through the normal git hook chain** with a canonical message. No hook bypass — the user's policy disallows it, and the bookkeeping file set is path-scoped audit writes that every CHECK in the pre-commit suite will pass through cleanly:
+
+   - CHECK 1-3 (lint / types / tests): target source files; `.md` bookkeeping paths are skipped.
+   - CHECK 4-5 (coverage / shape): code-file-scoped per the earlier patch.
+   - CHECK 6 (deferred): reads `PENDING.md` — bookkeeping writes to PENDING don't self-flag because the column match is on `File`, not the PENDING file itself.
+   - CHECK 7 (doc drift): Layer 1 triggers only on `.env.example`, `pyproject.toml`, `docker-compose.yml`, or new route decorators — none match bookkeeping paths.
+   - CHECK 8-9 (structure): only fires on new source files; bookkeeping files are known paths.
+
+   So a normal `git commit` goes through cleanly without ceremony:
+
+   ```bash
+   git commit -m "chore(kdbp): record push bookkeeping for P[N]"
+   ```
+
+   Where `P[N]` is the deployment ID appended by Step 7.5. Commit body summarizes which files were written:
+
+   ```
+   chore(kdbp): record push bookkeeping for P7
+
+   - DEPLOYMENTS.md: appended P7 row (main → main, direct)
+   - lanes/<active>/LEDGER.md: PUSH entry for [date] [time]
+   - PUSH.md: first-run config (trunk-based, github-actions)     # only if created
+   - DECISIONS.md: D2 operational (trunk-based flow)              # only if 7.5b accept
+   ```
+
+   If any pre-commit hook blocks (rare; would indicate a real finding the user should know about), surface the hook output, leave the files staged, and report `Bookkeeping: ⚠ hook blocked — resolve and rerun /gabe-push` in the final dashboard. Do NOT retry with a hook bypass.
+
+6. **Do NOT push the bookkeeping commit.** The user ran `/gabe-push` once; running a second push for audit rows is wasteful. The bookkeeping commit is local, arrives on origin during the next real push, and never blocks downstream work.
+
+7. **Report.** Include a row in the final GABE PUSH COMPLETE output:
+
+   - `Bookkeeping: ✅ committed locally (3 files, not pushed)` — when commit happened
+   - `Bookkeeping: — no changes` — when Step 4 detect-no-op fired
+   - `Bookkeeping: ⚠ skipped (cwd on lane branch; shared files deferred to main)` — when main-only rule dropped DECISIONS.md
+
+**What this replaces:** the previous behavior left these files dirty and the user had to remember to run `/gabe-commit` again for audit bookkeeping. This step removes that requirement entirely. `/gabe-push` finishes with a clean working tree.
 
 ### Step 9: Suggest /gabe-teach (if applicable)
 
@@ -299,44 +363,47 @@ Follow the shared procedure documented in `/gabe-plan` under "Shared: auto-tick 
 - On success, display: `✅ PLAN: Phase [N] push ticked` (one line)
 
 If ticking Push completes all three columns (Review + Commit + Push = ✅) for the current phase, additionally display:
-```
-🎯 Phase [N] complete (all three gates passed).
-   Run /gabe-plan update to advance to the next phase.
-```
+
+🎯 **Phase [N] complete** (all three gates passed). Run `/gabe-plan update` to advance to the next phase.
 
 ### Output examples
 
+All three render as plain markdown at runtime — the bare fences here are spec-meta delimiters only (see `gabe-docs/SKILL.md` § "Runtime output rendering convention").
+
 **All succeeds (most common):**
-```
-GABE PUSH: feature/add-auth -> main
 
-PRE-FLIGHT: ✅ clean  ✅ ahead by 3 commits
-PUSH: ✅ origin/feature/add-auth
-PR: ✅ https://github.com/user/repo/pull/42
-CI: ✅ lint  ✅ test  ✅ build (47s)
+**GABE PUSH:** `feature/add-auth` → `main`
 
-GABE PUSH COMPLETE
-```
+| Step | Result |
+|------|--------|
+| Pre-flight | ✅ clean · ✅ ahead by 3 commits |
+| Push | ✅ `origin/feature/add-auth` |
+| PR | ✅ https://github.com/user/repo/pull/42 |
+| CI | ✅ lint · ✅ test · ✅ build (47s) |
+| Bookkeeping | ✅ committed locally (3 files, not pushed) |
+
+**GABE PUSH COMPLETE**
 
 **Uncommitted changes:**
-```
-GABE PUSH: feature/add-auth -> main
 
-PRE-FLIGHT: ⚠ 2 uncommitted files
-  → [commit] run /gabe-commit first  [push-only] push what's committed  [abort] stop
-```
+**GABE PUSH:** `feature/add-auth` → `main`
+
+- Pre-flight: ⚠ 2 uncommitted files
+- Actions: `[commit]` run `/gabe-commit` first · `[push-only]` push what's committed · `[abort]` stop
 
 **CI failure:**
-```
-GABE PUSH: feature/add-auth -> main
 
-PRE-FLIGHT: ✅ clean  ✅ ahead by 1 commit
-PUSH: ✅ origin/feature/add-auth
-PR: ✅ https://github.com/user/repo/pull/43
-CI: ✅ lint  ❌ test  ✅ build
-  Failed: test
-  → [details] [logs] [auto-fix] [assess] [ignore]
-```
+**GABE PUSH:** `feature/add-auth` → `main`
+
+| Step | Result |
+|------|--------|
+| Pre-flight | ✅ clean · ✅ ahead by 1 commit |
+| Push | ✅ `origin/feature/add-auth` |
+| PR | ✅ https://github.com/user/repo/pull/43 |
+| CI | ✅ lint · ❌ test · ✅ build |
+
+- Failed: test
+- Actions: `[details]` · `[logs]` · `[auto-fix]` · `[assess]` · `[ignore]`
 
 ### Scope traceability (if SCOPE.md + ROADMAP.md exist)
 
@@ -349,11 +416,9 @@ When writing a DEPLOYMENTS.md row for this push, enrich with scope linkage:
 
 Prompt at end:
 
-```
-Phase {N} Covers REQs appear satisfied by this deployment.
-Mark phase complete?
-  [y] Run /gabe-scope-change "mark phase {N} complete"
-  [n] Leave roadmap alone (will surface again next push)
-```
+Phase `{N}` Covers REQs appear satisfied by this deployment. Mark phase complete?
+
+- `[y]` Run `/gabe-scope-change "mark phase {N} complete"`
+- `[n]` Leave roadmap alone (will surface again next push)
 
 $ARGUMENTS
