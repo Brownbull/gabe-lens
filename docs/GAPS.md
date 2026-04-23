@@ -197,6 +197,25 @@ Gaps are numbered `W1..Wn`. Numbering stable across revisions — new gaps appen
 
 ---
 
+## W13 — Env-aware push: config + drift detection shipped, execution logic partial
+
+**What's shipped.** `/gabe-push` now reads `.kdbp/PUSH.md` env blocks, resolves env from arg (default: `production`), detects remote branch drift and persists decisions, offers promotion (`promote_from`) instead of local on bare `/gabe-push`, and prompts branch cleanup at the end. First run interviews explicitly for production-only / staging-then-prod / custom layouts.
+
+**What's partial.** Multi-stage automation is still one invocation per env — e.g., to go local → staging → production, the user runs `/gabe-push staging`, validates, then `/gabe-push` (which offers the promotion). The command never recurses across envs.
+
+### Remaining options (potential future work)
+
+| Option | Approach | Cost | Risk |
+|--------|----------|------|------|
+| **A** — `/gabe-push all` chain run | Single invocation runs every env in `promote_from` chain order, pausing at each for user ack | medium (pause+resume, CI wait loops) | medium (long-running, error recovery) |
+| **B** — Per-env deploy hooks | Add `deploy_hook:` to env block (shell command or URL). `/gabe-push` runs it after successful CI. | medium (hook runner + timeout + log) | medium (hooks can fail opaquely) |
+| **C** — Per-env server configs | Expand env block to include server address / secrets ref for deploy targeting | high (secrets handling) | high (config becomes deploy tooling, not just branch strategy) |
+| **D** — Keep current scope | One env per invocation; user orchestrates. Document pattern. | zero | low |
+
+**Recommend.** D for now. A or B only if promotion cadence becomes daily ritual. C belongs in deploy tooling (Kamal, Railway, etc.), not in `/gabe-push`.
+
+---
+
 ## W12 — Diagram standards not enforced for own docs
 
 **What's missing.** [skills/gabe-docs/SKILL.md](../skills/gabe-docs/SKILL.md) defines CommonMark + Mermaid standards. Gabe Suite's own docs aren't CI-checked for compliance.
