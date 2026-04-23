@@ -17,6 +17,19 @@ KDBP-aware planner. Same planning logic as `/plan`, but persists to `.kdbp/PLAN.
 
 ## Procedure
 
+### Step 0: Subcommand dispatch
+
+Parse `$ARGUMENTS` first token:
+
+| Token | Route |
+|-------|-------|
+| `check` | Step CHK — structural compliance check + retrofit offer against current spec |
+| `update` | Step UPD — modify an active plan in-place (existing behavior, Step 6 path) |
+| `complete` / `defer` / `cancel` / `replace` | Step 1 case branches (existing behavior) |
+| anything else (treated as goal) | Step 0 → continue to normal flow |
+
+Only `check` is a new subcommand. All others fall through to existing behavior.
+
 ### Step 0: Validate KDBP
 
 1. Check `.kdbp/` exists. If not: "No KDBP found. Run `/gabe-init` first or use `/plan` for a stateless plan." — stop.
@@ -451,6 +464,111 @@ Next steps:
   3. Escalate mid-phase via /gabe-execute if tier underscoped (logged to DECISIONS.md).
   4. Run /gabe-plan when done to archive as completed.
 ```
+
+### Step CHK — Structural compliance check + retrofit (`/gabe-plan check`)
+
+Analyses the active lane's `PLAN.md` + `DECISIONS.md` against the **current spec shape** and offers per-gap retrofit. Use when an existing plan predates a gabe-plan spec change (new columns, new fields, new Phase Details YAML block) and you want to upgrade without archive-and-replan.
+
+**Zero-LLM analysis. LLM only fires when retrofit is accepted AND the retrofit requires content generation** (e.g., parsing prose override rationale into structured `dim_overrides` YAML).
+
+#### CHK.1 — Preconditions
+
+1. `.kdbp/` exists — else exit `⛔ No KDBP. Run /gabe-init first.`
+2. Active lane's `PLAN.md` contains `<!-- status: active -->` — else exit `ℹ No active plan to check. Run /gabe-plan [goal] to create one.`
+3. Current spec version is identified from this file. Each compliance rule below is tagged with the spec version that introduced it so legacy plans get accurate reporting.
+
+#### CHK.2 — Run compliance checks
+
+For each phase row in the Phases table, evaluate:
+
+| # | Rule | Spec ver | Failure signal |
+|---|------|----------|----------------|
+| C1 | Phases table has `Exec`, `Review`, `Commit`, `Push` columns | v2.9 | Header missing any of the four |
+| C2 | Phases table has `Tier` column | v2.10 | Header missing `Tier` |
+| C3 | Phases table has `Types` column | v2.10 | Header missing `Types` |
+| C4 | Each phase has a `## Phase Details → Phase N` block | v2.10 | No matching heading for phase N |
+| C5 | Phase Details block contains a YAML fenced code block with `phase_tier` field | v7.1 | Missing YAML or YAML lacks `phase_tier` key |
+| C6 | Phase Details YAML contains `dim_overrides:` key (even if empty list `[]`) | v7.1 | Key absent |
+| C7 | Phase Tier cell format matches either bare tier or compact override notation `<tier> (<dim>→<tier>[, ...])` | v7.1 | Cell uses legacy format `tier-deferred` or prose |
+| C8 | If phase prose mentions a dim override (e.g., "Observability at scale") but YAML `dim_overrides:` is `[]` → flagged as **prose-only override** (common on plans that predate v7.1) | v7.1 | Heuristic: prose-match |
+| C9 | DECISIONS.md has a `D[N]` entry for each phase with `Phase: [N]` frontmatter OR a `## D[N] — Phase [N] tier:` heading | v2.10 | Phase row has no matching DECISION |
+| C10 | Lane MANIFEST.yaml present (for lane-aware layouts) | v7.0 | File missing |
+
+Collect results per phase. Aggregate into a single compliance matrix.
+
+#### CHK.3 — Render compliance report
+
+Render as a markdown table (plain markdown, per `gabe-docs/SKILL.md` rendering convention — no bare triple-backtick wrap):
+
+**PLAN compliance report — lane `<name>`, `<N>` phases checked**
+
+| Phase | # | Name | C1 | C2 | C3 | C4 | C5 | C6 | C7 | C8 | C9 | C10 | Verdict |
+|-------|---|------|----|----|----|----|----|----|----|----|----|-----|---------|
+| 1 | Scaffold + DB | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ⚠ prose-only | — | ✅ | ✅ | **RETROFIT** |
+| 2 | Money + FX + i18n | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | — | — | ✅ | ✅ | **RETROFIT** |
+| 5 | Observability | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ⚠ prose-only | YAML absent | ✅ | ✅ | **RETROFIT** |
+
+Legend:
+
+- ✅ compliant · ❌ missing · ⚠ partial / prose-only · — not applicable
+- Verdict: **COMPLIANT** (all ✅) · **RETROFIT** (≥1 gap, fixable) · **BLOCK** (structural damage requiring manual edit)
+
+Aggregate summary below table:
+
+- Compliant phases: **N / M**
+- Prose-only overrides detected: **K** phases (needs LLM to structure)
+- YAML blocks to generate: **N** phases
+- Column additions needed: **[Types, Tier, Exec, …]** — project-wide, not per-phase
+
+#### CHK.4 — Retrofit prompt
+
+When ≥1 phase has a non-compliant verdict, offer a retrofit menu. Bulk options first, per-phase fallback second:
+
+**Retrofit actions**
+
+- `[all]` — apply every retrofit below in one pass (LLM fires once for YAML + prose-override parsing)
+- `[cols]` — add missing project-wide columns (`Types`, `Tier`) to the Phases table only; leaves per-phase YAML alone
+- `[yaml]` — generate `## Phase Details` YAML block for all phases missing one, seeded from existing prose
+- `[overrides]` — for each phase with prose-only override signals (C8), run LLM to extract `dim_overrides` list into YAML with reason; confirm per-phase before writing
+- `[decisions]` — backfill missing `DECISIONS.md D[N]` entries (skip silently if already present)
+- `[manifest]` — create `MANIFEST.yaml` for the active lane if missing
+- `[N]` — pick a single phase number to retrofit (runs all applicable gaps for that phase)
+- `[report-only]` — keep report, write nothing, exit
+- `[abort]` — exit without writing
+
+Defaults: if user picks `[all]`, confirm twice with a diff preview (LLM output for override parsing + generated YAML blocks + column additions). If `[overrides]` alone, preview per phase before accepting.
+
+#### CHK.5 — Apply retrofit (only on accept)
+
+For each accepted gap:
+
+1. **Columns (C1–C3).** Edit Phases table header + every row; insert empty/default cell for new columns. Defaults:
+   - `Types`: `[]` placeholder prompting user to fill on next update
+   - `Tier`: inherit from phase's DECISION.md entry if present, else `mvp` (honest default)
+   - `Exec`/`Review`/`Commit`/`Push`: `⬜` (never backfill to ✅ — those state values must come from actual command runs)
+2. **Phase Details YAML (C4–C6).** Generate the block per current spec (`phase: N`, `types:`, `phase_tier:`, `prototype:`, `dim_overrides: []`, `sections_considered:`, `suppressed_dims_count: 0`, `decisions_entry: D[N]` if found). Preserve any existing prose after the YAML block.
+3. **Tier cell format (C7).** Normalize to bare tier or compact override notation based on YAML `dim_overrides`.
+4. **Prose-only overrides (C8).** Invoke Haiku LLM per phase with the prose Phase Details + section tier-cap files → extract structured `dim_overrides` list with reasons → ADD to YAML block. Never infer overrides from silence — only from explicit prose mentions. Present each extraction for per-phase approval before writing.
+5. **DECISIONS backfill (C9).** Append a minimal `D[N]` row per missing phase with a note: `Backfilled via /gabe-plan check on <date>. Tier chosen: <from PLAN tier cell>. Reason: auto-backfill (no original decision recorded; review at next update).` Status stays `accepted` but flagged for review.
+6. **Manifest (C10).** Copy `~/.claude/templates/gabe/MANIFEST.yaml`, substitute lane metadata, write to `.kdbp/lanes/<active>/MANIFEST.yaml`.
+
+Each write is path-scoped. No `git add -A`. On completion, stage the touched files and print a single `[commit]` prompt: `Retrofit complete. Stage and /gabe-commit "chore(kdbp): retrofit PLAN to spec v<ver>"? [y/N]`.
+
+#### CHK.6 — Report
+
+After write (or report-only), show:
+
+- Files changed: `[list]`
+- Phases retrofitted: `[list with per-phase gap count resolved]`
+- LLM calls made: `[count]` (zero on report-only or cols-only paths)
+- Residual gaps: any **BLOCK**-verdict phases remain untouched and listed with the reason
+
+#### CHK.7 — Non-goals
+
+- Does NOT re-run Step 3.5 tier decisions. User's existing tier choices are authoritative; backfill only generates the structure around them.
+- Does NOT add phases, remove phases, or change REQ coverage. Structural fix only.
+- Does NOT touch SCOPE.md or ROADMAP.md. Those have their own change commands.
+- Does NOT call LLM unless `[overrides]` or `[all]` is picked AND the phase has prose-only override signals.
 
 ### Updating an active plan mid-work
 
