@@ -57,6 +57,7 @@ Run these scripts. No LLM. No token cost. Target: 2-10 seconds total.
 - Skip at mvp maturity
 
 **CHECK 5 — Shape** (active only when >30 source files AND >2000 lines total)
+- **Code files only.** Extensions: `.py .ts .tsx .js .jsx .mjs .cjs .go .rs .java .kt .kts .rb .cpp .cc .cxx .c .h .hpp .swift .php .cs .scala .dart .lua .pl .pm .ex .exs .clj .sh .bash .zsh .fish .sql`. Skip docs/config/data: `.md .mdx .txt .rst .adoc .json .yaml .yml .toml .ini .xml .html .css .scss .csv .tsv .lock`.
 - File sizes: >400 (low), >600 (medium), >800 (high)
 - New files <20 lines (low)
 - Skip below activation threshold
@@ -133,10 +134,10 @@ Deterministic thresholds, not LLM judgment:
 | Type errors | 0 errors | `high` |
 | Test failures | All pass | `critical` |
 | Coverage <80% on changed file | >=80% | `medium` (50-79%) / `high` (<50%) |
-| File >800 lines | <=800 | `high` |
-| File >600 lines | <=600 | `medium` |
-| File >400 lines | <=400 | `low` |
-| New file <20 lines | >=20 | `low` |
+| File >800 lines (code only) | <=800 | `high` |
+| File >600 lines (code only) | <=600 | `medium` |
+| File >400 lines (code only) | <=400 | `low` |
+| New file <20 lines (code only) | >=20 | `low` |
 | Open deferred on changed file | None | item's priority |
 | Doc drift (universal safe card) | Doc target in diff | `low` (config/deps/docker) / `medium` (new routes) |
 | Doc drift (DOCS.md critical) | Doc target in diff | `critical` |
