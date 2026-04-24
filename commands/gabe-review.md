@@ -14,7 +14,17 @@ Arguments:
 - `discard`: archive active REVIEW.md as cancelled, skip LEDGER write.
 - `[file or folder]`: review specific target (writes REVIEW.md as usual).
 
-All write-producing invocations (default, `fix`, `post-review`, `inbox`, `[file/folder]`) honor the REVIEW.md singleton collision prompt: `(r) Resume | (a) Archive as stale | (x) Replace (archive as superseded) | (c) Cancel`.
+All write-producing invocations (default, `fix`, `post-review`, `inbox`, `[file/folder]`) first run their analysis **blind** to any existing `.kdbp/REVIEW.md`. After analysis completes, the skill reconciles:
+
+- **No existing REVIEW.md** → write fresh.
+- **Existing REVIEW.md, SAME CLI** → singleton collision prompt: `(r) Resume | (a) Archive as stale | (x) Replace (superseded) | (c) Cancel`.
+- **Existing REVIEW.md, DIFFERENT CLI** → **merge mode**: strict auto-match on file+line+severity, fuzzy candidates flagged for user y/n, then a consolidation strategy prompt — `(u)nion | (i)ntersection | (m)anual | (a)rchive prior as stale | (c)ancel`. Consolidated file uses schema 1.1 with per-finding `Sources` attribution.
+
+**Two-pass cross-agent review workflow:**
+1. Pass 1 (either CLI) — invoke with `inbox` to produce REVIEW.md and stop (Codex's default; explicit in Claude).
+2. Pass 2 (the OTHER CLI) — invoke normally; analysis runs blind, then auto-enters merge mode because a different-CLI review already exists.
+
+This triangulates two independent perspectives into a single consolidated REVIEW.md. Findings flagged by BOTH agents are higher-confidence signal.
 
 Before reviewing, check for `.kdbp/deferred-cr.md` or `.planning/deferred-cr.md` to load the deferred backlog. If deferred items exist, check whether the current diff addresses them.
 
