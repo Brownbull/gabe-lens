@@ -7,7 +7,8 @@ Arguments:
 - `brief`: findings table + confidence score + verdict only, no triage
 - `fix`: skip to triage, auto-fix all findings
 - `deferred`: show deferred items dashboard with triage option
-- `post-review`: parse the most recent code review output and add risk pricing + confidence score
+- `post-review`: parse the most recent code review output and add risk pricing + confidence score. If no explicit source, auto-detects the latest `.kdbp/inbox/review-*.md` artifact produced by a prior `inbox` run (e.g., from Codex CLI).
+- `inbox`: run the review read-only and write a handoff artifact to `.kdbp/inbox/review-<timestamp>.md`. Skips interactive triage and all `.kdbp/` writes outside the inbox. Intended for cross-CLI handoff (Codex/OpenAI produces, Claude Code picks up via `post-review`).
 - `[file or folder]`: review specific target
 
 Before reviewing, check for `.kdbp/deferred-cr.md` or `.planning/deferred-cr.md` to load the deferred backlog. If deferred items exist, check whether the current diff addresses them.

@@ -42,8 +42,9 @@ This is NOT a generic checklist review. Every finding gets a **Defer Risk** (con
 | **Diff** | `git diff`, `git diff --staged`, PR diff (default: staged + unstaged changes) |
 | **File(s)** | `/src/services/rateLimiter.ts` |
 | **Folder** | `/functions/src/` |
-| **Post-review** | Output from CE:review or BMad code-review (parses their findings and adds risk pricing) |
+| **Post-review** | Output from CE:review, BMad code-review, or a gabe-review inbox artifact (parses findings and adds risk pricing) |
 | **Deferred** | No target — shows only the deferred items dashboard |
+| **Inbox** | No target — runs review and writes a handoff artifact to `.kdbp/inbox/review-<timestamp>.md`. No triage. Used for cross-CLI handoff (e.g., Codex produces, Claude Code picks up). |
 
 If no target is provided, default to `git diff HEAD` (all uncommitted changes).
 
@@ -943,12 +944,74 @@ Parse the most recent code review output in the conversation. Detect the source 
 
 | Source | Severity mapping |
 |---|---|
+| **Gabe-review inbox artifact** | Native — findings already have Severity, Defer Risk, Maturity Gate. Preserve as-is; skip re-pricing. |
 | **CE:review** | P0→CRITICAL, P1→HIGH, P2→MEDIUM, P3→LOW |
 | **BMad code-review** | decision_needed→HIGH, patch→by-dimension, defer→load into deferred backlog |
 | **ECC code-reviewer** | CRITICAL→CRITICAL, HIGH→HIGH, MEDIUM→MEDIUM, LOW→LOW (same scale) |
 | **Manual/unknown** | Infer from keywords (security→CRITICAL, performance→MEDIUM, style→LOW) |
 
-Add Defer Risk + Maturity Gate + Confidence Score columns to each parsed finding. Present in the standard Gabe Review table format. After presenting findings, follow the full mode flow (confidence score with projections, provisional verdict, session estimate, triage).
+**Source auto-detection.** If `post-review` is invoked without an explicit source (no pasted review output, no file argument), look for the most recent unprocessed gabe-review inbox artifact at `.kdbp/inbox/review-*.md` (newest by timestamp in filename). If found, ingest it directly and announce: `Ingesting inbox artifact from <source>/<model> produced at <timestamp>`. If no inbox artifact exists and no external review was pasted, fall back to a normal (live) review against `git diff HEAD`.
+
+After ingesting an inbox artifact, **mark it processed** by moving the file to `.kdbp/inbox/processed/review-<timestamp>.md` once triage concludes. If triage is interrupted, leave the file in place so the next `/gabe-review post-review` call resumes from it.
+
+Add Defer Risk + Maturity Gate + Confidence Score columns to each parsed finding (skip for inbox artifacts — already priced). Present in the standard Gabe Review table format. After presenting findings, follow the full mode flow (confidence score with projections, provisional verdict, session estimate, triage).
+
+### Inbox Mode (`/gabe-review inbox` or `$gabe-review inbox`)
+
+**Purpose.** Produce a read-only review artifact on disk so a different CLI or a later session can act on it. Intended for the cross-CLI handoff: OpenAI models (via Codex CLI) do analysis; Claude Code picks up the file and runs triage + writes. Matches the "route by task" policy — cheap analysis by one model, interactive fixes by another.
+
+**Behavior.** Run Steps 0.5–4.75 of the review process exactly as in full mode (load KDBP context, load deferred backlog, review the diff, churn, price each finding, confidence score, plan alignment sub-checks). Then **skip** Step 5 (interactive triage) and Step 6 (auto-tick + LEDGER write). Instead, serialize the complete review state to `.kdbp/inbox/review-<YYYY-MM-DD-HHMMSS>.md` and print a one-line pointer to the file path. No file edits to `.kdbp/` outside the inbox directory. No writes to PENDING.md, KNOWLEDGE.md, DECISIONS.md, LEDGER.md, or PLAN.md.
+
+**Artifact format.** Write the file with this structure:
+
+```markdown
+<!-- gabe-review-inbox:1.0 -->
+---
+source: codex            # or claude; whichever CLI produced the artifact (best-effort inference or sentinel)
+model: <model-id>        # e.g. gpt-5, claude-opus-4-7 — whatever the runtime reports; 'unknown' if unavailable
+timestamp: 2026-04-24T15:30:00Z
+project_root: <abs path>
+target: <what was reviewed — e.g. "git diff HEAD", a file path, a folder>
+maturity: mvp|enterprise|scale
+---
+
+# Gabe Review — Inbox Artifact
+
+**Verdict:** APPROVE | WARNING | BLOCK
+**Confidence:** NN/100
+**Coverage:** HIGH | MEDIUM | LOW
+**Findings:** <total> (CRITICAL: n, HIGH: n, MEDIUM: n, LOW: n)
+
+## Findings
+<full findings table: #, Severity, Finding, File, Churn, Fix Cost, Defer Risk, Maturity Gate, Escalation>
+
+## Plan Alignment (5a)
+<ALIGNED | DRIFTED | MISALIGNED + brief rationale>
+
+## Stale Verified Topics (5c)
+<list of {topic, file, last_verified_commit} or "none">
+
+## Architectural Decisions (5b)
+<proposed DECISIONS.md entries (not yet written) or "none">
+
+## Tier Drift (5d)
+<TIER_DRIFT findings with {section, dim, pattern, floor, effective} or "none">
+
+## Deferred Backlog Status
+<for each open PENDING.md item: whether this diff addresses it, kept in backlog, or became a fresh finding>
+
+## Suggested Triage
+<per-finding recommendation: (f)ix / (d)efer / (x)ismiss with one-line rationale — advisory; actor-CLI decides>
+
+---
+_Pending triage. Resume with `/gabe-review post-review` in Claude Code._
+```
+
+**Directory convention.** Create `.kdbp/inbox/` if it doesn't exist. Never clobber — the ISO timestamp in the filename keeps entries unique. A sibling `.kdbp/inbox/processed/` is created by `post-review` once an artifact has been triaged; inbox files move there rather than being deleted so the history is auditable.
+
+**Cross-CLI usage pattern.**
+1. In Codex CLI at a KDBP project: `$gabe-review inbox` — GPT runs analysis, writes `.kdbp/inbox/review-<timestamp>.md`.
+2. In Claude Code at the same project: `/gabe-review post-review` — auto-detects the inbox file, runs Steps 5 + 6 (triage + ledger), moves file to `processed/`.
 
 ---
 
