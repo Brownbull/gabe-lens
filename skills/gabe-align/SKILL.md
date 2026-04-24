@@ -143,6 +143,16 @@ All loaded values are evaluated:
 10. Be specific. "Violates A4" is not enough. State what's misaligned concretely.
 11. Don't pad. If all values pass, say so. A forced CONCERN is worse than an honest PASS.
 
+### Rule-violation check (via `/gabe-debt`)
+
+11a. If `.kdbp/RULES.md` exists (or `docs/rebuild/LESSONS.md` with R-rules), before producing the final verdict, run an implicit `audit-rules` pass against the target:
+   - Load the rule index (R-NN entries + their `Detection` signatures).
+   - Scan the target (file / folder / intent / diff) for rule violations.
+   - Surface each violating rule as an additional CONCERN (standard mode) or contributing FAIL in strict-gate mode (e.g. pre-commit alignment checkpoint).
+   - Format: `Rn ⚠ CONCERN — violates "<rule handle>" (source: RULES.md). <What to do>`
+   - Do not surface if the match is in `.kdbp/debt-ignore.md`.
+   - Skip this step silently if no rule index files exist — absence is not a concern.
+
 ### After Checking
 
 12. Produce the output format for the selected mode

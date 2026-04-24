@@ -43,6 +43,7 @@ Run the equivalent of `/gabe-align init [project-name]`:
 ├── BEHAVIOR.md      # From answers above
 ├── VALUES.md        # Project values (empty template — user adds during first session)
 ├── DECISIONS.md     # Append-only architecture decision table
+├── RULES.md         # Scar-tissue constraints (R-rules) maintained by /gabe-debt
 ├── PENDING.md       # Deferred items (empty)
 ├── LEDGER.md        # Checkpoint history (empty)
 ├── MAINTENANCE.md   # Quarterly human checklist
@@ -97,6 +98,8 @@ created: [today's date]
 ```
 
 **DECISIONS.md** — use template from `~/.claude/templates/gabe/DECISIONS.md`
+
+**RULES.md** — use template from `~/.claude/templates/gabe/RULES.md`. Scaffolds empty with R-rule block template + phase cross-ref matrix. `/gabe-debt` populates it. `/gabe-review` reads it for severity escalation when a file/line violates an R-rule.
 
 **PENDING.md** — start with:
 ```markdown
@@ -181,7 +184,7 @@ Display a single line at the end: `✅ .gitignore: reviews-archive entry [added 
 Non-destructive top-up of an existing `.kdbp/` directory. Never overwrites, never deletes.
 
 1. **Scan what's missing.** Compare the existing `.kdbp/` contents against the current template set:
-   - Expected files: `BEHAVIOR.md`, `VALUES.md`, `DECISIONS.md`, `PENDING.md`, `LEDGER.md`, `MAINTENANCE.md`, `DOCS.md`, `PLAN.md`, `KNOWLEDGE.md`, `STRUCTURE.md`
+   - Expected files: `BEHAVIOR.md`, `VALUES.md`, `DECISIONS.md`, `RULES.md`, `PENDING.md`, `LEDGER.md`, `MAINTENANCE.md`, `DOCS.md`, `PLAN.md`, `KNOWLEDGE.md`, `STRUCTURE.md`
    - Expected directory: `archive/`
    - Expected at **project root** (not `.kdbp/`): `CLAUDE.md` — scanned separately; rules in Step 1.7
    - Note: project-specific files like `PUSH.md` or historical `PLAN-PHASE-N.md` are NOT in the expected set — leave them untouched.

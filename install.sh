@@ -33,7 +33,7 @@ run() {
     fi
 }
 
-SKILLS=(gabe-align gabe-arch gabe-assess gabe-docs gabe-health gabe-help gabe-lens gabe-mockup gabe-review gabe-roast)
+SKILLS=(gabe-align gabe-arch gabe-assess gabe-debt gabe-docs gabe-health gabe-help gabe-lens gabe-mockup gabe-review gabe-roast)
 COMMANDS_ONLY=(gabe-init gabe-commit gabe-push gabe-plan gabe-teach gabe-scope gabe-scope-change gabe-scope-addition gabe-scope-pivot gabe-execute gabe-mockup gabe-next)
 
 if $UNINSTALL; then
@@ -115,7 +115,7 @@ install_templates_to() {
     run "cp \"$SCRIPT_DIR/templates/\"*.yaml $home_root/templates/gabe/ 2>/dev/null || true"
     run "cp \"$SCRIPT_DIR/templates/\"*.json $home_root/templates/gabe/ 2>/dev/null || true"
     local tpl_count
-    tpl_count=$(ls -1 "$SCRIPT_DIR/templates/" 2>/dev/null | grep -v '^tier-sections$' | grep -v '^mockup$' | wc -l)
+    tpl_count=$(ls -1 "$SCRIPT_DIR/templates/" 2>/dev/null | grep -v '^tier-sections$' | grep -v '^mockup$' | grep -v '^debt-patterns$' | wc -l)
     echo "  OK: $tpl_count templates → $label/templates/gabe/"
 
     if [ -d "$SCRIPT_DIR/templates/tier-sections" ]; then
@@ -132,6 +132,14 @@ install_templates_to() {
         local mk_count
         mk_count=$(ls -1 "$SCRIPT_DIR/templates/mockup/" 2>/dev/null | wc -l)
         echo "  OK: $mk_count mockup templates → $label/templates/gabe/mockup/"
+    fi
+
+    if [ -d "$SCRIPT_DIR/templates/debt-patterns" ]; then
+        run "mkdir -p $home_root/templates/gabe/debt-patterns"
+        run "cp \"$SCRIPT_DIR/templates/debt-patterns/\"*.md $home_root/templates/gabe/debt-patterns/ 2>/dev/null || true"
+        local dp_count
+        dp_count=$(ls -1 "$SCRIPT_DIR/templates/debt-patterns/"*.md 2>/dev/null | wc -l)
+        echo "  OK: $dp_count debt-pattern files → $label/templates/gabe/debt-patterns/"
     fi
 }
 

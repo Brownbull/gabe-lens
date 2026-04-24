@@ -39,14 +39,14 @@ This is NOT a generic checklist review. Every finding gets a **Defer Risk** (con
 
 | Input Type | Example |
 |---|---|
-| **Diff** | `git diff`, `git diff --staged`, PR diff (default: staged + unstaged changes) |
+| **Diff** | `git diff`, `git diff --staged`, PR diff — used when explicit target supplied, or as fallback when no KDBP context resolves |
 | **File(s)** | `/src/services/rateLimiter.ts` |
 | **Folder** | `/functions/src/` |
 | **Post-review** | Output from CE:review, BMad code-review, or ECC code-reviewer (parses findings and adds risk pricing into `.kdbp/REVIEW.md`) |
 | **Deferred** | No target — shows only the deferred items dashboard |
 | **Inbox** | No target — produces the live `.kdbp/REVIEW.md` and stops (no triage). Used for cross-CLI handoff (e.g., Codex produces, Claude Code picks up via the Resume prompt). Subject to the singleton collision prompt if a review is already active. |
 
-If no target is provided, default to `git diff HEAD` (all uncommitted changes).
+If no target is provided, resolve via **Step 0.3: Target Resolution** (KDBP-first, git-diff fallback) below.
 
 ### 2. Maturity — What standard to apply
 
@@ -67,6 +67,36 @@ Never auto-detect from test count or CI presence. Maturity is a human decision.
 ---
 
 ## Review Process
+
+### Step 0.3: Target Resolution (no-arg only)
+
+This step only fires when `/gabe-review` is invoked with no arguments — no explicit path, no folder, no mode keyword. Skip entirely if `$ARGUMENTS` resolves to any of: a file path, a folder path, `brief`, `fix`, `deferred`, `post-review`, `inbox`, `resume`, `close`, `discard`.
+
+**Why this step exists.** The authoritative "what's pending review" signal in a Gabe project lives in `.kdbp/PLAN.md` (phase row with `Exec=✅ Review=⬜`) plus `.kdbp/LEDGER.md` (artifact lists written by exec/commit hooks). A raw `git diff HEAD` misses the target when code is already committed (HEAD clean), includes unrelated WIP, or ignores the plan-declared scope. Step 0.3 consults the plan first, falls back to git-diff only when no KDBP context resolves.
+
+**Procedure (zero-LLM, deterministic — mirrors `/gabe-next`'s PLAN-parse approach):**
+
+1. **Check KDBP presence.** If `.kdbp/PLAN.md` is missing, or lacks `<!-- status: active -->` → jump to "Fallback" below.
+2. **Parse PLAN.md.** Find the `## Phases` table. Scan rows top-to-bottom for the first row where `Review` column = `⬜` AND `Exec` column ∈ {`✅`, `🔄`}. Record phase number N and phase name.
+3. **Handle no-match cases:**
+   - No row satisfies the Review=⬜ condition (all reviewed) → print `ℹ No phase pending review. Pass an explicit target to review something else.` and exit 0.
+   - Target row has `Exec=⬜` (Review pending but work not started) → print `⚠ Phase N Exec not complete — run /gabe-next to finish Exec before reviewing.` and exit 0.
+4. **Collect scope from LEDGER.md.** Read `.kdbp/LEDGER.md`. Find entries that reference phase N. Accept any of these patterns (case-insensitive):
+   - `phase-N-exec`, `phase N exec`, `Phase N —`, `phase: N`, `Phase N:`.
+
+   Extract file paths from those entries (typically listed as bullet items, code-fenced file lists, or paths after `files:` / `artifacts:` keys).
+5. **Resolve scope:**
+   - Filter extracted paths to those that still exist on disk.
+   - If ≥1 file remains → target = that set. Print banner:
+     `ℹ Reviewing Phase N ([name]) per PLAN.md — scope: <count> files from LEDGER`.
+     Proceed with that scope as the review target.
+   - If 0 files remain (LEDGER empty, all renamed/deleted, or parser couldn't extract paths) → print banner:
+     `ℹ Phase N Review pending; no LEDGER scope resolved — falling back to git diff HEAD.`
+     Target = `git diff HEAD`.
+
+**Fallback.** No `.kdbp/` directory, or no active plan. Target = `git diff HEAD`. No banner — silent legacy default.
+
+Once target is resolved, continue with Step 0.5 (LEDGER prior-CONCERN scan) and Step 1 (Deferred Backlog) using the resolved scope. REVIEW.md creation happens only after scope is known — the no-match exits above are prints + exit, not partial writes.
 
 ### Step 0.5: Load KDBP Context (if available)
 
@@ -109,6 +139,8 @@ For each changed file, check these dimensions:
 **Confidence gate:** Only report findings with >80% confidence. If uncertain, investigate further before reporting.
 
 **Tier drift detection:** When `.kdbp/PLAN.md` declares a phase Tier and the diff contains patterns above that tier, emit a `TIER_DRIFT` finding. See Step 4.75 Sub-check 5d for procedure and resolution options (downgrade vs amend-phase-tier).
+
+**Rule-violation escalation (via `/gabe-debt`):** If `.kdbp/RULES.md` exists (or `docs/rebuild/LESSONS.md` with R-rules is present), load the rule index before dimension scoring. For every finding, check if the affected file/line/pattern matches any rule's `Detection` signature. If yes, auto-elevate the finding's severity by one level (HIGH → CRITICAL, MEDIUM → HIGH) AND append a citation to the finding: `(violates R<n> from RULES.md — "<rule handle>")`. Load-bearing rules (tagged as such in the rule's `Status` field or explicit in source LESSONS) elevate straight to CRITICAL. Do not escalate if the user has already dismissed the match via `.kdbp/debt-ignore.md`.
 
 ### Step 3: Branch-Test Gap Detection
 

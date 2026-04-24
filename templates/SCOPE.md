@@ -162,7 +162,7 @@ Unresolved items from scoping. Items marked `[UNRESOLVED — brainstorm exit]` c
 
 ## 15. Change Log {#change-log}
 
-Append-only. Each entry: date, type (`init | addition | pivot`), summary, diff pointer (optional).
+Append-only. Each entry: date, type (`init | addition | pivot | debt-scan`), summary, diff pointer (optional). `debt-scan` entries are written by `/gabe-debt` when it appends Open Questions to §14 and/or rules to `.kdbp/RULES.md`.
 
 | Date | Type | Summary |
 |---|---|---|
