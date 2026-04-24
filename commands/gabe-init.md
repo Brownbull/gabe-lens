@@ -25,6 +25,16 @@ Run the equivalent of `/gabe-align init [project-name]`:
 2. If no project name in $ARGUMENTS, ask: "Project name?"
 3. Ask: "What does this project do?" (one sentence for BEHAVIOR.md `domain`)
 4. Ask: "Maturity level?" → `mvp` (default) | `enterprise` | `scale`
+4.5. Ask: "Project type?" → `code` (default) | `mockup` | `hybrid`
+   - `code` — standard software project. `/gabe-execute` owns Exec. No mockup-specific artifacts.
+   - `mockup` — design / UX project. `/gabe-mockup` owns Exec. Creates `.kdbp/ENTITIES.md` + enables `/gabe-plan --preset=mockup-project`.
+   - `hybrid` — both. PLAN phases dispatch per-type tags (`/gabe-mockup` for design-system/ui-kit/mockup-* phases, `/gabe-execute` otherwise).
+   - If `mockup` or `hybrid`: prompt `Install ui-ux-pro-max catalog (67 styles / 162 palettes / 74 font pairings)? [Y/n]`. Default Y. If yes, run in background:
+     ```bash
+     npx --yes uipro-cli init --ai claude 2>/dev/null || echo "⚠ uipro install skipped (npm unavailable or install failed — skill still works without it)"
+     ```
+   - Persist to BEHAVIOR.md frontmatter as `project_type: <answer>`.
+   - If `mockup` or `hybrid`: create `.kdbp/ENTITIES.md` from `~/.claude/templates/gabe/ENTITIES.md` (copied during install.sh).
 5. Ask: "Tech stack?" (comma-separated, e.g., "python, fastapi, react")
 6. Create `.kdbp/` with these files **and `CLAUDE.md` at the project root** (see Step 1.7 for CLAUDE.md generation):
 
@@ -52,6 +62,30 @@ maturity: [mvp|enterprise|scale]
 tech: [from answer]
 created: [today's date]
 ---
+
+# Project Behavior Rules
+
+## B1 — Inventory before proposing (architecture / exploratory questions)
+
+**Trigger phrases:** "can we work on", "should we", "I'm wondering", "explore the possibility", "what do you think about", "how can we approach", "is it possible to". Treat as diagnose-prompts, not build-prompts.
+
+**Mandatory inventory before any proposal:**
+1. Read existing project state: `.kdbp/PLAN.md`, `.kdbp/SCOPE.md`, `.kdbp/STRUCTURE.md`, `.kdbp/ROADMAP.md`, `.kdbp/AUDIT.md` (if present)
+2. Read suite command(s) being extended: `~/.claude/commands/gabe-*.md`
+3. Read relevant catalog: `~/.claude/templates/gabe/tier-sections/*.md`
+4. If proposing external dep: clone repo, verify license + actual surface (not just README)
+5. List what already exists for this question before proposing what's missing
+
+**Proactive suggestions on detection:**
+- Suggest user run `/plan` (your `feedback_plan_overrides_auto` rule then enforces wait-for-confirm)
+- Offer `/gabe-roast [perspective]` or `/gabe-assess` for adversarial first-pass before plan-text
+- If auto-mode active, override it for exploratory Qs — surface inventory + recommendation, wait for user direction
+
+**Self-check before delivery:** "Did I read existing state? Did the user already do this analysis? Am I proposing what already exists under a new name? Did I challenge my first framing?"
+
+**Caveman/terse modes compress output prose only. Reasoning depth is invariant.**
+
+**Why this rule exists:** Past incident (2026-04-24, gastify mockup workflow Q) where shallow first-pass restated work the user had already done in `.kdbp/PLAN.md` + `AUDIT.md` + `STRESS-TEST-SPEC.md`. User flagged as workflow-sustainability concern.
 ```
 
 **VALUES.md** — start with:
@@ -127,6 +161,20 @@ created: [today's date]
 | User picks `s` (skip) | Record `⚠️ CLAUDE.md not managed — KDBP discovery may be unreliable` in Step 4 readiness report. |
 
 **Preservation contract for `reset` on a marker-present file:** read the existing CLAUDE.md, find the line `<!-- Add project-specific instructions for Claude Code below. -->`. Everything after that line is user content — preserve it verbatim. Rewrite only the content above that line from the template + substitutions.
+
+### Step 1.8: Seed `.gitignore` entries (gabe-review archive)
+
+The project's `.gitignore` gets the line `.kdbp/reviews-archive/` appended so resolved gabe-review documents archive locally without bloating git history. (`.kdbp/archive/` — used by PLAN/SCOPE archives — stays tracked as before.)
+
+**Idempotency:** grep-before-append. If `.gitignore` doesn't exist, create it with just that single line. If it exists and already contains the entry (exact-match line), do nothing. Otherwise, append with a leading newline if the file doesn't end in one.
+
+| Existing `.gitignore` state | Action |
+|---|---|
+| Missing | Create with `.kdbp/reviews-archive/` |
+| Present, entry missing | Append `.kdbp/reviews-archive/` |
+| Present, entry present | No-op |
+
+Display a single line at the end: `✅ .gitignore: reviews-archive entry [added | already present]`. `reset` mode re-runs this check (idempotent). `update` mode includes it as part of the readiness scan.
 
 ### Step 1.5: Update Mode (only when user picked `update`)
 

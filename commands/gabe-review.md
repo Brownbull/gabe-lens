@@ -3,13 +3,18 @@ Load and follow the skill at `skills/gabe-review/SKILL.md` (project-local) or `~
 Review code changes with risk pricing, confidence scoring, and interactive triage.
 
 Arguments:
-- No args: review all uncommitted changes (git diff HEAD)
-- `brief`: findings table + confidence score + verdict only, no triage
-- `fix`: skip to triage, auto-fix all findings
-- `deferred`: show deferred items dashboard with triage option
-- `post-review`: parse the most recent code review output and add risk pricing + confidence score. If no explicit source, auto-detects the latest `.kdbp/inbox/review-*.md` artifact produced by a prior `inbox` run (e.g., from Codex CLI).
-- `inbox`: run the review read-only and write a handoff artifact to `.kdbp/inbox/review-<timestamp>.md`. Skips interactive triage and all `.kdbp/` writes outside the inbox. Intended for cross-CLI handoff (Codex/OpenAI produces, Claude Code picks up via `post-review`).
-- `[file or folder]`: review specific target
+- No args: review all uncommitted changes (git diff HEAD). Writes/resumes the singleton `.kdbp/REVIEW.md` and enters triage.
+- `brief`: findings table + confidence score + verdict only, no triage and no REVIEW.md write
+- `fix`: skip to triage, auto-fix all findings (writes REVIEW.md en route)
+- `deferred`: show deferred items dashboard with triage option (read-only of PENDING.md; does not touch REVIEW.md)
+- `post-review`: parse an external code review (CE:review, BMad, ECC) and ingest its findings into `.kdbp/REVIEW.md`. If no external source and an active REVIEW.md already exists, behaves as Resume.
+- `inbox`: produce the live `.kdbp/REVIEW.md` and stop — no triage, no writes to PENDING/LEDGER/PLAN. Intended for Codex CLI ("analysis only" policy). Claude picks up via the Resume prompt.
+- `resume`: explicitly resume triage on the active `.kdbp/REVIEW.md` (same as the `(r)` option in the collision prompt).
+- `close`: archive active REVIEW.md as resolved + write LEDGER/tick PLAN (for when triage was informal).
+- `discard`: archive active REVIEW.md as cancelled, skip LEDGER write.
+- `[file or folder]`: review specific target (writes REVIEW.md as usual).
+
+All write-producing invocations (default, `fix`, `post-review`, `inbox`, `[file/folder]`) honor the REVIEW.md singleton collision prompt: `(r) Resume | (a) Archive as stale | (x) Replace (archive as superseded) | (c) Cancel`.
 
 Before reviewing, check for `.kdbp/deferred-cr.md` or `.planning/deferred-cr.md` to load the deferred backlog. If deferred items exist, check whether the current diff addresses them.
 

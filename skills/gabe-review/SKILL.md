@@ -42,9 +42,9 @@ This is NOT a generic checklist review. Every finding gets a **Defer Risk** (con
 | **Diff** | `git diff`, `git diff --staged`, PR diff (default: staged + unstaged changes) |
 | **File(s)** | `/src/services/rateLimiter.ts` |
 | **Folder** | `/functions/src/` |
-| **Post-review** | Output from CE:review, BMad code-review, or a gabe-review inbox artifact (parses findings and adds risk pricing) |
+| **Post-review** | Output from CE:review, BMad code-review, or ECC code-reviewer (parses findings and adds risk pricing into `.kdbp/REVIEW.md`) |
 | **Deferred** | No target — shows only the deferred items dashboard |
-| **Inbox** | No target — runs review and writes a handoff artifact to `.kdbp/inbox/review-<timestamp>.md`. No triage. Used for cross-CLI handoff (e.g., Codex produces, Claude Code picks up). |
+| **Inbox** | No target — produces the live `.kdbp/REVIEW.md` and stops (no triage). Used for cross-CLI handoff (e.g., Codex produces, Claude Code picks up via the Resume prompt). Subject to the singleton collision prompt if a review is already active. |
 
 If no target is provided, default to `git diff HEAD` (all uncommitted changes).
 
@@ -521,6 +521,8 @@ If 5a produced output OR 5c produced output OR 5b produced a candidate OR 5d pro
 
 After the verdict and session estimate, present the triage prompt. This closes the gap between "here's what's wrong" and "let's fix it."
 
+**REVIEW.md is the triage workspace.** Before the first bulk/per-finding prompt, write (or resume from) `.kdbp/REVIEW.md` — see "Live Review Document" for schema, collision handling, and archive rules. As each finding is acted on, mutate its `Status` column in `.kdbp/REVIEW.md` (`pending` → `fixed | deferred | dismissed`) so an interrupted triage can be resumed by the next `/gabe-review` call without data loss.
+
 #### Entry Point — Bulk Matrix Menu
 
 Replaces the old binary "Enter triage? [Y/n]" with a severity × scale matrix plus seven clearly-bounded options. Every option is explicit about **both** the fix set and the remainder behavior, so the user is never surprised by what happened to findings they didn't explicitly address.
@@ -784,9 +786,15 @@ CRITICAL findings during triage **cannot be deferred**. The `(d)` option is disa
 | Finding references a file not in the workspace | Can't auto-fix. Offer defer/dismiss only. |
 | Skipped CRITICAL at end of triage | CRITICALs cannot be deferred. At the final sweep, present only **(f) Fix now** or **(x) Dismiss (requires justification)**. If the user skips again, auto-classify as Dismissed with note: "No resolution chosen — treated as acknowledged risk." |
 
-### Step 6: Auto-tick Review column in PLAN.md + LEDGER trace
+### Step 6: Archive REVIEW.md + auto-tick PLAN.md + LEDGER trace
 
-After triage completes (Final Verdict produced), tick the Review column of the current phase if the review passed, and **always** append a LEDGER entry so every run leaves an audit trail — regardless of verdict or tick outcome.
+After triage completes (Final Verdict produced), archive the live review document, tick the Review column of the current phase if the review passed, and **always** append a LEDGER entry so every run leaves an audit trail — regardless of verdict or tick outcome.
+
+**Archive the live REVIEW.md (auto, no prompt).** If `.kdbp/REVIEW.md` exists and every finding has a non-pending `Status`:
+1. Flip frontmatter `status: active` → `status: resolved`.
+2. Move the file to `.kdbp/reviews-archive/REVIEW_<YYYY-MM-DD-HHMMSS>_resolved.md` (the `<timestamp>` is the REVIEW.md frontmatter timestamp for traceability; if missing, use now).
+3. Ensure `.kdbp/reviews-archive/` is in the project `.gitignore` — grep-before-append pattern; a new line `.kdbp/reviews-archive/` is added once and only once.
+4. On `discard` (user explicit cancel) or `stale` / `superseded` (from the collision prompt), same move happens with the appropriate `<status>` suffix in the filename. `discard` SKIPS the subsequent PLAN tick and LEDGER trace; `stale` / `superseded` proceed to LEDGER with a `DISPOSITION: stale` or `superseded` line.
 
 **Pass condition for Review column:**
 - Final Verdict is APPROVE or WARNING (not BLOCK)
@@ -938,52 +946,62 @@ Tackle deferred items? [Y/n]
 
 If yes, enter the same triage loop with (f)/(d)/(x)/(s) options.
 
-### Post-Review Mode (`/gabe-review post-review`)
+### Live Review Document (`.kdbp/REVIEW.md`)
 
-Parse the most recent code review output in the conversation. Detect the source format and map findings:
+**Singleton discipline.** Gabe Suite follows "one thing at a time" — one active PLAN, one active SCOPE, one active REVIEW. The review document is `.kdbp/REVIEW.md`. It is ephemeral working memory during triage, and it is archived to `.kdbp/reviews-archive/` (gitignored) once resolved.
 
-| Source | Severity mapping |
-|---|---|
-| **Gabe-review inbox artifact** | Native — findings already have Severity, Defer Risk, Maturity Gate. Preserve as-is; skip re-pricing. |
-| **CE:review** | P0→CRITICAL, P1→HIGH, P2→MEDIUM, P3→LOW |
-| **BMad code-review** | decision_needed→HIGH, patch→by-dimension, defer→load into deferred backlog |
-| **ECC code-reviewer** | CRITICAL→CRITICAL, HIGH→HIGH, MEDIUM→MEDIUM, LOW→LOW (same scale) |
-| **Manual/unknown** | Infer from keywords (security→CRITICAL, performance→MEDIUM, style→LOW) |
+**Lifecycle.**
 
-**Source auto-detection.** If `post-review` is invoked without an explicit source (no pasted review output, no file argument), look for the most recent unprocessed gabe-review inbox artifact at `.kdbp/inbox/review-*.md` (newest by timestamp in filename). If found, ingest it directly and announce: `Ingesting inbox artifact from <source>/<model> produced at <timestamp>`. If no inbox artifact exists and no external review was pasted, fall back to a normal (live) review against `git diff HEAD`.
+1. **Create.** Produced by `/gabe-review` (any mode that surfaces findings — default, `inbox`, `post-review`, `[file]` target). Writes `.kdbp/REVIEW.md` with `<!-- status: active -->` in frontmatter.
+2. **Live.** Claude Code's triage loop reads the file, mutates per-finding `status` as the user picks `(f)ix`, `(d)efer`, `(x)ismiss`, or `(s)kip`. The file is the single source of truth during the session; if Claude is interrupted, it's safely resumable.
+3. **Resolve.** When every finding has a non-pending status AND the triage loop exits cleanly, flip the frontmatter status to `resolved` and move the file to `.kdbp/reviews-archive/REVIEW_<YYYY-MM-DD-HHMMSS>_resolved.md`. Then run Step 6 (auto-tick + LEDGER write) as today.
+4. **Discard / stale / supersede.** User can explicitly `discard` (no LEDGER write), or the collision prompt may archive as `stale` or `superseded` — filename suffix reflects the reason.
 
-After ingesting an inbox artifact, **mark it processed** by moving the file to `.kdbp/inbox/processed/review-<timestamp>.md` once triage concludes. If triage is interrupted, leave the file in place so the next `/gabe-review post-review` call resumes from it.
+**Collision handling.** When any write-producing invocation (`/gabe-review`, `$gabe-review`, `inbox`, `post-review`) runs while `.kdbp/REVIEW.md` exists with `status: active`, prompt:
 
-Add Defer Risk + Maturity Gate + Confidence Score columns to each parsed finding (skip for inbox artifacts — already priced). Present in the standard Gabe Review table format. After presenting findings, follow the full mode flow (confidence score with projections, provisional verdict, session estimate, triage).
+```
+Existing active review (source: <codex|claude>, <N> findings, created <timestamp>).
 
-### Inbox Mode (`/gabe-review inbox` or `$gabe-review inbox`)
+  (r) Resume triage on existing review
+  (a) Archive as stale, start fresh review
+  (x) Replace (archive current as superseded, start fresh)
+  (c) Cancel
+```
 
-**Purpose.** Produce a read-only review artifact on disk so a different CLI or a later session can act on it. Intended for the cross-CLI handoff: OpenAI models (via Codex CLI) do analysis; Claude Code picks up the file and runs triage + writes. Matches the "route by task" policy — cheap analysis by one model, interactive fixes by another.
+Matches PLAN.md's pattern. No silent overwrites. No file locks.
 
-**Behavior.** Run Steps 0.5–4.75 of the review process exactly as in full mode (load KDBP context, load deferred backlog, review the diff, churn, price each finding, confidence score, plan alignment sub-checks). Then **skip** Step 5 (interactive triage) and Step 6 (auto-tick + LEDGER write). Instead, serialize the complete review state to `.kdbp/inbox/review-<YYYY-MM-DD-HHMMSS>.md` and print a one-line pointer to the file path. No file edits to `.kdbp/` outside the inbox directory. No writes to PENDING.md, KNOWLEDGE.md, DECISIONS.md, LEDGER.md, or PLAN.md.
+**Cross-CLI handoff.** Codex CLI and Claude Code share the same `.kdbp/REVIEW.md`:
+- **Codex (policy: analysis only)**: `$gabe-review` or `$gabe-review inbox` — produces REVIEW.md, stops. No triage, no LEDGER writes.
+- **Claude (full lifecycle)**: `/gabe-review` — if no active REVIEW.md, produces one and runs triage; if one exists, honors the collision prompt (Resume is the usual path after a Codex handoff).
 
-**Artifact format.** Write the file with this structure:
+**Format of `.kdbp/REVIEW.md`.**
 
 ```markdown
-<!-- gabe-review-inbox:1.0 -->
+<!-- gabe-review-live:1.0 -->
 ---
-source: codex            # or claude; whichever CLI produced the artifact (best-effort inference or sentinel)
+source: codex            # or claude; whichever CLI produced the review
 model: <model-id>        # e.g. gpt-5, claude-opus-4-7 — whatever the runtime reports; 'unknown' if unavailable
 timestamp: 2026-04-24T15:30:00Z
 project_root: <abs path>
 target: <what was reviewed — e.g. "git diff HEAD", a file path, a folder>
 maturity: mvp|enterprise|scale
+status: active           # active | resolved | stale | superseded | cancelled
 ---
 
-# Gabe Review — Inbox Artifact
+# Gabe Review — Live Document
 
 **Verdict:** APPROVE | WARNING | BLOCK
 **Confidence:** NN/100
 **Coverage:** HIGH | MEDIUM | LOW
 **Findings:** <total> (CRITICAL: n, HIGH: n, MEDIUM: n, LOW: n)
+**Resolution:** <fixed>/<deferred>/<dismissed> of <total> (pending: <remaining>)
 
 ## Findings
-<full findings table: #, Severity, Finding, File, Churn, Fix Cost, Defer Risk, Maturity Gate, Escalation>
+| # | Status | Severity | Finding | File | Churn | Fix Cost | Defer Risk | Maturity Gate | Escalation |
+|---|--------|----------|---------|------|-------|----------|------------|---------------|------------|
+| 1 | pending | HIGH | ... | ... | ... | ... | ... | ... | - |
+
+Status values: `pending` (untriaged), `fixed` (applied), `deferred` (logged to PENDING.md), `dismissed` (session-only). Triage loop mutates this column in place.
 
 ## Plan Alignment (5a)
 <ALIGNED | DRIFTED | MISALIGNED + brief rationale>
@@ -1004,14 +1022,25 @@ maturity: mvp|enterprise|scale
 <per-finding recommendation: (f)ix / (d)efer / (x)ismiss with one-line rationale — advisory; actor-CLI decides>
 
 ---
-_Pending triage. Resume with `/gabe-review post-review` in Claude Code._
+_Active review. Triage in Claude Code with `/gabe-review` (resumes) or `/gabe-review close` (finalize)._
 ```
 
-**Directory convention.** Create `.kdbp/inbox/` if it doesn't exist. Never clobber — the ISO timestamp in the filename keeps entries unique. A sibling `.kdbp/inbox/processed/` is created by `post-review` once an artifact has been triaged; inbox files move there rather than being deleted so the history is auditable.
+**Archive directory.** `.kdbp/reviews-archive/` — gitignored. Archive filenames: `REVIEW_<YYYY-MM-DD-HHMMSS>_<status>.md` where `<status>` ∈ {`resolved`, `stale`, `superseded`, `cancelled`}. On first archive in a project, gabe-review appends `.kdbp/reviews-archive/` to the project `.gitignore` (idempotent grep-before-append); `/gabe-init` seeds this entry at scaffold time for fresh projects.
 
-**Cross-CLI usage pattern.**
-1. In Codex CLI at a KDBP project: `$gabe-review inbox` — GPT runs analysis, writes `.kdbp/inbox/review-<timestamp>.md`.
-2. In Claude Code at the same project: `/gabe-review post-review` — auto-detects the inbox file, runs Steps 5 + 6 (triage + ledger), moves file to `processed/`.
+### Post-Review Mode (`/gabe-review post-review`)
+
+Parse an external code review (CE:review, BMad, ECC, manual) and ingest its findings into `.kdbp/REVIEW.md`. Detect the source format and map severities:
+
+| Source | Severity mapping |
+|---|---|
+| **CE:review** | P0→CRITICAL, P1→HIGH, P2→MEDIUM, P3→LOW |
+| **BMad code-review** | decision_needed→HIGH, patch→by-dimension, defer→load into deferred backlog |
+| **ECC code-reviewer** | CRITICAL→CRITICAL, HIGH→HIGH, MEDIUM→MEDIUM, LOW→LOW (same scale) |
+| **Manual/unknown** | Infer from keywords (security→CRITICAL, performance→MEDIUM, style→LOW) |
+
+Add Defer Risk + Maturity Gate + Confidence Score columns to each parsed finding, then write the standard `.kdbp/REVIEW.md` live document (subject to the collision prompt above). After the file is written, follow the full mode flow (confidence score with projections, provisional verdict, session estimate, triage, archive-on-resolve).
+
+**Resume semantics.** If `post-review` is invoked without an explicit external source and an active `.kdbp/REVIEW.md` already exists, this is equivalent to `/gabe-review` with the (r) Resume option — Claude picks up whatever is in REVIEW.md (including artifacts produced earlier by Codex) and runs triage.
 
 ---
 
