@@ -447,8 +447,8 @@ Skip silently if any of:
    - Current Phase N → Tier cell: parse `phase_tier` = leading token (strip `(overrides...)` compact notation)
    - `## Phase Details → Phase N` YAML block → `dim_overrides` list (each entry `{section, dim, tier, reason}`); empty/missing = no overrides
    - `## Phase Details → Phase N → Types:` list
-2. Load section files:
-   - `~/.claude/templates/gabe/tier-sections/core.md` (always)
+2. Load section files (resolve path: try `~/.claude/templates/gabe/tier-sections/` first, fall back to `~/.agents/templates/gabe/tier-sections/` when running under Codex CLI):
+   - `tier-sections/core.md` (always)
    - For each matched type, load corresponding `tier-sections/*.md`
 3. For each loaded section, extract `## Known drift signals` table. Each row has `Pattern`, `Tier floor`, `Finding severity`, **`Dim`** (which dimension within the section the pattern belongs to — added for override-awareness; fall back to section-wide match when the column is absent on legacy section files).
 4. Scan diff for each pattern. Detection is substring/regex match on added lines (`git diff` context, skip removed). Patterns are either:
@@ -659,13 +659,13 @@ For each finding, show a compact card:
 | **x — Dismiss** | Ask for one-line reason. Record dismissal in the review output (not in deferred backlog). Move to next finding. Dismissals don't persist across reviews — they're session-only decisions. |
 | **s — Skip** | Leave in the findings table without deciding. At end of triage, un-skipped items get a final "defer or dismiss?" prompt. |
 | **a — Fix all** | Apply fixes for all remaining findings in sequence without per-finding prompts. Show a summary diff at the end. Useful when the user trusts the fixes and wants to batch them. |
-| **e — Explain** | Invoke the `gabe-lens` skill to generate an analogy for the finding + expose trade-offs. Returns to this same prompt after explaining — doesn't advance. See "Explain behavior" below. |
+| **e — Explain** | If the `gabe-lens` skill is available, invoke it to generate an analogy for the finding + expose trade-offs. Otherwise emit the 4-section analogy inline. Returns to this same prompt after explaining — doesn't advance. See "Explain behavior" below. |
 
 #### Explain Behavior (`e`)
 
-When the user picks `e`, Claude:
+When the user picks `e`:
 
-1. **Invokes the `gabe-lens` skill** with the finding details (severity, file:line, description, defer risk, maturity gate) as context
+1. **Delegate to `gabe-lens` when available.** If the `gabe-lens` skill is installed and invokable (Claude Code: Skill tool; Codex CLI: `$gabe-lens` or `/skills gabe-lens`), pass the finding details (severity, file:line, description, defer risk, maturity gate) as context and let it produce the analogy. If `gabe-lens` is not available, generate the same 4 sections inline using the finding context — output is indistinguishable either way.
 2. **Produces 4 sections** — short, concrete, no filler:
    - **ANALOGY:** physical or spatial metaphor for what's broken and why it matters (2-4 lines)
    - **WHY IT MATTERS:** bullets on what the finding actually buys the project (2-3 bullets)
