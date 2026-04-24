@@ -23,6 +23,23 @@ Read `.kdbp/PLAN.md`. Extract:
 1. **Current Phase pointer.** Line matching `## Current Phase` → next non-blank line → leading integer `N` from `Phase N: ...`. If missing or unparseable → print `⚠ PLAN.md: Current Phase section missing or malformed.` and exit.
 2. **Phases table columns.** Detect column names from header row. Expected: `# | Phase | Description | Complexity | Exec | Review | Commit | Push`. Legacy plans may lack `Exec` — treat missing column as always-✅ (skip that step).
 3. **Target row.** Row where first data column equals `N`.
+4. **Project type.** Parse top-of-file HTML comment `<!-- project_type: code | mockup | hybrid -->`. If absent → default `code`. Used by Step 1.5 Exec dispatch.
+5. **Target row types.** Parse `Types` column (or `## Phase Details → Phase N → types:` YAML) for target row. List like `[design-system, ui-kit]`. Empty → `[]`. Used by Step 1.5 hybrid dispatch.
+
+### Step 1.5: Resolve Exec command (project_type-aware)
+
+Determines which command handles the Exec step for the target phase. Pure lookup, no state writes.
+
+**Mockup-tag set:** `{design-system, ui-kit, mockup-flows, mockup-index, mockup-docs, mockup-validation}`.
+
+| `project_type` | Target row types intersect mockup-tag set? | Exec command |
+|----------------|--------------------------------------------|--------------|
+| `mockup`       | any                                        | `/gabe-mockup` |
+| `code` or missing | any                                     | `/gabe-execute` |
+| `hybrid`       | yes AND types ⊆ mockup-tag set              | `/gabe-mockup` |
+| `hybrid`       | no (mixed or pure code tags)                | `/gabe-execute` |
+
+Store the resolved command as `EXEC_CMD` for Step 2 use. Review / Commit / Push commands are unchanged regardless of project type.
 
 ### Step 2: Decide next action (zero LLM)
 
@@ -30,8 +47,8 @@ Apply this decision table, top-to-bottom. First match wins.
 
 | Condition | Next command | Why |
 |-----------|--------------|-----|
-| Target row's `Exec` = ⬜ | `/gabe-execute` | Tasks not yet implemented |
-| Target row's `Exec` = 🔄 | `/gabe-execute` | Phase exec in progress (resume) |
+| Target row's `Exec` = ⬜ | `EXEC_CMD` | Tasks not yet implemented |
+| Target row's `Exec` = 🔄 | `EXEC_CMD` | Phase exec in progress (resume) |
 | Target row's `Review` = ⬜ | `/gabe-review` | Code written, not reviewed |
 | Target row's `Commit` = ⬜ | `/gabe-commit` | Reviewed, not committed |
 | Target row's `Push` = ⬜ | `/gabe-push` | Committed, not pushed |
@@ -95,6 +112,17 @@ $ /gabe-next
 ℹ PLAN: Phase 1 complete — advancing to Phase 2
 ℹ PLAN: Phase 2 — PydanticAI triage agent
 → /gabe-execute
+```
+
+```
+$ /gabe-next --dry-run
+GABE NEXT (dry-run)
+PROJECT_TYPE: mockup
+PHASE: 2 — Atomic components
+TYPES: design-system, ui-kit
+STATE: Exec ⬜ | Review ⬜ | Commit ⬜ | Push ⬜
+NEXT:  /gabe-mockup
+REASON: Tasks not yet implemented (mockup dispatch via project_type)
 ```
 
 ## Non-goals

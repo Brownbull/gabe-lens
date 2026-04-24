@@ -1,0 +1,164 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://gabe.khujta/schemas/mockup-handoff-v1.json",
+  "title": "Gabe Mockup HANDOFF",
+  "description": "Machine-readable design contract emitted by /gabe-mockup M13. Derivative of pbakaus/impeccable DESIGN.json v2 (Apache License 2.0) — attribution preserved in companion SKILL.md. Downstream build phases (/gabe-plan code plans) consume this instead of parsing HTML tokens.",
+
+  "_NOTICE": "This schema derives its shape from pbakaus/impeccable DESIGN.json v2 (https://github.com/pbakaus/impeccable, Apache-2.0). Fields colors, typography, spacing, motion, components reflect the impeccable structure. Extensions (platformVariance, densityScale, radiusScale) are gabe-specific.",
+
+  "type": "object",
+  "required": ["schemaVersion", "generatedAt", "title", "colors", "typography", "spacing", "radii", "motion", "components"],
+
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "generatedAt":   { "type": "string", "format": "date-time" },
+    "title":         { "type": "string", "description": "Human-readable project + theme name, e.g., 'gastify / editorial theme'" },
+    "attribution":   { "type": "string", "description": "Apache-2.0 attribution line for impeccable schema lineage" },
+
+    "colors": {
+      "type": "object",
+      "description": "Named color tokens with role, display name, description, optional tonal ramp.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["role", "displayName"],
+        "properties": {
+          "role":        { "type": "string", "enum": ["primary", "secondary", "accent", "neutral", "feedback-success", "feedback-warning", "feedback-error", "surface", "text"] },
+          "displayName": { "type": "string" },
+          "description": { "type": "string" },
+          "value":       { "type": "string", "description": "CSS color literal — prefer oklch() or hsl(). Hex sRGB is fallback only." },
+          "tonalRamp":   {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "8-stop ramp from darkest to lightest. Optional — only for primary + heavily used neutrals."
+          }
+        }
+      }
+    },
+
+    "typography": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["fontFamily", "fontSize", "fontWeight", "lineHeight"],
+        "properties": {
+          "fontFamily":     { "type": "string" },
+          "fontSize":       { "type": "string", "description": "Fixed rem or clamp() fluid expression" },
+          "fontWeight":     { "oneOf": [{ "type": "number" }, { "type": "string" }] },
+          "lineHeight":     { "oneOf": [{ "type": "number" }, { "type": "string" }] },
+          "letterSpacing": { "type": "string" }
+        }
+      },
+      "propertyNames": { "enum": ["display", "headline", "title", "body", "body-lead", "supporting", "label", "micro-label", "mono"] }
+    },
+
+    "spacing": {
+      "type": "object",
+      "description": "Spacing tokens as integer pixel values. Keys follow --s-N convention.",
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+
+    "radii": {
+      "type": "object",
+      "description": "Border-radius tokens. Keys follow --r-<scale> convention.",
+      "additionalProperties": { "type": "string" }
+    },
+
+    "motion": {
+      "type": "object",
+      "required": ["easing", "durations"],
+      "properties": {
+        "easing": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "description": "cubic-bezier or keyword" }
+        },
+        "durations": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "description": "e.g., '120ms'" }
+        },
+        "reducedMotionHonored": { "type": "boolean" }
+      }
+    },
+
+    "components": {
+      "type": "object",
+      "description": "Atomic + molecular component inventory.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["anchor", "states"],
+        "properties": {
+          "anchor":  { "type": "string", "description": "Relative path to HTML reference, e.g., atoms/button-primary.html" },
+          "kind":    { "type": "string", "enum": ["atom", "molecule", "organism"] },
+          "states":  {
+            "type": "array",
+            "items": { "type": "string", "enum": ["default", "hover", "focus", "active", "disabled", "loading", "error", "empty", "selected"] }
+          },
+          "rules":   {
+            "type": "array",
+            "items": { "type": "string", "description": "Prose rule, e.g., 'Primary CTA: Deep Graphite bg, uppercase, 0.05em letter-spacing.'" }
+          },
+          "a11y":    {
+            "type": "object",
+            "properties": {
+              "role":           { "type": "string" },
+              "ariaRequired":   { "type": "array", "items": { "type": "string" } },
+              "keyboardKeys":   { "type": "array", "items": { "type": "string" } },
+              "focusVisible":   { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+
+    "platformVariance": {
+      "type": "array",
+      "description": "Per-component or global platform notes. Gabe extension.",
+      "items": {
+        "type": "object",
+        "required": ["platform"],
+        "properties": {
+          "platform":  { "type": "string", "enum": ["web", "mobile-web", "native-mobile-ios", "native-mobile-android"] },
+          "component": { "type": "string", "description": "Optional — scope to a specific component" },
+          "notes":     { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+
+    "densityScale": {
+      "type": "object",
+      "description": "Density multiplier matrix (Gabe extension). Applied to spacing at runtime.",
+      "properties": {
+        "compact": { "type": "number" },
+        "regular": { "type": "number" },
+        "comfy":   { "type": "number" }
+      }
+    },
+
+    "radiusScale": {
+      "type": "object",
+      "description": "Radius variants (Gabe extension).",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": { "type": "string" }
+      }
+    },
+
+    "doDont": {
+      "type": "object",
+      "properties": {
+        "do":    { "type": "array", "items": { "type": "string" } },
+        "dont": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+
+    "a11yAudit": {
+      "type": "object",
+      "properties": {
+        "wcagAaContrastPass":  { "type": "boolean" },
+        "focusRingVisibility": { "type": "boolean" },
+        "screenReaderTested":  { "type": "boolean" },
+        "auditedAt":           { "type": "string", "format": "date-time" },
+        "exceptions":          { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

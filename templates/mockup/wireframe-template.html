@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<!--
+  wireframe-template.html — skeleton for M4+ wireframes.
+
+  Wireframes use data-slot dropdowns: each structural section declares an
+  "options" list of atoms or molecules that can fill it. User picks per
+  slot; wireframe.js swaps content. No drag-drop — dropdowns only.
+
+  Once user picks final options per slot, the wireframe becomes the
+  stencil for the hi-fi screen in M5+ (copy + extend with theme content).
+
+  Source: /home/khujta/projects/gabe_lens/templates/mockup/wireframe-template.html
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wireframe: [screen name]</title>
+
+  <!-- Always include the canonical stack. Greenfield: ../assets/css/tokens.css. Legacy port: use the project's existing shell (e.g., ../assets/css/<project>-shell.css). tweaks.js detects themes from any loaded stylesheet. -->
+  <link rel="stylesheet" href="../assets/css/tokens.css">
+
+  <style>
+    body {
+      font-family: var(--font-body);
+      color: var(--text);
+      background: var(--bg);
+      margin: 0;
+      min-height: 100vh;
+    }
+    .wf-frame {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: var(--s-4);
+    }
+    .wf-slot {
+      border: 2px dashed var(--border-medium);
+      border-radius: var(--r-md);
+      padding: var(--s-4);
+      margin-bottom: var(--s-4);
+      background: var(--bg-tertiary);
+    }
+    .wf-slot__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--s-3);
+      margin-bottom: var(--s-3);
+    }
+    .wf-slot__label {
+      font-family: var(--font-display);
+      font-size: var(--fs-sm);
+      font-weight: var(--fw-semibold);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--secondary);
+    }
+    .wf-slot__picker {
+      font-family: inherit;
+      font-size: var(--fs-xs);
+      padding: 4px 8px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      background: var(--bg);
+      color: var(--text);
+    }
+    .wf-slot__preview {
+      min-height: 64px;
+      padding: var(--s-3);
+      background: var(--bg);
+      border-radius: var(--r-sm);
+      color: var(--secondary);
+      font-size: var(--fs-xs);
+      font-family: var(--font-mono);
+    }
+  </style>
+</head>
+<body>
+  <!-- Tweaks panel is injected by tweaks.js — single script tag below, nothing else needed -->
+
+  <main class="wf-frame">
+    <h1>Wireframe: <code>dashboard</code></h1>
+    <p class="wf-note">Pick a component per slot. Once locked, copy to <code>screens/dashboard-desktop.html</code> + <code>screens/dashboard-mobile.html</code> for M5+ hi-fi.</p>
+
+    <!-- Slot 1: Header -->
+    <div class="wf-slot" data-slot="header" data-options="topbar-sidebar|topbar-only|hero-nav|back-nav">
+      <div class="wf-slot__head">
+        <span class="wf-slot__label">Slot: header</span>
+        <select class="wf-slot__picker" data-slot-picker="header">
+          <option value="topbar-sidebar">topbar + sidebar (desktop)</option>
+          <option value="topbar-only">topbar only</option>
+          <option value="hero-nav">hero with inline nav</option>
+          <option value="back-nav">back-arrow + title</option>
+        </select>
+      </div>
+      <div class="wf-slot__preview" data-slot-preview="header">
+        [Header slot — select option above]
+      </div>
+    </div>
+
+    <!-- Slot 2: Primary content -->
+    <div class="wf-slot" data-slot="primary" data-options="hero-card|list-compact|list-spacious|grid-cards|chart-area">
+      <div class="wf-slot__head">
+        <span class="wf-slot__label">Slot: primary content</span>
+        <select class="wf-slot__picker" data-slot-picker="primary">
+          <option value="hero-card">hero card</option>
+          <option value="list-compact">compact list</option>
+          <option value="list-spacious">spacious list</option>
+          <option value="grid-cards">card grid</option>
+          <option value="chart-area">chart area</option>
+        </select>
+      </div>
+      <div class="wf-slot__preview" data-slot-preview="primary">
+        [Primary slot — select option above]
+      </div>
+    </div>
+
+    <!-- Slot 3: Secondary content -->
+    <div class="wf-slot" data-slot="secondary" data-options="stats-row|recent-list|empty|none">
+      <div class="wf-slot__head">
+        <span class="wf-slot__label">Slot: secondary content</span>
+        <select class="wf-slot__picker" data-slot-picker="secondary">
+          <option value="stats-row">stats row (3 KPIs)</option>
+          <option value="recent-list">recent list</option>
+          <option value="empty">empty state</option>
+          <option value="none">none</option>
+        </select>
+      </div>
+      <div class="wf-slot__preview" data-slot-preview="secondary">
+        [Secondary slot — select option above]
+      </div>
+    </div>
+
+    <!-- Slot 4: Footer / Nav -->
+    <div class="wf-slot" data-slot="footer" data-options="nav-bottom|fab-only|none">
+      <div class="wf-slot__head">
+        <span class="wf-slot__label">Slot: footer / nav</span>
+        <select class="wf-slot__picker" data-slot-picker="footer">
+          <option value="nav-bottom">bottom nav (mobile)</option>
+          <option value="fab-only">FAB only</option>
+          <option value="none">none (desktop)</option>
+        </select>
+      </div>
+      <div class="wf-slot__preview" data-slot-preview="footer">
+        [Footer slot — select option above]
+      </div>
+    </div>
+  </main>
+
+  <script src="../assets/js/tweaks.js" defer></script>
+  <script>
+    // Minimal wireframe swap — replace slot preview text on pick.
+    // Real implementation loads atom/molecule HTML via fetch() from ../atoms/<value>.html
+    document.querySelectorAll('[data-slot-picker]').forEach((sel) => {
+      sel.addEventListener('change', (e) => {
+        const slot = e.target.getAttribute('data-slot-picker');
+        const val = e.target.value;
+        const preview = document.querySelector(`[data-slot-preview="${slot}"]`);
+        if (preview) {
+          preview.textContent = `[${slot} → ${val}]`;
+          // TODO: fetch('../atoms/' + val + '.html').then(r => r.text()).then(html => preview.innerHTML = html);
+        }
+      });
+    });
+  </script>
+</body>
+</html>

@@ -14,6 +14,9 @@ KDBP-aware planner. Same planning logic as `/plan`, but persists to `.kdbp/PLAN.
 | Flag | Meaning |
 |------|---------|
 | `--full-catalog` | Skip Layer 2 LLM dimension filter. Render ALL dimensions of matched sections. Default: filtered. |
+| `--preset=mockup-project` | Emit the canonical 13-phase mockup template (tokens → atoms → molecules → flows+INDEX → screens by section → handoff). Writes `<!-- project_type: mockup -->` to PLAN.md frontmatter. Invoked by `/gabe-mockup` when no active plan exists. |
+| `--platforms=<list>` | Comma-separated platforms (`web,mobile-web,native-mobile`). Used by `--preset=mockup-project`. Default: `web,mobile-web`. |
+| `--themes=<N>` | Number of theme candidates for M1 stress matrix. Used by `--preset=mockup-project`. Default: 3. |
 
 ## Procedure
 
@@ -35,6 +38,44 @@ Only `check` is a new subcommand. All others fall through to existing behavior.
 1. Check `.kdbp/` exists. If not: "No KDBP found. Run `/gabe-init` first or use `/plan` for a stateless plan." — stop.
 2. If `.kdbp/archive/` doesn't exist, create it.
 3. If `.kdbp/PLAN.md` doesn't exist, create it from template.
+
+### Step 0.5: Preset dispatch (before free-form planning)
+
+Parse flags. If `--preset=mockup-project` present:
+
+1. Skip Step 3 free-form planning flow.
+2. Emit the canonical 13-phase mockup template (see Step 3.PRESET below). Parameters:
+   - `--platforms=<list>` (default: `web,mobile-web`) drives platform column/note in screen-phase scope.
+   - `--themes=<N>` (default: 3) drives M1 candidate count.
+   - `--full-catalog` still applies to tier-matrix rendering.
+3. Proceed to Step 3.5 (tier decision per phase) as normal — each preset phase still picks a tier.
+4. Write PLAN.md frontmatter with `<!-- project_type: mockup -->` after `<!-- status: active -->`.
+
+If no preset flag → continue Step 1 as before. When non-preset plan is written, add `<!-- project_type: code -->` to frontmatter (explicit default).
+
+### Step 3.PRESET: Mockup-project 13-phase template
+
+Emitted by `--preset=mockup-project`. Phases + canonical types + scope hints:
+
+| # | Phase | Types | Complexity | Scope hint |
+|---|-------|-------|------------|------------|
+| 1 | Design language + tokens | `design-system` | high | Theme matrix + stress-test render across `--platforms` + token lock → `tokens.css` |
+| 2 | Atomic components | `design-system, ui-kit` | low | Button / input / pill / badge / avatar / chip / skeleton / progress / spinner |
+| 3 | Molecular components | `design-system, ui-kit` | med | Cards / modals / toast / banner / nav / FAB / filters / sheets / drawers / forms / state-tabs |
+| 4 | Flow map + INDEX + CRUD×entity | `mockup-flows, mockup-index` | med | Enumerate flows, seed `docs/mockups/INDEX.md` (4 tables), populate CRUD from `.kdbp/ENTITIES.md` |
+| 5 | Auth + onboarding + consent | `user-facing, auth` | med | Login / register / forgot / verify / welcome / jurisdiction consent / PWA install / push |
+| 6 | Core capture/primary loop | `user-facing` | high | Dashboard + primary interaction + 5-state variants (idle / processing / reviewing / saving / error) |
+| 7 | Batch / bulk flows | `user-facing` | high | Batch capture + review + reconciliation |
+| 8 | History + items + insights | `user-facing, data-view` | med | List views + aggregations + analytics drill-downs |
+| 9 | Trends + reports | `user-facing, analytics, charts` | high | Chart types + drill-down + PDF export |
+| 10 | Shared / multi-tenant surfaces | `user-facing, multi-tenant` | high | Group / workspace / team switcher + admin + invite flows |
+| 11 | Settings + profile | `user-facing, settings` | med | Subviews (theme / lang / currency / data / account / subscription) |
+| 12 | Alerts + errors + offline | `user-facing, edge-cases` | med | Alerts list + toasts + scan errors + offline banner + 404 + push examples |
+| 13 | Handoff + index + audit | `mockup-docs, mockup-validation` | low | `HANDOFF.json` + `SCREEN-SPECS.md` + INDEX.md §6 Coverage gaps + a11y AA pass |
+
+Source-of-truth: `templates/gabe/mockup-project-preset.md` (maintained alongside gastify's `.kdbp/PLAN.md` as reference implementation).
+
+Preset writes `## Current Phase` pointing to Phase 1. User reviews + can `/gabe-plan update` to add/drop phases before executing.
 
 ### Step 1: Check for active plan
 

@@ -33,6 +33,10 @@ Parse `$ARGUMENTS`:
 1. `.kdbp/` exists → else print `⚠ No KDBP. Run /gabe-init first.` and exit.
 2. `.kdbp/PLAN.md` contains `<!-- status: active -->` → else print `ℹ No active plan. Run /gabe-plan [goal] first.` and exit.
 3. Phases table includes `Exec` column → else print legacy warning and exit (do not auto-migrate; recommend `/gabe-plan update` or manual edit).
+4. **Project type preflight.** Parse `<!-- project_type: ... -->` comment. Apply dispatch matrix:
+   - `code` or missing → proceed with Step 1.
+   - `mockup` → print `⚠ Mockup plan active — use /gabe-mockup instead` and exit 0. Do not redirect silently; print full message so user understands why.
+   - `hybrid` → parse target phase `types` list. If `types ⊆ mockup-tag-set` (`{design-system, ui-kit, mockup-flows, mockup-index, mockup-docs, mockup-validation}`) → print `⚠ Hybrid plan — current phase is mockup-type. Use /gabe-mockup` and exit 0. Otherwise proceed with Step 1.
 
 ### Step 1: Load execution context
 

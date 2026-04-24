@@ -100,6 +100,18 @@ Three layers, all deterministic:
   - No wells have both Paths AND Docs populated (nothing to check against)
   - Diff is ONLY the Docs files themselves (don't flag a doc update as missing doc update)
 
+**Layer 4 — Mockup INDEX freshness** (active only when `BEHAVIOR.md` `project_type` is `mockup` or `hybrid`):
+
+- Read `project_type` from `.kdbp/BEHAVIOR.md` frontmatter. If absent or `code` → skip this layer entirely.
+- Scope: any staged file matching `docs/mockups/**` or `docs/designs/**`.
+- Check: is `docs/mockups/INDEX.md` in the staged diff?
+- If mockup/design files changed AND `INDEX.md` NOT in diff → finding `low`, text: `docs/mockups/** edited but INDEX.md not touched. Update §3 Screens / §4 CRUD / §5 Component usage / §6 Coverage as appropriate.`
+- Skip this layer when:
+  - Staged diff is ONLY tokens.css / tweaks.js / tweaks-panel.html (shared infra edits — INDEX.md doesn't need bump)
+  - Staged diff is ONLY within `docs/mockups/explorations/` or `docs/mockups/archive/` (scratch / archive space)
+  - Staged diff IS `INDEX.md` itself (can't flag the same file)
+- Severity deterministically `low` (non-blocking during exploration; Scale tier promotes to `medium`).
+
 **CHECK 8 — Structure** (requires `.kdbp/STRUCTURE.md`)
 
 Deterministic path-pattern check for new files. Zero LLM cost. Skipped if `.kdbp/STRUCTURE.md` missing.

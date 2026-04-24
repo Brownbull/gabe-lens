@@ -1,0 +1,143 @@
+---
+name: gabe-mockup
+description: "Mockup/UX workflow command — peer to /gabe-execute, handles design-system / atoms / molecules / wireframes / screens / handoff phases. On empty project: dispatches to /gabe-plan --preset=mockup-project. On active mockup plan: executes current phase via gabe-mockup skill playbook. Mutually redirects with /gabe-execute for wrong plan type. Usage: /gabe-mockup [goal] [--reconfigure] [--dry-run] [--platforms=web,mobile-web,native-mobile] [--themes=N]"
+---
+
+# Gabe Mockup
+
+Full command (not wrapper) — owns the Exec step for phases whose types fall inside the **mockup-tag set**: `{design-system, ui-kit, mockup-flows, mockup-index, mockup-docs, mockup-validation}`. Reads `.kdbp/PLAN.md`, routes to plan-creation or phase-execute based on state. `/gabe-execute` covers the code equivalent; the two mutually redirect.
+
+**Design principle.** Mockup projects (HTML screens, design tokens, component libraries, handoff docs) need different execution recipes than code projects. `/gabe-execute` assumes tasks decompose into test-then-implement cycles; mockups decompose into render-then-audit cycles across platform variants. `/gabe-mockup` keeps the same PLAN.md state machine (Exec / Review / Commit / Push) but uses the `gabe-mockup/SKILL.md` playbook for the Exec step.
+
+## Procedure
+
+### Step 0: Parse args + validate
+
+Parse `$ARGUMENTS`:
+
+| Token | Meaning |
+|-------|---------|
+| _(empty)_ | Execute current phase OR start plan wizard if no active plan |
+| _goal string_ | No active plan: create new mockup plan with goal. Active plan: appended as phase context |
+| `--reconfigure` | Re-run M1 tokens/design-language phase from scratch |
+| `--dry-run` | Print plan + proposed actions without writing files or committing |
+| `--platforms=web,mobile-web,native-mobile` | Platform variants to produce per screen. Default `web,mobile-web`. Used by `--preset=mockup-project` emission |
+| `--themes=N` | Number of candidate themes in M1. Default 3. Used by preset emission |
+
+**Preconditions:**
+
+1. `.kdbp/` exists → else print `⚠ No KDBP. Run /gabe-init first and pick project_type=mockup.` and exit.
+2. If `.kdbp/PLAN.md` exists and `<!-- status: active -->` → parse `<!-- project_type: ... -->`:
+   - `mockup` → proceed to Step 2 (execute phase).
+   - `hybrid` → proceed to Step 1.5 (hybrid dispatch).
+   - `code` → print `⚠ Code plan active — use /gabe-execute instead. To start a mockup plan, /gabe-plan replace first.` and exit 0.
+3. If `.kdbp/PLAN.md` exists but `<!-- status: none -->` or file placeholder → proceed to Step 1 (plan creation).
+4. If no PLAN.md → create from template and proceed to Step 1.
+
+### Step 1: Plan creation (when no active plan)
+
+Dispatch to `/gabe-plan --preset=mockup-project "$GOAL" --platforms=... --themes=...`. Pass remaining args through. `/gabe-plan` handles the interview, emits the 13-phase template, writes `<!-- project_type: mockup -->` to frontmatter. Returns here with `status: active`.
+
+If `$ARGUMENTS` has no goal string: prompt `What are you designing? (one sentence — e.g., "Personal expense tracker dashboard + capture flows")`. Pass that to `/gabe-plan`.
+
+After `/gabe-plan` completes, print `✓ Mockup plan created. Run /gabe-next to dispatch first phase.` and exit. Do NOT auto-execute — user reviews plan first.
+
+### Step 1.5: Hybrid dispatch
+
+When `project_type=hybrid`, route to Exec command based on target phase types:
+
+1. Read Current Phase pointer → integer N.
+2. Parse target row's types list from `Types` column OR `## Phase Details → Phase N → types:` YAML.
+3. Apply rule: if `types ⊆ mockup-tag-set` → proceed to Step 2 (mockup execute). Else print `⚠ Phase N is code-type. Use /gabe-execute instead.` and exit 0.
+
+Mockup-tag set: `{design-system, ui-kit, mockup-flows, mockup-index, mockup-docs, mockup-validation}`.
+
+### Step 2: Load execution context
+
+1. Read `.kdbp/PLAN.md`:
+   - Current Phase pointer → integer N
+   - Target phase row: Phase name, Description, Tier, Complexity, Exec state
+   - `types` list for phase (drives skill playbook recipe selection)
+   - Phase Details YAML → `phase_tier`, `dim_overrides`, `sections_considered`
+2. Read `.kdbp/BEHAVIOR.md`:
+   - `maturity`, `domain`, `tech` (informational — used by skill M1 recipe)
+   - `project_type` (should match PLAN.md `project_type`)
+3. Read `.kdbp/ENTITIES.md` if phase includes `mockup-index` type — CRUD matrix seed source.
+4. Read `.kdbp/SCOPE.md` REQs list — referenced by screen-phase recipes to verify REQ coverage.
+5. Load `gabe-mockup/SKILL.md` playbook (project-local at `skills/gabe-mockup/SKILL.md` OR global at `~/.claude/skills/gabe-mockup/SKILL.md`).
+
+### Step 3: Dispatch to phase recipe
+
+The skill playbook defines recipes keyed by phase `types`. Dispatch table:
+
+| Phase types contain | Recipe | Output location |
+|---------------------|--------|-----------------|
+| `design-system` (M1) | Tokens + stress-test matrix recipe | `docs/mockups/{tokens.css, explorations/, stress-*.html}` |
+| `design-system` + `ui-kit` (M2/M3) | Atoms / molecules recipe | `docs/mockups/{atoms,molecules}/` |
+| `mockup-flows` + `mockup-index` (M4) | Flows + INDEX seed recipe | `docs/mockups/{flows/, INDEX.md}` + populate ENTITIES.md CRUD |
+| `user-facing` AND (M5+) screen phases | Wireframe → hi-fi recipe | `docs/mockups/{wireframes/, screens/}` |
+| `mockup-docs` + `mockup-validation` (M13) | Handoff + audit recipe | `docs/mockups/{HANDOFF.json, SCREEN-SPECS.md, COMPONENT-LIBRARY.md}` |
+
+Each recipe:
+1. Prints `GABE MOCKUP — Phase N: [name]` summary with tier / types / prototype flag
+2. Lists artifacts to produce + referenced tokens / components / REQs
+3. Offers `[go] / [edit-tasks] / [escalate] / [abort]` prompt (mirrors `/gabe-execute` Step 2 UI)
+4. On `go`: execute per SKILL.md step-by-step
+5. Writes Exec state `🔄` → `✅` on completion (same semantics as `/gabe-execute`)
+6. Does NOT commit — hands off to `/gabe-commit` via `/gabe-next` chain
+
+### Step 4: uipro enrichment (optional, M1 only)
+
+When phase is M1 (`design-system`) AND `~/.claude/skills/ui-ux-pro-max/` is installed AND phase is tier `mvp` or `ent`:
+
+1. Skill invokes uipro `search.py` for candidate style families matching the project's goal + domain.
+2. Results appended to the stress-test candidate list for user pick.
+3. If uipro not installed → skip silently (no hard dependency).
+
+Install prompt surfaces at `/gabe-init` time for `project_type=mockup|hybrid` projects. User can re-install later via `npx uipro-cli init --ai claude`.
+
+### Step 5: `--reconfigure` mode
+
+Walks the M1 design-language phase from scratch:
+1. Archives existing `docs/mockups/tokens.css` to `docs/mockups/archive/tokens-YYYY-MM-DD.css`
+2. Re-runs M1 recipe (stress matrix + token lock)
+3. Updates PLAN.md P1 Exec state → `🔄` until user re-approves
+4. Existing screens keep working (tokens.css always present at same path)
+
+Intended for when user wants to swap theme families mid-project without restart.
+
+### Step 6: `--dry-run` mode
+
+Prints:
+
+```
+GABE MOCKUP (dry-run)
+PROJECT_TYPE: mockup
+PHASE: N — [name]
+TYPES: [type list]
+TIER: [mvp|ent|scale]
+RECIPE: [recipe name from Step 3 table]
+ARTIFACTS PLANNED:
+  - docs/mockups/atoms/button-primary.html
+  - docs/mockups/atoms/button-secondary.html
+  ...
+EXEC STATE: ⬜ → would advance to 🔄
+```
+
+No file writes. No state changes. Purely informational.
+
+## Error surfaces
+
+- No active plan + no goal arg → prompt for goal, dispatch to `/gabe-plan --preset=mockup-project`.
+- `.kdbp/PLAN.md` project_type mismatch → mutual redirect per Step 0.
+- Unknown phase type tag (outside mockup-tag-set AND outside `/gabe-execute` tag universe) → print `⚠ Phase N types [...] not recognized. Add trigger-tag mapping in ~/.claude/templates/gabe/tier-sections/tier-section-index.md` and exit.
+- Missing `gabe-mockup/SKILL.md` playbook → print `⚠ Skill playbook missing. Reinstall gabe_lens or restore from git.` and exit.
+
+## Non-goals
+
+- Does NOT run linters, contrast checkers, or a11y validators directly — those belong to `/gabe-review` and `/gabe-commit` CHECK 7 Layer 4.
+- Does NOT emit HANDOFF.json outside M13 phase — handoff is a dedicated phase, not a side effect of every phase.
+- Does NOT auto-commit per artifact — same per-phase commit cadence as `/gabe-execute` (D2 default).
+- Does NOT replace `/gabe-plan`, `/gabe-review`, `/gabe-commit`, `/gabe-push` — only the Exec step.
+
+$ARGUMENTS

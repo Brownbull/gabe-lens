@@ -2,7 +2,7 @@
 
 Maps phase trigger tags to section files. `/gabe-plan` reads this to assemble the tier trade-off matrix for each phase.
 
-## Section catalog (v1 — 14 sections)
+## Section catalog (v2 — 20 sections)
 
 | Section              | File                       | Trigger tags                        | Purpose                                           |
 |----------------------|----------------------------|-------------------------------------|---------------------------------------------------|
@@ -20,6 +20,22 @@ Maps phase trigger tags to section files. `/gabe-plan` reads this to assemble th
 | Deployment/Release   | deployment-release.md      | migration, rollout                  | Feature flags, canary, rollback safety            |
 | File/Media           | file-media.md              | upload, storage, cdn                | Upload, virus scan, CDN, retention                |
 | Notifications        | notifications.md           | email, push, sms                    | Delivery, preferences, templating, tracking       |
+| Design System        | design-system.md           | design-system                       | Tokens, type scale, spacing, motion               |
+| UI Kit               | ui-kit.md                  | ui-kit                              | Atomic + molecular inventory, state matrix        |
+| Flows                | flows.md                   | mockup-flows                        | User-flow enumeration + walkthroughs              |
+| Mockup Index         | index-mockup.md            | mockup-index                        | INDEX.md governance, CRUD×entity, coverage        |
+| Mockup Docs          | documentation-mockup.md    | mockup-docs                         | HANDOFF schema, SCREEN-SPECS, a11y audit          |
+| Mockup Validation    | validation-mockup.md       | mockup-validation                   | REQ×screen, token parity, WCAG AA pass            |
+
+### Mockup-tag set (dispatch detection)
+
+Used by `/gabe-mockup` / `/gabe-execute` / `/gabe-next` to detect mockup phases in hybrid plans:
+
+```
+{design-system, ui-kit, mockup-flows, mockup-index, mockup-docs, mockup-validation}
+```
+
+Primary dispatch is by `project_type` frontmatter field in `PLAN.md` (`mockup | code | hybrid`). Per-phase type detection is a fallback for hybrid plans.
 
 ## Assembly rules
 
