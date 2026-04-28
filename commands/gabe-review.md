@@ -3,7 +3,7 @@ Load and follow the skill at `skills/gabe-review/SKILL.md` (project-local) or `~
 Review code changes with risk pricing, confidence scoring, and interactive triage.
 
 Arguments:
-- No args: review all uncommitted changes (git diff HEAD). Writes/resumes the singleton `.kdbp/REVIEW.md` and enters triage.
+- No args: infer target from `.kdbp/PLAN.md` (first row with `Review=⬜` AND `Exec` ∈ {`✅`, `🔄`}) + `.kdbp/LEDGER.md` (files referenced in that phase's exec entries). Falls back to `git diff HEAD` when no KDBP context. Writes/resumes the singleton `.kdbp/REVIEW.md` and enters triage.
 - `brief`: findings table + confidence score + verdict only, no triage and no REVIEW.md write
 - `fix`: skip to triage, auto-fix all findings (writes REVIEW.md en route)
 - `deferred`: show deferred items dashboard with triage option (read-only of PENDING.md; does not touch REVIEW.md)
