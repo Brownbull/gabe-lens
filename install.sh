@@ -128,10 +128,11 @@ install_templates_to() {
 
     if [ -d "$SCRIPT_DIR/templates/mockup" ]; then
         run "mkdir -p $home_root/templates/gabe/mockup"
-        run "cp \"$SCRIPT_DIR/templates/mockup/\"* $home_root/templates/gabe/mockup/ 2>/dev/null || true"
+        # Recursive copy — picks up tests/mockups/ subtree (hub.spec.ts, tweaks.spec.ts, section-smoke.spec.ts.tmpl)
+        run "cp -r \"$SCRIPT_DIR/templates/mockup/\"* $home_root/templates/gabe/mockup/ 2>/dev/null || true"
         local mk_count
-        mk_count=$(ls -1 "$SCRIPT_DIR/templates/mockup/" 2>/dev/null | wc -l)
-        echo "  OK: $mk_count mockup templates → $label/templates/gabe/mockup/"
+        mk_count=$(find "$SCRIPT_DIR/templates/mockup/" -type f 2>/dev/null | wc -l)
+        echo "  OK: $mk_count mockup template files → $label/templates/gabe/mockup/ (incl. tests/mockups/)"
     fi
 
     if [ -d "$SCRIPT_DIR/templates/debt-patterns" ]; then

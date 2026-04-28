@@ -1,0 +1,78 @@
+# React port recipe
+
+> Emitted by `/gabe-mockup spike` on first invocation. Augmented thereafter.
+
+This file documents how `{{PROJECT_NAME}}` translates static mockups under `docs/mockups/` into shipping React components under `frontend/src/components/`. Read it before adding a new component — the recipe is mechanical once the conventions hold.
+
+## File layout
+
+```
+frontend/
+├── package.json                        # vite + react + ts (no Tailwind, no router, no Storybook)
+├── vite.config.ts                      # alias @mockups → ../docs/mockups
+├── tsconfig.json
+├── index.html                          # <body data-theme data-mode>
+└── src/
+    ├── main.tsx                        # mounts <App />
+    ├── App.tsx                         # wraps demo in {{PROVIDER_NAME}} (when --system)
+    ├── styles/tokens.css               # @import "@mockups/assets/css/{{TOKENS_FILENAME}}"
+    ├── components/
+    │   └── <ComponentName>/
+    │       ├── <ComponentName>.tsx
+    │       ├── <ComponentName>.module.css
+    │       ├── <ComponentName>.types.ts
+    │       ├── <ComponentName>Provider.tsx     # only with --system
+    │       ├── <ComponentName>Container.tsx    # only with --system
+    │       └── use<ComponentName>.ts           # only with --system
+    └── demo/
+        └── <ComponentName>Demo.tsx
+```
+
+## Token chain — single source of truth
+
+`src/styles/tokens.css` re-exports the canonical mockup tokens via `@import "@mockups/assets/css/{{TOKENS_FILENAME}}"`. Switching `[data-theme][data-mode]` on `<body>` cascades through both the static mockup AND every React component. **Never redeclare a token value in React-side CSS** — if you reach for a hex literal, you have drift. Find the right `var(--*)` token in the canonical CSS instead.
+
+## DOM-mirroring rule
+
+JSX structure mirrors the HTML mockup verbatim: same class names (`.{{COMPONENT_SLUG}}`, `.{{COMPONENT_SLUG}}-icon`, `.{{COMPONENT_SLUG}}-body`, `.{{COMPONENT_SLUG}}-close`), same variant convention (`is-success` className, NOT `data-variant`), same ARIA roles. The molecule's existing CSS rules (in `assets/css/molecules.css` or wherever the project keeps component CSS) apply unchanged because selectors are identical.
+
+## JSDoc backref convention
+
+Every React component file begins with:
+
+```ts
+/**
+ * @see {{MOCKUP_HTML_REL_PATH}} (canonical mockup)
+ * @see <relative-path-to-COMPONENT-LIBRARY.md> (state matrix)
+ */
+```
+
+The mockup HTML is the spec; the React file is the implementation. Backref makes the lineage findable at a glance and survives renames.
+
+## Animation handling
+
+CSS transitions on mount work cleanly. Unmount transitions are awkward in React without a library — the component's `is-leaving` class triggers an exit animation, then a 200ms `setTimeout` calls `onDismiss(id)`. This is intentionally simple; if a future component needs a real exit choreography, add `<TransitionGroup>` or Framer Motion at THAT time, not preemptively.
+
+## System layer (when applicable)
+
+A "system layer" molecule (`{{COMPONENT_NAME}}` is one) needs a Provider that owns the visible queue + a Container that renders it + a hook that dispatches into it. Leaf-only molecules skip these three files entirely. The decision: **needs a system layer** ↔ **multiple instances appear concurrently** (toast, modal-stack, drawer-stack). Singleton screens (cards, banners, forms) are leaf-only.
+
+## Pre-flight checklist for the next component port
+
+- [ ] Pick the next component from `docs/mockups/<section>/<name>.html` (must be live, not placeholder)
+- [ ] Confirm the canonical CSS has rules for it; if not, port the mockup's inline `<style>` to `assets/css/molecules.css` first
+- [ ] Decide leaf-only vs `--system` (multiple-instance test above)
+- [ ] Run `/gabe-mockup spike <name>` (with `--system` if applicable)
+- [ ] Visual diff against the static mockup at port 4173 vs React at port 5173 in light + dark
+- [ ] If drift: hex literal in React CSS? token chain broken? class name typo?
+- [ ] Update this file's "Components ported" table with one row
+
+## Components ported
+
+| Component | Date | --system? | Notes |
+|---|---|---|---|
+{{COMPONENT_PORTED_ROWS}}
+
+## Should this become `gabe-mockup` M14?
+
+Open question — re-evaluate after 2–3 more components are ported via this recipe. Mechanical parts (scaffold, file layout, token chain, JSDoc backref, demo page) are clearly codify-able. Judgment-based parts (which `--system` shape, animation strategy per component) need lived experience to know what auto-detection rules would look like. Track the answer here.

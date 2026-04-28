@@ -1,0 +1,83 @@
+/**
+ * {{COMPONENT_NAME}} — leaf React component.
+ *
+ * Mirrors the DOM of the canonical static mockup so the existing variant
+ * CSS rules apply unchanged. Variant is dispatched via `is-{type}` className
+ * (the same convention used in the HTML mockup), not data-attribute.
+ *
+ * @see {{MOCKUP_HTML_REL_PATH}} (canonical mockup)
+ * @see {{COMPONENT_LIBRARY_REL_PATH}} (state matrix)
+ */
+import { useEffect, useRef, useState } from "react";
+import type { {{COMPONENT_NAME}}Props } from "./{{COMPONENT_NAME}}.types";
+import "./{{COMPONENT_NAME}}.css";
+
+export function {{COMPONENT_NAME}}(props: {{COMPONENT_NAME}}Props) {
+  const { id, type, title, message, onDismiss, duration = {{DEFAULT_DURATION}} } = props;
+  const [isDismissing, setIsLeaving] = useState(false);
+  const timerRef = useRef<number | null>(null);
+
+  const startTimer = () => {
+    if (duration <= 0) return;
+    timerRef.current = window.setTimeout(() => setIsLeaving(true), duration);
+  };
+  const clearTimer = () => {
+    if (timerRef.current !== null) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    startTimer();
+    return clearTimer;
+    // duration is a primitive — re-run only when it changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [duration]);
+
+  useEffect(() => {
+    if (!isDismissing) return;
+    const fadeOut = window.setTimeout(() => onDismiss(id), 200);
+    return () => window.clearTimeout(fadeOut);
+  }, [isDismissing, id, onDismiss]);
+
+  const ariaRole = type === "error" ? "alert" : "status";
+
+  return (
+    <div
+      className={`{{COMPONENT_SLUG}} is-${type}${isDismissing ? " is-dismissing" : ""}`}
+      role={ariaRole}
+      onMouseEnter={clearTimer}
+      onMouseLeave={startTimer}
+    >
+      <div className="{{COMPONENT_SLUG}}-icon" aria-hidden="true">
+        {iconFor(type)}
+      </div>
+      <div className="{{COMPONENT_SLUG}}-body">
+        {title ? <p className="{{COMPONENT_SLUG}}-title">{title}</p> : null}
+        <p className="{{COMPONENT_SLUG}}-message">{message}</p>
+      </div>
+      <button
+        type="button"
+        className="{{COMPONENT_SLUG}}-close"
+        aria-label="Cerrar"
+        onClick={() => setIsLeaving(true)}
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+
+function iconFor(type: {{COMPONENT_NAME}}Props["type"]) {
+  switch (type) {
+    case "success":
+      return "✓";
+    case "info":
+      return "i";
+    case "warning":
+      return "!";
+    case "error":
+      return "×";
+  }
+}

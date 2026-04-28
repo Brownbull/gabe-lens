@@ -12,7 +12,7 @@
   "properties": {
     "schemaVersion": { "const": 1 },
     "generatedAt":   { "type": "string", "format": "date-time" },
-    "title":         { "type": "string", "description": "Human-readable project + theme name, e.g., 'gastify / editorial theme'" },
+    "title":         { "type": "string", "description": "Human-readable project + theme name, e.g., 'my-project / editorial theme'" },
     "attribution":   { "type": "string", "description": "Apache-2.0 attribution line for impeccable schema lineage" },
 
     "colors": {

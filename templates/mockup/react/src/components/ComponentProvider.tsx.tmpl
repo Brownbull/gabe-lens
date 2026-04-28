@@ -1,0 +1,73 @@
+/**
+ * {{PROVIDER_NAME}} — system layer.
+ *
+ * Owns the visible {{COMPONENT_SLUG}} queue. Max {{MAX_VISIBLE}} concurrent;
+ * a {{MAX_VISIBLE}}+1th push evicts the oldest (FIFO). Auto-dismiss timers
+ * live INSIDE each <{{COMPONENT_NAME}}> instance (not here) — the provider only
+ * holds entries; <{{COMPONENT_NAME}}> calls back via onDismiss when its timer fires
+ * (or the user clicks close).
+ */
+import { createContext, useCallback, useState } from "react";
+import type { ReactNode } from "react";
+import type { {{COMPONENT_NAME}}Entry, {{COMPONENT_NAME}}Type } from "./{{COMPONENT_NAME}}.types";
+
+const MAX_VISIBLE = {{MAX_VISIBLE}};
+
+interface {{COMPONENT_NAME}}ContextValue {
+  queue: readonly {{COMPONENT_NAME}}Entry[];
+  push: (
+    type: {{COMPONENT_NAME}}Type,
+    message: string,
+    options?: { title?: string; duration?: number },
+  ) => string;
+  dismiss: (id: string) => void;
+}
+
+export const {{COMPONENT_NAME}}Context = createContext<{{COMPONENT_NAME}}ContextValue | null>(null);
+
+export function {{PROVIDER_NAME}}({ children }: { children: ReactNode }) {
+  const [queue, setQueue] = useState<readonly {{COMPONENT_NAME}}Entry[]>([]);
+
+  const dismiss = useCallback((id: string) => {
+    setQueue((prev) => prev.filter((entry) => entry.id !== id));
+  }, []);
+
+  const push = useCallback<{{COMPONENT_NAME}}ContextValue["push"]>(
+    (type, message, options) => {
+      const id = crypto.randomUUID();
+      const entry: {{COMPONENT_NAME}}Entry = {
+        id,
+        type,
+        title: options?.title,
+        message,
+        duration: options?.duration ?? defaultDurationFor(type),
+        onDismiss: dismiss,
+        createdAt: Date.now(),
+      };
+      setQueue((prev) => {
+        const next = [...prev, entry];
+        return next.length > MAX_VISIBLE ? next.slice(next.length - MAX_VISIBLE) : next;
+      });
+      return id;
+    },
+    [dismiss],
+  );
+
+  const value: {{COMPONENT_NAME}}ContextValue = { queue, push, dismiss };
+
+  return <{{COMPONENT_NAME}}Context.Provider value={value}>{children}</{{COMPONENT_NAME}}Context.Provider>;
+}
+
+function defaultDurationFor(type: {{COMPONENT_NAME}}Type): number {
+  // Mirrors mockup contract: success/info auto-dismiss fast, warning slower,
+  // error sticks until user dismisses. See {{MOCKUP_HTML_REL_PATH}} "Composition".
+  switch (type) {
+    case "success":
+    case "info":
+      return 5000;
+    case "warning":
+      return 8000;
+    case "error":
+      return 0;
+  }
+}

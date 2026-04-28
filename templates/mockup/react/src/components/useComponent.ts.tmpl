@@ -1,0 +1,30 @@
+/**
+ * {{HOOK_NAME}} — convenience hook for dispatching {{COMPONENT_SLUG}}s from anywhere
+ * inside the {{PROVIDER_NAME}} subtree.
+ */
+import { useContext } from "react";
+import { {{COMPONENT_NAME}}Context } from "./{{PROVIDER_NAME}}";
+import type { {{COMPONENT_NAME}}Type } from "./{{COMPONENT_NAME}}.types";
+
+interface {{COMPONENT_NAME}}DispatchOptions {
+  title?: string;
+  duration?: number;
+}
+
+export function {{HOOK_NAME}}() {
+  const ctx = useContext({{COMPONENT_NAME}}Context);
+  if (!ctx) {
+    throw new Error("{{HOOK_NAME}} must be called inside a <{{PROVIDER_NAME}}>.");
+  }
+
+  const dispatch = (type: {{COMPONENT_NAME}}Type, message: string, options?: {{COMPONENT_NAME}}DispatchOptions) =>
+    ctx.push(type, message, options);
+
+  return {
+    success: (message: string, options?: {{COMPONENT_NAME}}DispatchOptions) => dispatch("success", message, options),
+    info: (message: string, options?: {{COMPONENT_NAME}}DispatchOptions) => dispatch("info", message, options),
+    warning: (message: string, options?: {{COMPONENT_NAME}}DispatchOptions) => dispatch("warning", message, options),
+    error: (message: string, options?: {{COMPONENT_NAME}}DispatchOptions) => dispatch("error", message, options),
+    dismiss: ctx.dismiss,
+  };
+}

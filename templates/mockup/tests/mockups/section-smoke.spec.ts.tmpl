@@ -1,0 +1,70 @@
+import { test, expect } from "@playwright/test";
+
+/**
+ * SECTION SMOKE SPEC TEMPLATE — emitted by /gabe-mockup M2/M3/M4 to
+ * tests/mockups/<section>.spec.ts (drop the .tmpl extension).
+ *
+ * This file is NOT picked up by Playwright while it has the .tmpl extension.
+ * Recipes copy + rename to .ts and substitute the markers below.
+ *
+ * Substitution markers:
+ *   {{SECTION_NAME}}        — capitalized section name (e.g. "Atoms")
+ *   {{SECTION_SLUG}}        — directory slug (e.g. "atoms")
+ *   {{ITEMS_ARRAY}}         — array literal of items in this section
+ *   {{ITEM_NAME}}, {{ITEM_FILE}}, {{PRIMARY_CLASS}} — used inside ITEMS_ARRAY entries
+ *
+ * Per-item shape:
+ *   { name: "button", file: "button.html", primaryClass: "btn" }
+ *
+ * `primaryClass` is the CSS class that MUST appear on the page if the item
+ * rendered correctly — a smoke check that catches "page loads but the demo is
+ * blank" regressions.
+ */
+
+interface SectionItem {
+  name: string;
+  file: string;
+  primaryClass: string;
+}
+
+const ITEMS: SectionItem[] = [
+  // {{ITEMS_ARRAY}} - filled by /gabe-mockup recipe at section emit time. e.g.:
+  // { name: "button", file: "button.html", primaryClass: "btn" },
+];
+
+test.describe("{{SECTION_NAME}} — smoke", () => {
+  if (ITEMS.length === 0) {
+    test("guard: section emitted no items yet — recipe will populate ITEMS", async () => {
+      test.skip(true, "no items in section");
+    });
+  }
+
+  for (const item of ITEMS) {
+    test(`${item.name} page loads + tweaks panel boots + breadcrumb visible`, async ({ page }) => {
+      const consoleErrors: string[] = [];
+      page.on("console", (msg) => {
+        if (msg.type() === "error") consoleErrors.push(msg.text());
+      });
+      page.on("pageerror", (err) => consoleErrors.push(err.message));
+
+      await page.goto(`/{{SECTION_SLUG}}/${item.file}`);
+
+      // Tweaks panel injected by tweaks.js after DOMContentLoaded
+      const panel = page.locator("#tweaks-panel");
+      await expect(panel).toBeVisible();
+
+      // The item's primary class appears at least once in the demo
+      const primary = page.locator(`.${item.primaryClass}`).first();
+      await expect(primary).toBeVisible();
+
+      // Section-aware breadcrumb: "← {{SECTION_NAME}} index" → ./index.html
+      const breadcrumb = page.locator(".tweaks__breadcrumb");
+      await expect(breadcrumb).toBeVisible();
+      await expect(breadcrumb).toHaveAttribute("href", "./index.html");
+      await expect(breadcrumb).toHaveText(/{{SECTION_NAME}} index/);
+
+      // No console errors during boot
+      expect(consoleErrors, `console errors: ${consoleErrors.join(" | ")}`).toEqual([]);
+    });
+  }
+});

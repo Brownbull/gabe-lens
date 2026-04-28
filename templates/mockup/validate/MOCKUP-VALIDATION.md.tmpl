@@ -1,0 +1,44 @@
+# MOCKUP-VALIDATION
+
+> **Run:** (not yet executed)
+> **Architecture:** (auto-detected on first run)
+> **Totals:** (computed on first run)
+
+Stable-IDs are sha1(screen+viewport+ruleId+selector) truncated to 10 chars. Re-running validate preserves user-set Status values per id. Triage actions documented in `~/.claude/templates/gabe/mockup/validate/validate-checklist.md`.
+
+Run `node tests/mockups/validate/runner.mjs` to populate.
+
+---
+
+## Findings
+
+_(Empty until first run.)_
+
+Format on populated runs:
+
+```
+### <screen-name>
+
+- [ ] **[abc1234567]** <ruleId> / <severity> / <viewport> — <message>
+  - **Element:** `<selector>`
+  - **Status:** pending | fixed-in-place | deferred | dismissed
+  - **Notes:** (—)
+```
+
+Status values:
+- `pending` — newly detected, awaiting triage
+- `fixed-in-place` — author confirms the underlying issue is resolved (next run verifies)
+- `deferred` — moves to "Triage Backlog" section; revisit later
+- `dismissed` — false positive or intentional; reason documented in Notes
+
+---
+
+## Triage Backlog (deferred)
+
+_(empty)_
+
+---
+
+## Dismissed
+
+_(empty)_
