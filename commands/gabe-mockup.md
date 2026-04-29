@@ -1,13 +1,13 @@
 ---
 name: gabe-mockup
-description: "Mockup/UX workflow command — peer to /gabe-execute, handles design-system / atoms / molecules / wireframes / screens / handoff phases. On empty project: dispatches to /gabe-plan --preset=mockup-project. On active mockup plan: executes current phase via gabe-mockup skill playbook. Mutually redirects with /gabe-execute for wrong plan type. Usage: /gabe-mockup [goal] [--reconfigure] [--dry-run] [--platforms=web,mobile-web,native-mobile] [--themes=N]"
+description: "Mockup/UX workflow command — peer to /gabe-execute, handles legacy HTML mockup phases and React + Storybook mockup work for React-first apps. On empty project: dispatches to /gabe-plan --preset=mockup-project. On active mockup plan: executes current phase via gabe-mockup skill playbook. Mutually redirects with /gabe-execute for wrong plan type. Usage: /gabe-mockup [goal|react-story <screen-or-batch>] [--reconfigure] [--dry-run] [--platforms=web,mobile-web,native-mobile] [--themes=N]"
 ---
 
 # Gabe Mockup
 
 Full command (not wrapper) — owns the Exec step for phases whose types fall inside the **mockup-tag set**: `{design-system, ui-kit, mockup-flows, mockup-index, mockup-docs, mockup-validation}`. Reads `.kdbp/PLAN.md`, routes to plan-creation or phase-execute based on state. `/gabe-execute` covers the code equivalent; the two mutually redirect.
 
-**Design principle.** Mockup projects (HTML screens, design tokens, component libraries, handoff docs) need different execution recipes than code projects. `/gabe-execute` assumes tasks decompose into test-then-implement cycles; mockups decompose into render-then-audit cycles across platform variants. `/gabe-mockup` keeps the same PLAN.md state machine (Exec / Review / Commit / Push) but uses the `gabe-mockup/SKILL.md` playbook for the Exec step.
+**Design principle.** Mockup projects need different execution recipes than code projects. Legacy mockup projects still decompose into HTML/CSS render-then-audit cycles across platform variants. React-first projects decompose into real frontend components, screen compositions, Storybook stories, and frontend tests. `/gabe-mockup` keeps the same PLAN.md state machine (Exec / Review / Commit / Push) but uses the `gabe-mockup/SKILL.md` playbook for the Exec step.
 
 ## Procedure
 
@@ -23,6 +23,7 @@ Parse `$ARGUMENTS`:
 | `--dry-run` | Print plan + proposed actions without writing files or committing |
 | `--platforms=web,mobile-web,native-mobile` | Platform variants to produce per screen. Default `web,mobile-web`. Used by `--preset=mockup-project` emission |
 | `--themes=N` | Number of candidate themes in M1. Default 3. Used by preset emission |
+| `react-story <screen-or-batch>` | Implement a React-first screen or batch in `apps/web` with Storybook stories instead of new static HTML |
 
 **Preconditions:**
 
@@ -64,7 +65,16 @@ Mockup-tag set: `{design-system, ui-kit, mockup-flows, mockup-index, mockup-docs
    - `project_type` (should match PLAN.md `project_type`)
 3. Read `.kdbp/ENTITIES.md` if phase includes `mockup-index` type — CRUD matrix seed source.
 4. Read `.kdbp/SCOPE.md` REQs list — referenced by screen-phase recipes to verify REQ coverage.
-5. Load `gabe-mockup/SKILL.md` playbook (project-local at `skills/gabe-mockup/SKILL.md` OR global at `~/.claude/skills/gabe-mockup/SKILL.md`).
+5. Load `gabe-mockup/SKILL.md` playbook (project-local at `skills/gabe-mockup/SKILL.md` OR global at `~/.claude/skills/gabe-mockup/SKILL.md` OR `~/.agents/skills/gabe-mockup/SKILL.md`).
+
+### Step 2.5: React-first workflow detection
+
+If `docs/rebuild/ux/REACT-STORYBOOK-WORKFLOW.md` and `apps/web/package.json` both exist, default new screen and batch work to the skill playbook's `react-story` mode unless the user explicitly requests legacy HTML. In this mode:
+
+1. Do not create new `docs/mockups/**/*.html` files. Existing HTML is read-only visual reference/archive.
+2. Implement production React/Tailwind components in `apps/web/src/components`, screen compositions in `apps/web/src/screens` or route modules, and stories beside the implementation.
+3. Use `shared/design-tokens.ts` as the token source and extend `apps/web/tailwind.config.ts` from it.
+4. Use Storybook as the mockup viewer and run the app verification gate from `apps/web`: `npm run typecheck`, `npm run build`, `npm run build-storybook`, and `npm run test-storybook`.
 
 ### Step 3: Dispatch to phase recipe
 
@@ -72,6 +82,7 @@ The skill playbook defines recipes keyed by phase `types`. Dispatch table:
 
 | Phase types contain | Recipe | Output location |
 |---------------------|--------|-----------------|
+| React-first workflow marker + `apps/web/package.json` | React + Storybook recipe (`react-story`) | `apps/web/src/{components,screens}/`, `*.stories.tsx`, Storybook config/scripts |
 | `design-system` (M1) | Tokens + stress-test matrix recipe | `docs/mockups/{tokens.css, explorations/, stress-*.html}` |
 | `design-system` + `ui-kit` (M2/M3) | Atoms / molecules recipe | `docs/mockups/{atoms,molecules}/` |
 | `mockup-flows` + `mockup-index` (M4) | Flows + INDEX seed recipe | `docs/mockups/{flows/, INDEX.md}` + populate ENTITIES.md CRUD |
@@ -132,6 +143,7 @@ No file writes. No state changes. Purely informational.
 - `.kdbp/PLAN.md` project_type mismatch → mutual redirect per Step 0.
 - Unknown phase type tag (outside mockup-tag-set AND outside `/gabe-execute` tag universe) → print `⚠ Phase N types [...] not recognized. Add trigger-tag mapping in ~/.claude/templates/gabe/tier-sections/tier-section-index.md` and exit.
 - Missing `gabe-mockup/SKILL.md` playbook → print `⚠ Skill playbook missing. Reinstall gabe_lens or restore from git.` and exit.
+- React-first marker present but `apps/web/package.json` missing → print `⚠ React Storybook mode requires apps/web/package.json. Use legacy HTML mode or scaffold the web app first.` and exit.
 
 ## Non-goals
 
