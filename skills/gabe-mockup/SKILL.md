@@ -1,6 +1,6 @@
 ---
 name: gabe-mockup
-description: "Playbook for /gabe-mockup execute phases — mockup-project 13-phase recipes (tokens → atoms → molecules → flows+INDEX → screens → handoff). Documents tokens.css discipline, Tweaks panel, state-tabs component, per-platform frame rules, HANDOFF.json emission, and optional ui-ux-pro-max enrichment. Consumed by /gabe-mockup Step 3."
+description: "Playbook for /gabe-mockup execute phases — legacy HTML mockup-project recipes (tokens → atoms → molecules → flows+INDEX → screens → handoff) plus React + Storybook mode for React-first apps. Documents tokens.css discipline, Storybook discipline, Tweaks panel, state-tabs, frame rules, HANDOFF.json, and optional ui-ux-pro-max enrichment. Consumed by /gabe-mockup Step 3."
 ---
 
 # Gabe Mockup — Playbook
@@ -45,6 +45,26 @@ Per-phase recipes for `/gabe-mockup` execute step. Covers the canonical 13-phase
 - **Templates:** `templates/mockup/package.json`, `templates/mockup/playwright.config.ts`, `templates/mockup/tests/mockups/{hub,tweaks}.spec.ts`, `templates/mockup/tests/mockups/section-smoke.spec.ts.tmpl`.
 - **Static server:** Playwright config uses `http-server docs/mockups -p 4173`. Avoids `file://` protocol issues with `cssRules` introspection + `@import` resolution.
 - **Run:** `npm install && npm test` (after `npx playwright install chromium` once).
+
+### React + Storybook discipline
+
+Projects can opt into a React-first mockup surface when they are building the real web frontend rather than standalone HTML artifacts. The workflow marker is `docs/rebuild/ux/REACT-STORYBOOK-WORKFLOW.md`. If that file exists and `apps/web/package.json` is present, `/gabe-mockup` MUST use React + Storybook mode for new UI work unless the user explicitly requests the legacy HTML recipe.
+
+Rules for React + Storybook projects:
+
+1. **No new static HTML mockups.** Existing `docs/mockups/**` files are visual references only. Do not create new `docs/mockups/**/*.html` in this mode.
+2. **Real frontend first.** Implement screens under `apps/web/src/screens/**` or app route modules, and reusable primitives under `apps/web/src/components/**`.
+3. **Stories are the inspection surface.** Every new screen/component batch gets colocated `*.stories.tsx` coverage for mobile, tablet, desktop, and relevant states (default, loading, error, empty, first-time, disabled when applicable).
+4. **Tokens flow through Tailwind.** Styling uses Tailwind classes backed by `shared/design-tokens.ts`; do not introduce ad hoc hex colors in React components.
+5. **Visual grouping rule.** Do not add an outer bordered grouping container around controls unless it is a real product card. Layout-only wrappers are fine; visible borders/backgrounds/shadows must belong to meaningful product surfaces.
+6. **Reference, not DOM contract.** Existing HTML mockups are visual references and state inventories; React component naming, data flow, and accessibility can be idiomatic React/Tailwind.
+7. **Verification gate.** A batch is not complete until these commands pass from `apps/web`: `npm run typecheck`, `npm run build`, `npm run build-storybook`, and `npm run test-storybook`.
+
+Backward-compatible dispatch:
+
+1. If `docs/rebuild/ux/REACT-STORYBOOK-WORKFLOW.md` exists and `apps/web/package.json` exists, default new `/gabe-mockup` screen work to `react-story`.
+2. Else if `.kdbp/PLAN.md` or existing phase state points to `docs/mockups/**`, use the legacy static HTML phase recipes.
+3. Else ask which workflow should be active before generating files.
 
 ### React port (shared convention for `spike` mode)
 
@@ -118,8 +138,67 @@ Frame rules above are honored either by **discipline** (author writes within the
 | Mode | Invocation | Purpose |
 |---|---|---|
 | (default) | `/gabe-mockup` | Advance the phase ladder per PLAN.md |
+| `react-story` | `/gabe-mockup react-story <screen-or-batch>` | Generate production React + Storybook mockups for React-first projects |
 | `spike` | `/gabe-mockup spike <component>` | Translate one live mockup into a working React component |
 | `validate` | `/gabe-mockup validate [<screen>\|--all]` | Run layout sanity checks (C1-C4) over screens × phone/tablet/desktop viewports |
+
+### Mode: `react-story`
+
+**Purpose.** Implement a screen or screen batch as production React + Tailwind code in `apps/web`, with Storybook 10 stories as the mockup viewer. This mode replaces new static HTML mockup authoring for projects that carry the React Storybook workflow marker.
+
+**Invocation:**
+```
+/gabe-mockup react-story <screen-or-batch>
+/gabe-mockup react-story <screen-or-batch> --from=<reference-html-or-spec>
+/gabe-mockup react-story <screen-or-batch> --force
+```
+
+**Auto-dispatch.** If the user runs plain `/gabe-mockup` in a repo with both `docs/rebuild/ux/REACT-STORYBOOK-WORKFLOW.md` and `apps/web/package.json`, route new screen work to this mode unless the user explicitly asks for legacy HTML.
+
+**Pre-conditions.**
+- `apps/web/package.json` exists.
+- `shared/design-tokens.ts` exists and is importable by `apps/web/tailwind.config.ts`.
+- Storybook exists at `apps/web/.storybook/` OR this mode is allowed to scaffold it.
+- Existing visual references live in `docs/mockups/**` or the user supplies a spec path.
+
+**Outputs.**
+- Screen/component implementation under `apps/web/src/screens/**`, route modules, or `apps/web/src/components/**`.
+- Storybook stories beside the implementation: `*.stories.tsx`.
+- Reusable primitives under `apps/web/src/components/**` when patterns repeat.
+- Story docs descriptions that cite the reference HTML/spec path when one exists.
+- Optional workflow docs/bookkeeping updates when KDBP is present.
+- **No new `docs/mockups/**/*.html` files.**
+
+**Recipe steps.**
+
+1. **R1 — Detect workflow.** Confirm marker file `docs/rebuild/ux/REACT-STORYBOOK-WORKFLOW.md`, `apps/web/package.json`, and `shared/design-tokens.ts`. If missing, follow Error recovery below.
+2. **R2 — Ensure Storybook harness.** If `apps/web/.storybook/` is absent, install/configure Storybook 10 with `@storybook/react-vite` and the Storybook Vitest addon. Add scripts: `storybook`, `build-storybook`, `test-storybook`. Keep existing app scripts intact.
+3. **R3 — Read reference.** Open the reference HTML/spec for the screen/batch. Extract visual intent, state names, platform variants, data assumptions, and safety-critical copy. Treat the HTML as a visual/state reference, not a DOM contract.
+4. **R4 — Plan component split.** Identify production primitives worth extracting (for example `AppShell`, `BottomNav`, `RecipeCard`, `EmptyState`, `StatusBanner`). Do not add an abstraction for one-off markup.
+5. **R5 — Implement React/Tailwind.** Write or update React components using Tailwind classes backed by `shared/design-tokens.ts`. Do not use ad hoc hex colors. Do not add decorative outer bordered wrappers around grouped controls unless the reference/product semantics make that surface a real card.
+6. **R6 — Add stories.** Add colocated stories covering mobile, tablet, desktop, and relevant states: default, loading, error, empty, first-time, disabled when applicable, and locale-sensitive variants where relevant.
+7. **R7 — Wire app preview only when useful.** It is acceptable to update `apps/web/src/App.tsx` to show the current pilot/demo screen, but stories remain the canonical mockup inspection surface.
+8. **R8 — Update docs/bookkeeping.** If the repo has KDBP or rebuild docs, update the active phase/runbook with the created stories and verification results. Keep workflow docs short and link to Storybook stories rather than duplicating implementation details.
+9. **R9 — Verify.** From `apps/web`, run `npm run typecheck`, `npm run build`, `npm run build-storybook`, and `npm run test-storybook`. Do not mark the batch complete until all pass.
+
+**Verification gate.**
+- `npm run typecheck` passes from `apps/web`.
+- `npm run build` passes from `apps/web`.
+- `npm run build-storybook` passes from `apps/web` (normal Storybook chunk-size warnings are acceptable if the build exits 0).
+- `npm run test-storybook` passes from `apps/web`.
+- `git diff -- docs/mockups` shows no new static HTML mockup files for the batch.
+
+**Idempotency rules.**
+- If a target screen/story already exists, update it only when requested or when the change is an additive state/story in the same batch.
+- Do not overwrite user-edited components without first reading them and preserving their intent.
+- Do not run broad formatters across `apps/web` unless the project already requires them and they are scoped to touched files.
+
+**Error recovery.**
+- **`apps/web/package.json` missing** → exit with `⚠ React Storybook mode requires apps/web/package.json. Use legacy HTML mode or scaffold the web app first.`
+- **`shared/design-tokens.ts` missing** → exit with `⚠ React Storybook mode requires shared/design-tokens.ts. Run token extraction first.`
+- **Storybook deps missing and install fails** → keep partial config out of the commit if possible, report the failing install command, and leave the repo in a readable state.
+- **Reference path missing** → search `docs/mockups/**` for likely screen names; if multiple plausible matches remain, ask the user to choose.
+- **Verification fails** → fix once if the failure is clearly caused by this batch. Otherwise report the exact failing command and do not mark the batch complete.
 
 ### Mode: `spike`
 
@@ -438,7 +517,7 @@ After every M5–M12 phase emits its last screen (before the user's next `/gabe-
 - Does NOT validate a11y contrast automatically during M2-M12 — that's M13's job (explicit audit phase).
 - Does NOT auto-generate screens from flows — flow → wireframe → hi-fi is user-gated at each step.
 - Does NOT port pixel-perfect screens from Figma — screens are HTML-first reference, not Figma parity.
-- **Phase recipes (M0-M13) do NOT couple to any specific framework** — output is vanilla HTML + CSS vars + minimal vanilla JS (tweaks.js only). React port is a separate concern, opt-in via the `spike` mode (see "Modes" above).
+- **Legacy phase recipes (M0-M13) do NOT couple to any specific framework** — output is vanilla HTML + CSS vars + minimal vanilla JS (tweaks.js only). React-first projects use the `react-story` mode instead, and one-off component ports can still use `spike`.
 - Does NOT couple to any specific tokens filename — tweaks.js detects themes from whichever stylesheet exposes `[data-theme="X"]` selectors. Greenfield projects use `assets/css/tokens.css`; legacy ports may retain their existing shell filename.
 - **`validate` mode does NOT block phase advancement** — the inline gate at M5–M12 exit is *review-or-defer*. Findings stay pending in `.kdbp/MOCKUP-VALIDATION.md` until triaged; passing `--skip-validation` to the next `/gabe-mockup` call advances the ladder regardless. Conscious choice: prevent gate friction from grinding iterative screen work to a halt.
 - **`validate` mode does NOT do pixel-level visual diffing.** That's a separate `visual-diff` mode for a future pass. C1–C4 are layout-sanity heuristics (overflow, narrow columns, empty content, KDBP rule binding), not screenshot comparison.
