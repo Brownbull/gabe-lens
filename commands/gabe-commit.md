@@ -57,6 +57,7 @@ Run these scripts. No LLM. No token cost. Target: 2-10 seconds total.
 - Skip at mvp maturity
 
 **CHECK 5 — Shape** (active only when >30 source files AND >2000 lines total)
+- **Code files only.** Extensions: `.py .ts .tsx .js .jsx .mjs .cjs .go .rs .java .kt .kts .rb .cpp .cc .cxx .c .h .hpp .swift .php .cs .scala .dart .lua .pl .pm .ex .exs .clj .sh .bash .zsh .fish .sql`. Skip docs/config/data: `.md .mdx .txt .rst .adoc .json .yaml .yml .toml .ini .xml .html .css .scss .csv .tsv .lock`.
 - File sizes: >400 (low), >600 (medium), >800 (high)
 - New files <20 lines (low)
 - Skip below activation threshold
@@ -99,6 +100,18 @@ Three layers, all deterministic:
   - No wells have both Paths AND Docs populated (nothing to check against)
   - Diff is ONLY the Docs files themselves (don't flag a doc update as missing doc update)
 
+**Layer 4 — Mockup INDEX freshness** (active only when `BEHAVIOR.md` `project_type` is `mockup` or `hybrid`):
+
+- Read `project_type` from `.kdbp/BEHAVIOR.md` frontmatter. If absent or `code` → skip this layer entirely.
+- Scope: any staged file matching `docs/mockups/**` or `docs/designs/**`.
+- Check: is `docs/mockups/INDEX.md` in the staged diff?
+- If mockup/design files changed AND `INDEX.md` NOT in diff → finding `low`, text: `docs/mockups/** edited but INDEX.md not touched. Update §3 Screens / §4 CRUD / §5 Component usage / §6 Coverage as appropriate.`
+- Skip this layer when:
+  - Staged diff is ONLY tokens.css / tweaks.js / tweaks-panel.html (shared infra edits — INDEX.md doesn't need bump)
+  - Staged diff is ONLY within `docs/mockups/explorations/` or `docs/mockups/archive/` (scratch / archive space)
+  - Staged diff IS `INDEX.md` itself (can't flag the same file)
+- Severity deterministically `low` (non-blocking during exploration; Scale tier promotes to `medium`).
+
 **CHECK 8 — Structure** (requires `.kdbp/STRUCTURE.md`)
 
 Deterministic path-pattern check for new files. Zero LLM cost. Skipped if `.kdbp/STRUCTURE.md` missing.
@@ -133,10 +146,10 @@ Deterministic thresholds, not LLM judgment:
 | Type errors | 0 errors | `high` |
 | Test failures | All pass | `critical` |
 | Coverage <80% on changed file | >=80% | `medium` (50-79%) / `high` (<50%) |
-| File >800 lines | <=800 | `high` |
-| File >600 lines | <=600 | `medium` |
-| File >400 lines | <=400 | `low` |
-| New file <20 lines | >=20 | `low` |
+| File >800 lines (code only) | <=800 | `high` |
+| File >600 lines (code only) | <=600 | `medium` |
+| File >400 lines (code only) | <=400 | `low` |
+| New file <20 lines (code only) | >=20 | `low` |
 | Open deferred on changed file | None | item's priority |
 | Doc drift (universal safe card) | Doc target in diff | `low` (config/deps/docker) / `medium` (new routes) |
 | Doc drift (DOCS.md critical) | Doc target in diff | `critical` |

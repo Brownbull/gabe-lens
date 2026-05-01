@@ -1,0 +1,68 @@
+# Validate-mode recipe — {{PROJECT_NAME}}
+
+> Emitted by `/gabe-mockup validate` on {{GENERATED_AT}}. Augmented on every subsequent run (run-history table at the bottom).
+
+This file documents how `{{PROJECT_NAME}}` validates its mockup screens for layout sanity. Read it before invoking `/gabe-mockup validate`, and use it to record run history + project-specific calibrations.
+
+## Architecture
+
+- **Mode:** `{{ARCHITECTURE_MODE}}`
+- **Reason:** {{ARCHITECTURE_REASON}}
+
+If detection is wrong (e.g., projects mid-migration between architectures), override via `.kdbp/BEHAVIOR.md`:
+
+```yaml
+mockup_architecture: dynamic | per-device
+```
+
+The runner checks BEHAVIOR.md before falling back to the heuristic.
+
+## Viewports
+
+| Class | Width | Frame contract |
+|---|---|---|
+| Phone | {{VIEWPORT_PHONE_WIDTH}}px | Single 390×844 (or 360×640) frame; `overflow-y: auto` allowed for content > frame height |
+| Tablet | {{VIEWPORT_TABLET_WIDTH}}px | Content max-width 720px, 16px edge padding, max screen frame 768×1024 |
+| Desktop | {{VIEWPORT_DESKTOP_WIDTH}}px | Edge-to-edge inside page, 60px top bar, native scroll |
+
+## Files
+
+| Path | Purpose |
+|---|---|
+| `tests/mockups/validate/runner.mjs` | Orchestrator: detects architecture, walks screens, builds manifest, invokes Playwright, aggregates findings into MOCKUP-VALIDATION.md |
+| `tests/mockups/validate/screen-validator.spec.ts` | Playwright spec — data-driven from manifest, runs 4 categories of checks per (screen × viewport) |
+| `tests/mockups/validate/rules.json` | Rule catalog + viewport widths + min-column threshold + skip patterns + KDBP rules cache |
+| `.kdbp/MOCKUP-VALIDATION.md` | Live findings document (stable-IDs, Status column, resumable triage) |
+
+## Quick reference
+
+```bash
+# Full sweep (all screens × all viewports × all categories)
+node tests/mockups/validate/runner.mjs
+
+# Subsets
+node tests/mockups/validate/runner.mjs --screens=login,settings
+node tests/mockups/validate/runner.mjs --viewports=phone
+node tests/mockups/validate/runner.mjs --severity=block
+
+# Disable KDBP rule binding (faster)
+node tests/mockups/validate/runner.mjs --skip-kdbp
+```
+
+After the runner completes, open `.kdbp/MOCKUP-VALIDATION.md` and triage findings inline. Triage action keys (f / d / x / s / e / q) are documented in `~/.claude/templates/gabe/mockup/validate/validate-checklist.md`.
+
+## Run history
+
+| Date | Architecture | Targets | Findings (block/warn/info) | Notes |
+|---|---|---|---|---|
+| {{GENERATED_AT}} | {{ARCHITECTURE_MODE}} | (initial) | (initial) | First run after `/gabe-mockup validate` mode codification |
+
+## Project-specific calibrations
+
+(Document any rule tuning, skip-screen overrides, or KDBP rule additions here. Example entries:)
+
+- _none yet_
+
+## Should this become `gabe-mockup` M14?
+
+Open question — re-evaluate after 2–3 projects have run validate at least once. Mechanical parts (architecture detection, viewport switching, MOCKUP-VALIDATION.md write, Playwright dispatch) are clearly codify-able. Judgment-based parts (which rules to bundle vs. emit informational, threshold tuning per project class) need lived experience to know what auto-detection rules would look like. Track the answer here.

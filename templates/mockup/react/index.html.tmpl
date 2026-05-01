@@ -1,0 +1,21 @@
+<!doctype html>
+<!--
+  Vite entry HTML — emitted by /gabe-mockup spike scaffolding.
+  {{PROJECT_NAME}} React frontend.
+
+  data-theme + data-mode on <body> are the same selectors used by the canonical
+  mockup tokens CSS — switching either at runtime cascades through every React
+  component that consumes var(--*) tokens. Default to whatever the mockup
+  default theme is so the React harness opens looking like the static mockup.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{PROJECT_NAME}} — React frontend</title>
+  </head>
+  <body data-theme="{{DEFAULT_THEME}}" data-mode="{{DEFAULT_MODE}}">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

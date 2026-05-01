@@ -39,13 +39,14 @@ This is NOT a generic checklist review. Every finding gets a **Defer Risk** (con
 
 | Input Type | Example |
 |---|---|
-| **Diff** | `git diff`, `git diff --staged`, PR diff (default: staged + unstaged changes) |
+| **Diff** | `git diff`, `git diff --staged`, PR diff — used when explicit target supplied, or as fallback when no KDBP context resolves |
 | **File(s)** | `/src/services/rateLimiter.ts` |
 | **Folder** | `/functions/src/` |
-| **Post-review** | Output from CE:review or BMad code-review (parses their findings and adds risk pricing) |
+| **Post-review** | Output from CE:review, BMad code-review, or ECC code-reviewer (parses findings and adds risk pricing into `.kdbp/REVIEW.md`) |
 | **Deferred** | No target — shows only the deferred items dashboard |
+| **Inbox** | No target — produces the live `.kdbp/REVIEW.md` and stops (no triage). Used for cross-CLI handoff (e.g., Codex produces, Claude Code picks up via the Resume prompt). Subject to the singleton collision prompt if a review is already active. |
 
-If no target is provided, default to `git diff HEAD` (all uncommitted changes).
+If no target is provided, resolve via **Step 0.3: Target Resolution** (KDBP-first, git-diff fallback) below.
 
 ### 2. Maturity — What standard to apply
 
@@ -66,6 +67,36 @@ Never auto-detect from test count or CI presence. Maturity is a human decision.
 ---
 
 ## Review Process
+
+### Step 0.3: Target Resolution (no-arg only)
+
+This step only fires when `/gabe-review` is invoked with no arguments — no explicit path, no folder, no mode keyword. Skip entirely if `$ARGUMENTS` resolves to any of: a file path, a folder path, `brief`, `fix`, `deferred`, `post-review`, `inbox`, `resume`, `close`, `discard`.
+
+**Why this step exists.** The authoritative "what's pending review" signal in a Gabe project lives in `.kdbp/PLAN.md` (phase row with `Exec=✅ Review=⬜`) plus `.kdbp/LEDGER.md` (artifact lists written by exec/commit hooks). A raw `git diff HEAD` misses the target when code is already committed (HEAD clean), includes unrelated WIP, or ignores the plan-declared scope. Step 0.3 consults the plan first, falls back to git-diff only when no KDBP context resolves.
+
+**Procedure (zero-LLM, deterministic — mirrors `/gabe-next`'s PLAN-parse approach):**
+
+1. **Check KDBP presence.** If `.kdbp/PLAN.md` is missing, or lacks `<!-- status: active -->` → jump to "Fallback" below.
+2. **Parse PLAN.md.** Find the `## Phases` table. Scan rows top-to-bottom for the first row where `Review` column = `⬜` AND `Exec` column ∈ {`✅`, `🔄`}. Record phase number N and phase name.
+3. **Handle no-match cases:**
+   - No row satisfies the Review=⬜ condition (all reviewed) → print `ℹ No phase pending review. Pass an explicit target to review something else.` and exit 0.
+   - Target row has `Exec=⬜` (Review pending but work not started) → print `⚠ Phase N Exec not complete — run /gabe-next to finish Exec before reviewing.` and exit 0.
+4. **Collect scope from LEDGER.md.** Read `.kdbp/LEDGER.md`. Find entries that reference phase N. Accept any of these patterns (case-insensitive):
+   - `phase-N-exec`, `phase N exec`, `Phase N —`, `phase: N`, `Phase N:`.
+
+   Extract file paths from those entries (typically listed as bullet items, code-fenced file lists, or paths after `files:` / `artifacts:` keys).
+5. **Resolve scope:**
+   - Filter extracted paths to those that still exist on disk.
+   - If ≥1 file remains → target = that set. Print banner:
+     `ℹ Reviewing Phase N ([name]) per PLAN.md — scope: <count> files from LEDGER`.
+     Proceed with that scope as the review target.
+   - If 0 files remain (LEDGER empty, all renamed/deleted, or parser couldn't extract paths) → print banner:
+     `ℹ Phase N Review pending; no LEDGER scope resolved — falling back to git diff HEAD.`
+     Target = `git diff HEAD`.
+
+**Fallback.** No `.kdbp/` directory, or no active plan. Target = `git diff HEAD`. No banner — silent legacy default.
+
+Once target is resolved, continue with Step 0.5 (LEDGER prior-CONCERN scan) and Step 1 (Deferred Backlog) using the resolved scope. REVIEW.md creation happens only after scope is known — the no-match exits above are prints + exit, not partial writes.
 
 ### Step 0.5: Load KDBP Context (if available)
 
@@ -108,6 +139,8 @@ For each changed file, check these dimensions:
 **Confidence gate:** Only report findings with >80% confidence. If uncertain, investigate further before reporting.
 
 **Tier drift detection:** When `.kdbp/PLAN.md` declares a phase Tier and the diff contains patterns above that tier, emit a `TIER_DRIFT` finding. See Step 4.75 Sub-check 5d for procedure and resolution options (downgrade vs amend-phase-tier).
+
+**Rule-violation escalation (via `/gabe-debt`):** If `.kdbp/RULES.md` exists (or `docs/rebuild/LESSONS.md` with R-rules is present), load the rule index before dimension scoring. For every finding, check if the affected file/line/pattern matches any rule's `Detection` signature. If yes, auto-elevate the finding's severity by one level (HIGH → CRITICAL, MEDIUM → HIGH) AND append a citation to the finding: `(violates R<n> from RULES.md — "<rule handle>")`. Load-bearing rules (tagged as such in the rule's `Status` field or explicit in source LESSONS) elevate straight to CRITICAL. Do not escalate if the user has already dismissed the match via `.kdbp/debt-ignore.md`.
 
 ### Step 3: Branch-Test Gap Detection
 
@@ -444,21 +477,27 @@ Skip silently if any of:
 **Procedure (deterministic + pattern scan):**
 
 1. Read `.kdbp/PLAN.md`:
-   - Current Phase N → Tier cell value (`mvp` | `ent` | `scale`)
+   - Current Phase N → Tier cell: parse `phase_tier` = leading token (strip `(overrides...)` compact notation)
+   - `## Phase Details → Phase N` YAML block → `dim_overrides` list (each entry `{section, dim, tier, reason}`); empty/missing = no overrides
    - `## Phase Details → Phase N → Types:` list
-2. Load section files:
-   - `~/.claude/templates/gabe/tier-sections/core.md` (always)
+2. Load section files (resolve path: try `~/.claude/templates/gabe/tier-sections/` first, fall back to `~/.agents/templates/gabe/tier-sections/` when running under Codex CLI):
+   - `tier-sections/core.md` (always)
    - For each matched type, load corresponding `tier-sections/*.md`
-3. For each loaded section, extract `## Known drift signals` table. Each row has `Pattern`, `Tier floor`, `Finding severity`.
+3. For each loaded section, extract `## Known drift signals` table. Each row has `Pattern`, `Tier floor`, `Finding severity`, **`Dim`** (which dimension within the section the pattern belongs to — added for override-awareness; fall back to section-wide match when the column is absent on legacy section files).
 4. Scan diff for each pattern. Detection is substring/regex match on added lines (`git diff` context, skip removed). Patterns are either:
    - Import/symbol literal (e.g. `@retry`, `tenacity.retry`, `launchdarkly-server-sdk`, `BroadcastChannel`)
    - File-path glob (e.g. `evals/*.json`, `migrations/alembic/env.py`)
    - AST-ish (e.g. decorator name at function scope — close approximation via regex on `^@decorator_name` at start-of-line after indent)
-5. For each matched pattern where `Tier floor > phase Tier`:
+5. For each matched pattern, resolve the **effective tier** for its section + dim:
+   - Look up `dim_overrides` for `{section, dim}` where section matches the loaded section file and dim matches the pattern's `Dim` column
+   - Match found → effective tier = override tier
+   - No match → effective tier = `phase_tier`
+6. For each matched pattern where `Tier floor > effective tier`:
    - Emit a TIER_DRIFT finding in the Step 4 findings table.
    - Severity inherits from the `Finding severity` column (TIER_DRIFT-HIGH / MED / LOW) but use HIGH as default if ambiguous.
-   - Description: `[Section.Dimension] pattern detected — tier floor [Ent|Scale], phase tier [current]`
+   - Description: `[Section.Dim] pattern detected — tier floor [Ent|Scale], effective tier [current]` — if the effective tier came from an override, append `(override: <reason>)` so operator sees why escalation was permitted up to override but still crossed.
    - File/line = first match location.
+   - **Dim override allow-path:** when `Tier floor ≤ effective tier`, the pattern is within the permitted ceiling for that dim — no TIER_DRIFT. Do not emit an informational finding for legitimate override-permitted work; operator approved this at plan time.
 
 **Prototype shift:** If phase is tagged `prototype: true`, shift every TIER_DRIFT severity down one notch (HIGH→MED, MED→LOW, LOW→suppressed). Matches the Δ-grade shift in `tier-delta-scale.md`.
 
@@ -513,6 +552,8 @@ If 5a produced output OR 5c produced output OR 5b produced a candidate OR 5d pro
 ### Step 5: Triage
 
 After the verdict and session estimate, present the triage prompt. This closes the gap between "here's what's wrong" and "let's fix it."
+
+**REVIEW.md is the triage workspace.** Before the first bulk/per-finding prompt, reconcile with `.kdbp/REVIEW.md` — see "Live Review Document" for the full blind-first flow (no-file / same-source collision / cross-agent merge). After reconcile, either a fresh or consolidated REVIEW.md exists on disk. As each finding is acted on during triage, mutate its `Status` column in place (`pending` → `fixed | deferred | dismissed`) so an interrupted triage is safely resumable by the next `/gabe-review` call.
 
 #### Entry Point — Bulk Matrix Menu
 
@@ -653,13 +694,13 @@ For each finding, show a compact card:
 | **x — Dismiss** | Ask for one-line reason. Record dismissal in the review output (not in deferred backlog). Move to next finding. Dismissals don't persist across reviews — they're session-only decisions. |
 | **s — Skip** | Leave in the findings table without deciding. At end of triage, un-skipped items get a final "defer or dismiss?" prompt. |
 | **a — Fix all** | Apply fixes for all remaining findings in sequence without per-finding prompts. Show a summary diff at the end. Useful when the user trusts the fixes and wants to batch them. |
-| **e — Explain** | Invoke the `gabe-lens` skill to generate an analogy for the finding + expose trade-offs. Returns to this same prompt after explaining — doesn't advance. See "Explain behavior" below. |
+| **e — Explain** | If the `gabe-lens` skill is available, invoke it to generate an analogy for the finding + expose trade-offs. Otherwise emit the 4-section analogy inline. Returns to this same prompt after explaining — doesn't advance. See "Explain behavior" below. |
 
 #### Explain Behavior (`e`)
 
-When the user picks `e`, Claude:
+When the user picks `e`:
 
-1. **Invokes the `gabe-lens` skill** with the finding details (severity, file:line, description, defer risk, maturity gate) as context
+1. **Delegate to `gabe-lens` when available.** If the `gabe-lens` skill is installed and invokable (Claude Code: Skill tool; Codex CLI: `$gabe-lens` or `/skills gabe-lens`), pass the finding details (severity, file:line, description, defer risk, maturity gate) as context and let it produce the analogy. If `gabe-lens` is not available, generate the same 4 sections inline using the finding context — output is indistinguishable either way.
 2. **Produces 4 sections** — short, concrete, no filler:
    - **ANALOGY:** physical or spatial metaphor for what's broken and why it matters (2-4 lines)
    - **WHY IT MATTERS:** bullets on what the finding actually buys the project (2-3 bullets)
@@ -777,9 +818,15 @@ CRITICAL findings during triage **cannot be deferred**. The `(d)` option is disa
 | Finding references a file not in the workspace | Can't auto-fix. Offer defer/dismiss only. |
 | Skipped CRITICAL at end of triage | CRITICALs cannot be deferred. At the final sweep, present only **(f) Fix now** or **(x) Dismiss (requires justification)**. If the user skips again, auto-classify as Dismissed with note: "No resolution chosen — treated as acknowledged risk." |
 
-### Step 6: Auto-tick Review column in PLAN.md + LEDGER trace
+### Step 6: Archive REVIEW.md + auto-tick PLAN.md + LEDGER trace
 
-After triage completes (Final Verdict produced), tick the Review column of the current phase if the review passed, and **always** append a LEDGER entry so every run leaves an audit trail — regardless of verdict or tick outcome.
+After triage completes (Final Verdict produced), archive the live review document, tick the Review column of the current phase if the review passed, and **always** append a LEDGER entry so every run leaves an audit trail — regardless of verdict or tick outcome.
+
+**Archive the live REVIEW.md (auto, no prompt).** If `.kdbp/REVIEW.md` exists and every finding has a non-pending `Status`:
+1. Flip frontmatter `status: active` → `status: resolved`.
+2. Move the file to `.kdbp/reviews-archive/REVIEW_<YYYY-MM-DD-HHMMSS>_resolved.md` (the `<timestamp>` is the REVIEW.md frontmatter timestamp for traceability; if missing, use now).
+3. Ensure `.kdbp/reviews-archive/` is in the project `.gitignore` — grep-before-append pattern; a new line `.kdbp/reviews-archive/` is added once and only once.
+4. On `discard` (user explicit cancel) or `stale` / `superseded` (from the collision prompt), same move happens with the appropriate `<status>` suffix in the filename. `discard` SKIPS the subsequent PLAN tick and LEDGER trace; `stale` / `superseded` proceed to LEDGER with a `DISPOSITION: stale` or `superseded` line.
 
 **Pass condition for Review column:**
 - Final Verdict is APPROVE or WARNING (not BLOCK)
@@ -931,9 +978,155 @@ Tackle deferred items? [Y/n]
 
 If yes, enter the same triage loop with (f)/(d)/(x)/(s) options.
 
+### Live Review Document (`.kdbp/REVIEW.md`)
+
+**Singleton discipline.** Gabe Suite follows "one thing at a time" — one active PLAN, one active SCOPE, one active REVIEW. The review document is `.kdbp/REVIEW.md`. It is ephemeral working memory during triage, and it is archived to `.kdbp/reviews-archive/` (gitignored) once resolved. A single REVIEW.md can carry findings from **multiple independent review passes** (e.g. Codex pass 1 + Claude pass 2), attributed per-finding to their source — see "Blind-first cross-agent triangulation" below.
+
+**Lifecycle.**
+
+1. **Analyze.** Every gabe-review run performs its full analysis first (Steps 0.5–4.75) without reading any existing `.kdbp/REVIEW.md`. The analysis is **blind to prior passes** by design — independence of perspective is the point.
+2. **Reconcile.** After analysis completes, the skill checks for an existing `.kdbp/REVIEW.md`:
+   - **None exists** → write fresh REVIEW.md (single-source), proceed.
+   - **Exists, SAME source** (same CLI as this run) → collision prompt (resume/stale/replace/cancel).
+   - **Exists, DIFFERENT source** (different CLI, e.g. existing from Codex while this run is Claude, or vice versa) → **merge mode**: gap analysis + consolidation.
+3. **Live.** Claude Code's triage loop reads the consolidated (or fresh) file, mutates per-finding `Status` as the user picks `(f)ix`, `(d)efer`, `(x)ismiss`, or `(s)kip`. The file is the single source of truth during the session; if Claude is interrupted, it's safely resumable.
+4. **Resolve.** When every finding has a non-pending status AND the triage loop exits cleanly, flip `status: active` → `status: resolved` and move the file to `.kdbp/reviews-archive/REVIEW_<YYYY-MM-DD-HHMMSS>_resolved.md`. Then run Step 6 (auto-tick + LEDGER write).
+5. **Discard / stale / supersede.** User can explicitly `discard` (no LEDGER write), or the collision prompt may archive as `stale` or `superseded` — filename suffix reflects the reason.
+
+**Collision handling (same source).** When the existing `.kdbp/REVIEW.md` has `sources[0].cli` equal to the current runtime's CLI:
+
+```
+Existing active review from the same agent (source: <codex|claude>, <N> findings, created <timestamp>).
+
+  (r) Resume triage on existing review
+  (a) Archive as stale, start fresh review
+  (x) Replace (archive current as superseded, start fresh)
+  (c) Cancel
+```
+
+Matches PLAN.md's pattern. No silent overwrites. No file locks.
+
+### Blind-first cross-agent triangulation (merge mode)
+
+When the existing `.kdbp/REVIEW.md` has a different `cli` than the current run (e.g. Codex-produced file, Claude is running), this is a deliberate two-pass cross-agent review. The skill has already completed its blind analysis (Step 2) and compares its findings against the existing REVIEW.md.
+
+**Match classification.**
+
+For every pair (existing finding, current finding), classify:
+
+- **Strict match** — same `File` path AND same line number AND same `Severity`. Auto-merge. Both sources are credited in the consolidated row.
+- **Fuzzy candidate** — same `File` AND at least one of:
+  - line numbers within ±5 of each other, OR
+  - description token-overlap ratio > 0.6 (Jaccard over stopword-filtered tokens: lowercase, strip `a|an|the|of|in|on|to|is|are|and|or|but|this|that`).
+  Fuzzy candidates are surfaced to the user for explicit yes/no merge — never auto-merged.
+- **Unique** — no strict match, no fuzzy candidate. Kept as its own finding, attributed to its source.
+
+**Gap analysis presentation.**
+
+```
+Cross-agent review detected — consolidating.
+
+  Existing (source: codex / gpt-5, <timestamp>): <N1> findings
+  Current  (source: claude / claude-opus-4-7):  <N2> findings
+
+  Strict overlap (both agents flagged same file+line+severity): <O> findings
+  Fuzzy candidates (same file, close line or similar wording):   <F> pairs
+  Only in existing:  <E> findings
+  Only in current:   <C> findings
+
+  Fuzzy candidates — please confirm (y/n per row):
+    [1] <existing row> ↔ <current row>    — <y/n>
+    [2] <existing row> ↔ <current row>    — <y/n>
+    ...
+
+  Consolidation strategy?
+    (u) Union — keep all unique findings (after fuzzy resolution). <TOTAL_U> items. Safest default.
+    (i) Intersection — keep only strict overlap + y-confirmed fuzzy matches. <TOTAL_I> items. Highest-confidence signal.
+    (m) Manual — walk each non-matching finding; keep/drop/merge per item.
+    (a) Archive prior as stale — discard existing, use only current pass. (Escape hatch; breaks triangulation.)
+    (c) Cancel — abort this pass; leave existing REVIEW.md untouched.
+```
+
+**Consolidated file output.** On (u)/(i)/(m), write the consolidated `.kdbp/REVIEW.md` with schema 1.1 — the `sources` array grows by one entry for the current run, a `consolidated_at` timestamp and `consolidation` strategy are recorded, and the findings table gains a `Sources` column listing attribution for each row (`codex`, `claude`, or `codex, claude` for strict/fuzzy-confirmed overlaps). Triage then proceeds (in Claude Code) against the consolidated findings; the triage user sees the attribution and can use it as confidence signal ("both agents flagged this — probably real").
+
+**Format of `.kdbp/REVIEW.md` (schema 1.1).**
+
+```markdown
+<!-- gabe-review-live:1.1 -->
+---
+sources:
+  - cli: codex            # producing CLI (codex | claude)
+    model: gpt-5          # model ID (best-effort inference); 'unknown' if unavailable
+    timestamp: 2026-04-24T15:00:00Z
+    findings: 7           # count from this pass
+  - cli: claude
+    model: claude-opus-4-7
+    timestamp: 2026-04-24T17:30:00Z
+    findings: 9
+consolidated_at: 2026-04-24T17:30:00Z   # omit for single-source reviews
+consolidation: union                    # union | intersection | manual | replaced | null (single-source)
+project_root: <abs path>
+target: <what was reviewed — e.g. "git diff HEAD", a file path, a folder>
+maturity: mvp|enterprise|scale
+status: active           # active | resolved | stale | superseded | cancelled
+---
+
+# Gabe Review — Live Document
+
+**Verdict:** APPROVE | WARNING | BLOCK
+**Confidence:** NN/100
+**Coverage:** HIGH | MEDIUM | LOW
+**Findings:** <total> (CRITICAL: n, HIGH: n, MEDIUM: n, LOW: n) | **Sources:** codex+claude (or just codex / claude for single-pass)
+**Resolution:** <fixed>/<deferred>/<dismissed> of <total> (pending: <remaining>)
+
+## Findings
+| # | Status | Severity | Finding | File | Churn | Fix Cost | Defer Risk | Maturity Gate | Escalation | Sources |
+|---|--------|----------|---------|------|-------|----------|------------|---------------|------------|---------|
+| 1 | pending | HIGH | ... | x.ts:12 | ... | ... | ... | ... | - | codex, claude |
+| 2 | pending | MEDIUM | ... | y.ts:5 | ... | ... | ... | ... | - | codex |
+| 3 | pending | HIGH | ... | z.ts:9 | ... | ... | ... | ... | - | claude |
+
+Status values: `pending` (untriaged), `fixed` (applied), `deferred` (logged to PENDING.md), `dismissed` (session-only). Triage loop mutates this column in place.
+Sources values: comma-separated CLIs that surfaced the finding. Multiple sources = independently corroborated (higher confidence).
+
+## Plan Alignment (5a)
+<ALIGNED | DRIFTED | MISALIGNED + brief rationale — union of all passes' alignments; conflicts noted>
+
+## Stale Verified Topics (5c)
+<list of {topic, file, last_verified_commit} or "none" — union across passes>
+
+## Architectural Decisions (5b)
+<proposed DECISIONS.md entries (not yet written) or "none" — union across passes>
+
+## Tier Drift (5d)
+<TIER_DRIFT findings with {section, dim, pattern, floor, effective} or "none" — union across passes>
+
+## Deferred Backlog Status
+<for each open PENDING.md item: whether this diff addresses it, kept in backlog, or became a fresh finding>
+
+## Suggested Triage
+<per-finding recommendation: (f)ix / (d)efer / (x)ismiss with one-line rationale — advisory; actor-CLI decides>
+
+---
+_Active review. Triage in Claude Code with `/gabe-review` (resumes) or `/gabe-review close` (finalize)._
+```
+
+**Backwards compatibility.** Schema 1.0 (single-source `source: ...` flat field) is readable — on first merge, it's upgraded in place to schema 1.1 by converting the flat source into a single-element `sources:` array. No migration tool needed; the upgrade is automatic the first time a cross-agent pass triggers merge mode.
+
+**Two-pass workflow (user discipline).** To trigger merge mode intentionally:
+
+1. **Pass 1** (any CLI) — invoke with `inbox` to produce REVIEW.md without triage:
+   - In Codex: `$gabe-review inbox` (also the default; Codex policy is analysis-only).
+   - In Claude: `/gabe-review inbox` — explicit opt-in to stop after producing.
+2. **Pass 2** (the OTHER CLI) — invoke normally (`/gabe-review` or `$gabe-review`). The skill runs blind analysis, detects the prior pass, triggers merge mode, consolidates, and (in Claude) proceeds to triage.
+
+Same-CLI re-runs (Codex→Codex or Claude→Claude) don't go into merge mode — they hit the collision prompt. Cross-CLI is the trigger.
+
+**Archive directory.** `.kdbp/reviews-archive/` — gitignored. Archive filenames: `REVIEW_<YYYY-MM-DD-HHMMSS>_<status>.md` where `<status>` ∈ {`resolved`, `stale`, `superseded`, `cancelled`}. On first archive in a project, gabe-review appends `.kdbp/reviews-archive/` to the project `.gitignore` (idempotent grep-before-append); `/gabe-init` seeds this entry at scaffold time for fresh projects.
+
 ### Post-Review Mode (`/gabe-review post-review`)
 
-Parse the most recent code review output in the conversation. Detect the source format and map findings:
+Parse an external code review (CE:review, BMad, ECC, manual) and ingest its findings into `.kdbp/REVIEW.md`. Detect the source format and map severities:
 
 | Source | Severity mapping |
 |---|---|
@@ -942,7 +1135,9 @@ Parse the most recent code review output in the conversation. Detect the source 
 | **ECC code-reviewer** | CRITICAL→CRITICAL, HIGH→HIGH, MEDIUM→MEDIUM, LOW→LOW (same scale) |
 | **Manual/unknown** | Infer from keywords (security→CRITICAL, performance→MEDIUM, style→LOW) |
 
-Add Defer Risk + Maturity Gate + Confidence Score columns to each parsed finding. Present in the standard Gabe Review table format. After presenting findings, follow the full mode flow (confidence score with projections, provisional verdict, session estimate, triage).
+Add Defer Risk + Maturity Gate + Confidence Score columns to each parsed finding, then write the standard `.kdbp/REVIEW.md` live document (subject to the collision prompt above). After the file is written, follow the full mode flow (confidence score with projections, provisional verdict, session estimate, triage, archive-on-resolve).
+
+**Resume semantics.** If `post-review` is invoked without an explicit external source and an active `.kdbp/REVIEW.md` already exists, this is equivalent to `/gabe-review` with the (r) Resume option — Claude picks up whatever is in REVIEW.md (including artifacts produced earlier by Codex) and runs triage.
 
 ---
 

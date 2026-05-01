@@ -25,14 +25,25 @@ Run the equivalent of `/gabe-align init [project-name]`:
 2. If no project name in $ARGUMENTS, ask: "Project name?"
 3. Ask: "What does this project do?" (one sentence for BEHAVIOR.md `domain`)
 4. Ask: "Maturity level?" → `mvp` (default) | `enterprise` | `scale`
+4.5. Ask: "Project type?" → `code` (default) | `mockup` | `hybrid`
+   - `code` — standard software project. `/gabe-execute` owns Exec. No mockup-specific artifacts.
+   - `mockup` — design / UX project. `/gabe-mockup` owns Exec. Creates `.kdbp/ENTITIES.md` + enables `/gabe-plan --preset=mockup-project`.
+   - `hybrid` — both. PLAN phases dispatch per-type tags (`/gabe-mockup` for design-system/ui-kit/mockup-* phases, `/gabe-execute` otherwise).
+   - If `mockup` or `hybrid`: prompt `Install ui-ux-pro-max catalog (67 styles / 162 palettes / 74 font pairings)? [Y/n]`. Default Y. If yes, run in background:
+     ```bash
+     npx --yes uipro-cli init --ai claude 2>/dev/null || echo "⚠ uipro install skipped (npm unavailable or install failed — skill still works without it)"
+     ```
+   - Persist to BEHAVIOR.md frontmatter as `project_type: <answer>`.
+   - If `mockup` or `hybrid`: create `.kdbp/ENTITIES.md` from `~/.claude/templates/gabe/ENTITIES.md` (copied during install.sh).
 5. Ask: "Tech stack?" (comma-separated, e.g., "python, fastapi, react")
-6. Create `.kdbp/` with these files:
+6. Create `.kdbp/` with these files **and `CLAUDE.md` at the project root** (see Step 1.7 for CLAUDE.md generation):
 
 ```
 .kdbp/
 ├── BEHAVIOR.md      # From answers above
 ├── VALUES.md        # Project values (empty template — user adds during first session)
 ├── DECISIONS.md     # Append-only architecture decision table
+├── RULES.md         # Scar-tissue constraints (R-rules) maintained by /gabe-debt
 ├── PENDING.md       # Deferred items (empty)
 ├── LEDGER.md        # Checkpoint history (empty)
 ├── MAINTENANCE.md   # Quarterly human checklist
@@ -52,6 +63,30 @@ maturity: [mvp|enterprise|scale]
 tech: [from answer]
 created: [today's date]
 ---
+
+# Project Behavior Rules
+
+## B1 — Inventory before proposing (architecture / exploratory questions)
+
+**Trigger phrases:** "can we work on", "should we", "I'm wondering", "explore the possibility", "what do you think about", "how can we approach", "is it possible to". Treat as diagnose-prompts, not build-prompts.
+
+**Mandatory inventory before any proposal:**
+1. Read existing project state: `.kdbp/PLAN.md`, `.kdbp/SCOPE.md`, `.kdbp/STRUCTURE.md`, `.kdbp/ROADMAP.md`, `.kdbp/AUDIT.md` (if present)
+2. Read suite command(s) being extended: `~/.claude/commands/gabe-*.md`
+3. Read relevant catalog: `~/.claude/templates/gabe/tier-sections/*.md`
+4. If proposing external dep: clone repo, verify license + actual surface (not just README)
+5. List what already exists for this question before proposing what's missing
+
+**Proactive suggestions on detection:**
+- Suggest user run `/plan` (your `feedback_plan_overrides_auto` rule then enforces wait-for-confirm)
+- Offer `/gabe-roast [perspective]` or `/gabe-assess` for adversarial first-pass before plan-text
+- If auto-mode active, override it for exploratory Qs — surface inventory + recommendation, wait for user direction
+
+**Self-check before delivery:** "Did I read existing state? Did the user already do this analysis? Am I proposing what already exists under a new name? Did I challenge my first framing?"
+
+**Caveman/terse modes compress output prose only. Reasoning depth is invariant.**
+
+**Why this rule exists:** Past incident (2026-04-24, gastify mockup workflow Q) where shallow first-pass restated work the user had already done in `.kdbp/PLAN.md` + `AUDIT.md` + `STRESS-TEST-SPEC.md`. User flagged as workflow-sustainability concern.
 ```
 
 **VALUES.md** — start with:
@@ -63,6 +98,8 @@ created: [today's date]
 ```
 
 **DECISIONS.md** — use template from `~/.claude/templates/gabe/DECISIONS.md`
+
+**RULES.md** — use template from `~/.claude/templates/gabe/RULES.md`. Scaffolds empty with R-rule block template + phase cross-ref matrix. `/gabe-debt` populates it. `/gabe-review` reads it for severity escalation when a file/line violates an R-rule.
 
 **PENDING.md** — start with:
 ```markdown
@@ -98,13 +135,58 @@ created: [today's date]
 - Library → use the Library section
 - Remove commented-out sections for other project types
 
+### Step 1.7: Create or refresh `CLAUDE.md` (project root)
+
+`CLAUDE.md` at the project root is how Claude Code discovers the KDBP contract on every session. Unlike the files under `.kdbp/`, this one lives at the repo root so the built-in session-start loader reads it without extra configuration.
+
+**Template source:** `~/.claude/templates/gabe/CLAUDE.md`
+
+**Placeholders to substitute** (all derived from Step 1 answers — no extra prompts):
+
+| Placeholder | Value |
+|-------------|-------|
+| `{PROJECT_NAME}` | Step 1 answer |
+| `{DOMAIN}` | Step 1.3 answer (one sentence) |
+| `{MATURITY}` | `mvp` / `enterprise` / `scale` |
+| `{TECH}` | Step 1.5 comma-separated list |
+
+**Marker:** the template includes `<!-- KDBP-MARKER: gabe-init v1 -->` on line 5. This marker is how `update` mode detects a Gabe-managed CLAUDE.md versus a user-authored one.
+
+**Idempotency rules** (apply on every run, `reset` and `update` alike):
+
+| Existing state at root | Action |
+|------------------------|--------|
+| No `CLAUDE.md` | Create from template with substitutions. Report: `✅ CLAUDE.md created`. |
+| `CLAUDE.md` exists **with** `KDBP-MARKER: gabe-init v1` | Already ours. `reset` mode: regenerate above the trailing `<!-- Add project-specific instructions… -->` comment, preserving whatever the user appended below it. `update` mode: leave untouched (already compliant). |
+| `CLAUDE.md` exists **without** the marker | Stop and ask: `Existing CLAUDE.md has no KDBP marker. Options: (m)erge — append KDBP section below existing content, (b)ackup-and-replace — move current to CLAUDE.pre-kdbp.md and install template, (s)kip — leave as-is. [m/b/s]`. Default `m`. |
+| User picks `m` (merge) | Append `\n\n---\n\n` then the full rendered template. Preserve pre-existing content above verbatim. |
+| User picks `b` (backup-and-replace) | `mv CLAUDE.md CLAUDE.pre-kdbp.md`, install rendered template. |
+| User picks `s` (skip) | Record `⚠️ CLAUDE.md not managed — KDBP discovery may be unreliable` in Step 4 readiness report. |
+
+**Preservation contract for `reset` on a marker-present file:** read the existing CLAUDE.md, find the line `<!-- Add project-specific instructions for Claude Code below. -->`. Everything after that line is user content — preserve it verbatim. Rewrite only the content above that line from the template + substitutions.
+
+### Step 1.8: Seed `.gitignore` entries (gabe-review archive)
+
+The project's `.gitignore` gets the line `.kdbp/reviews-archive/` appended so resolved gabe-review documents archive locally without bloating git history. (`.kdbp/archive/` — used by PLAN/SCOPE archives — stays tracked as before.)
+
+**Idempotency:** grep-before-append. If `.gitignore` doesn't exist, create it with just that single line. If it exists and already contains the entry (exact-match line), do nothing. Otherwise, append with a leading newline if the file doesn't end in one.
+
+| Existing `.gitignore` state | Action |
+|---|---|
+| Missing | Create with `.kdbp/reviews-archive/` |
+| Present, entry missing | Append `.kdbp/reviews-archive/` |
+| Present, entry present | No-op |
+
+Display a single line at the end: `✅ .gitignore: reviews-archive entry [added | already present]`. `reset` mode re-runs this check (idempotent). `update` mode includes it as part of the readiness scan.
+
 ### Step 1.5: Update Mode (only when user picked `update`)
 
 Non-destructive top-up of an existing `.kdbp/` directory. Never overwrites, never deletes.
 
 1. **Scan what's missing.** Compare the existing `.kdbp/` contents against the current template set:
-   - Expected files: `BEHAVIOR.md`, `VALUES.md`, `DECISIONS.md`, `PENDING.md`, `LEDGER.md`, `MAINTENANCE.md`, `DOCS.md`, `PLAN.md`, `KNOWLEDGE.md`, `STRUCTURE.md`
+   - Expected files: `BEHAVIOR.md`, `VALUES.md`, `DECISIONS.md`, `RULES.md`, `PENDING.md`, `LEDGER.md`, `MAINTENANCE.md`, `DOCS.md`, `PLAN.md`, `KNOWLEDGE.md`, `STRUCTURE.md`
    - Expected directory: `archive/`
+   - Expected at **project root** (not `.kdbp/`): `CLAUDE.md` — scanned separately; rules in Step 1.7
    - Note: project-specific files like `PUSH.md` or historical `PLAN-PHASE-N.md` are NOT in the expected set — leave them untouched.
 
 2. **Report findings before acting:**
@@ -113,15 +195,22 @@ Non-destructive top-up of an existing `.kdbp/` directory. Never overwrites, neve
 
    Present (9):    BEHAVIOR, VALUES, DECISIONS, PENDING, LEDGER, MAINTENANCE, DOCS, PUSH, PLAN-PHASE-1
    Missing (3):    PLAN.md, KNOWLEDGE.md, archive/
+   Root-level:     CLAUDE.md [missing | managed | unmanaged]
    Unrecognized:   PLAN-PHASE-1.md (not in template set — will keep as-is)
 
    Proceed with top-up? (y/n)
    ```
 
+   Root-level status meanings:
+   - **missing** — no `CLAUDE.md` at project root; will be created per Step 1.7.
+   - **managed** — `CLAUDE.md` present with `KDBP-MARKER: gabe-init v1`; left untouched.
+   - **unmanaged** — `CLAUDE.md` present without the marker; Step 1.7 will prompt (merge / backup-and-replace / skip).
+
 3. **If confirmed, create only missing items:**
    - For each missing template file: copy from `~/.claude/templates/gabe/[FILE]`
    - For `archive/`: run `mkdir -p .kdbp/archive`
    - For `DOCS.md` specifically: if missing, do NOT auto-select a project type — ask: "Project type? (agent-app | web-app | cli | library)" and use that section
+   - For root `CLAUDE.md`: run Step 1.7 — if the scan flagged `missing` or `unmanaged`, that step handles creation / merge prompt; if `managed`, Step 1.7 is a no-op
    - Skip any file that already exists (never overwrite)
 
 4. **Do NOT touch:**
@@ -135,11 +224,12 @@ Non-destructive top-up of an existing `.kdbp/` directory. Never overwrites, neve
 6. **After Step 2, skip Steps 3-4** (project type + readiness report). Instead show a condensed Update Report:
    ```
    UPDATE COMPLETE
-     Files added:    [list]
-     Directories:    [list]
-     Schema migrations: [list or "none"]
-     Hooks installed: [N] / [total]
-     Preserved:      [count of files left untouched]
+     Files added:      [list]
+     Directories:      [list]
+     Schema migrations:[list or "none"]
+     CLAUDE.md:        [created | merged | backed-up-and-replaced | preserved | skipped]
+     Hooks installed:  [N] / [total]
+     Preserved:        [count of files left untouched]
    ```
 
 ### Step 1.6: Schema migration (non-destructive, only when `update` picked)
@@ -273,6 +363,7 @@ api/services/, api/observability/). Stages 1-5 are MVP; 6-9 are Enterprise.
 
 ```
 ✅ .kdbp/ initialized (10 files + archive/)
+✅ CLAUDE.md: [created | merged | preserved | backed-up-and-replaced | ⚠ skipped]
 ✅ Hooks installed (7/7)
 ✅ Project type: [type]
 ✅ Maturity: [mvp|enterprise|scale]

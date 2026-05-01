@@ -1,11 +1,11 @@
 ---
 name: gabe-push
-description: "Push, create PR, watch CI, promote branches — the post-commit shipping workflow. Captures deployment events in .kdbp/DEPLOYMENTS.md and proposes operational DECISIONS.md entries when infra/CI/deploy configs change. Usage: /gabe-push"
+description: "Push, create PR, watch CI, promote — env-aware shipping workflow. Reads .kdbp/PUSH.md for env definitions (production, staging, custom). Bare /gabe-push targets the default env (production); /gabe-push <env> targets a named env. On every run: detects remote branch drift + prompts; offers branch cleanup after success. First run interviews for envs. Usage: /gabe-push [env-name] [--reconfigure]"
 ---
 
 # Gabe Push
 
-The stupidest way to ship. Push, PR, watch CI, promote. First run auto-detects your setup; every run after that repeats the same flow.
+Env-aware shipping. One command pushes local work to the configured target env, or promotes what's already on a pre-prod env (e.g., `staging`) up to the next env (e.g., `main` / `production`). Config lives in `.kdbp/PUSH.md`. First run interviews for envs; subsequent runs honor the config until `/gabe-push --reconfigure`.
 
 > **Rendering note.** Output templates in this spec wrapped in bare triple-backtick fences are spec-meta delimiters — render their contents as plain markdown at runtime. Tagged fences (```bash, ```json, ```diff) stay fenced. See `gabe-docs/SKILL.md` § "Runtime output rendering convention".
 
@@ -16,54 +16,129 @@ The stupidest way to ship. Push, PR, watch CI, promote. First run auto-detects y
 1. Verify `gh` CLI: `gh --version 2>/dev/null`. If missing: "Install GitHub CLI: https://cli.github.com/" — stop.
 2. Verify auth: `gh auth status 2>/dev/null`. If not authenticated: "Run `gh auth login` first" — stop.
 3. Verify git repo with remote: `git remote -v`. If no remote: "No remote configured. Run `git remote add origin <url>` first" — stop.
-4. Read `.kdbp/PUSH.md`. If it exists, skip to Step 3. If not, continue to Step 2.
+4. Read `.kdbp/PUSH.md`. If it exists, skip to Step 2.5. If not, continue to Step 2.
 
 ### Step 2: First-run setup (creates `.kdbp/PUSH.md`)
 
+Interactive. Does not rely on heuristic auto-suggestion. Asks the user explicitly.
+
 1. Detect remote: `git remote -v`. Default to `origin`. If multiple remotes, ask user to pick.
 2. Detect default branch: `gh repo view --json defaultBranchRef -q '.defaultBranchRef.name' 2>/dev/null`. Fallback to `main`.
-3. Detect branch strategy from `git branch -r --list 'origin/*'`:
-   - `origin/develop` exists alongside `origin/main` → suggest `gitflow`
-   - Otherwise → suggest `trunk-based`
-   - Ask: "Detected [strategy]. Correct? [Y/n]"
-4. Detect CI provider:
+3. Detect CI provider:
    - `.github/workflows/` exists → `github-actions`
    - None found → `none`
-5. Detect PR template: check `.github/pull_request_template.md` or `.github/PULL_REQUEST_TEMPLATE/`.
-6. Build promotion chain:
-   - trunk-based: `feature -> main`
-   - gitflow: `feature -> develop -> main`
-7. Write `.kdbp/PUSH.md` using the template format (see templates/PUSH.md).
-8. Show: "Push config saved to `.kdbp/PUSH.md`. Edit anytime to adjust."
-9. Ask: "Push now? [Y/n]" — if yes, continue to Step 3.
+4. Detect PR template: check `.github/pull_request_template.md` or `.github/PULL_REQUEST_TEMPLATE/`.
+5. **Ask deploy pattern.** Show this explicit menu — never auto-pick:
 
-### Step 3: Pre-flight checks
+   ```
+   How should pushes flow?
+     [1] production-only      /gabe-push → main (no staging)
+     [2] staging-then-prod    /gabe-push staging → staging, /gabe-push → main (promote from staging)
+     [3] custom               define N environments by hand
+   ```
 
-1. Get current branch: `git branch --show-current`.
-2. Guard: if on the default branch AND strategy is not `trunk-based`:
-   - Warn: "You are on [main]. Push directly? This skips PR workflow. [y/N]"
-3. Check uncommitted changes: `git status --porcelain`.
+6. Based on choice, scaffold environments:
+   - `[1]`: one env `production` → target=`<default-branch>` (e.g., `main`), `promote_from` unset
+   - `[2]`: two envs — `staging` → target=`staging`, `production` → target=`<default-branch>`, `promote_from`=`staging`. If `origin/staging` does not exist, offer: `[create]` branch from default / `[skip]` and create on first staging push
+   - `[3]`: loop — ask env name + target branch + `promote_from` (or none) per env, until user says done
+7. For each env, ask: `branch_cleanup: always | never | ask` (default: `ask`)
+8. Known-branches inventory: `git branch -r --format='%(refname:short)'` → record the current remote-branch set in PUSH.md `known_branches` so Step 2.7 can detect drift.
+9. Write `.kdbp/PUSH.md` using the template format (see `templates/PUSH.md`).
+10. Show: "Push config saved to `.kdbp/PUSH.md`. Edit anytime to adjust or rerun `/gabe-push --reconfigure`."
+11. Ask: "Push now? [Y/n]" — if yes, continue to Step 2.5.
+
+**Reconfigure path.** `/gabe-push --reconfigure` clears `.kdbp/PUSH.md` after user confirmation and re-enters Step 2 from scratch. Existing `DEPLOYMENTS.md` history is preserved.
+
+### Step 2.5: Env resolution from argument
+
+Determines which env this invocation targets.
+
+1. Parse `$ARGUMENTS`:
+   - No positional arg → `env = default_env` from PUSH.md (fallback: `production`)
+   - One positional arg → `env = <arg>` (e.g., `/gabe-push staging`)
+   - `--reconfigure` flag → jump to Step 2 with confirmation
+2. Look up env block in PUSH.md:
+   - Found → bind `target_branch`, `promote_from`, `ci`, `branch_cleanup` from env config
+   - Not found → prompt: "No config for env `<name>`. Add it now? [Y/n]"
+     - `Y` → run abbreviated Step 2 flow for just this env (target branch, promote_from, branch_cleanup), append to PUSH.md, continue
+     - `n` → abort
+3. Print resolved env summary:
+   ```
+   ENV:         <name>
+   TARGET:      origin/<target_branch>
+   PROMOTE FROM: <promote_from>  (or "none")
+   CI:          <ci>
+   ```
+
+### Step 2.7: Remote branch drift detection
+
+Runs every invocation. Detects branches on the remote that were not present when PUSH.md was last written (or not mentioned in any env `target_branch` / `promote_from`).
+
+1. `git fetch --prune origin`
+2. Current remote set: `git branch -r --format='%(refname:short)' | grep -v HEAD`
+3. Known set: union of
+   - `known_branches` from PUSH.md
+   - every env's `target_branch`
+   - every env's `promote_from` (if set)
+4. Extras = current - known. If empty: continue to Step 3.
+5. For each extra branch, look up the `Decisions log` in PUSH.md (entries keyed by branch name):
+   - If a prior decision exists → apply silently (e.g., `ignore`, `delete-local`, `register as env=<name>`)
+   - Else → prompt:
+     ```
+     Remote branch detected not in config: origin/<name>
+     Actions: [ignore-once] [ignore-always] [register-as-env] [delete-remote] [abort]
+     ```
+   - Persist the chosen action (except `ignore-once` / `abort`) to PUSH.md `Decisions log` table keyed by branch name. `register-as-env` runs abbreviated Step 2 env-add flow for this branch.
+6. Apply decided actions. `ignore-once` moves on; `ignore-always` adds branch to `known_branches` so it never re-prompts; `delete-remote` runs `git push origin --delete <name>` after `[y/N]` confirm.
+
+### Step 3: Determine push source + pre-flight
+
+1. Get current branch: `current_branch = git branch --show-current`.
+2. **Decide push source** — the ref that will land on `env.target_branch`:
+   - If `env.promote_from` is set:
+     - Fetch `origin/<promote_from>` state.
+     - If `origin/<promote_from>` exists AND is ahead of `origin/<env.target_branch>`:
+       - Offer explicit choice:
+         ```
+         Promotion available: origin/<promote_from> is ahead of origin/<env.target_branch>.
+         [promote]     push origin/<promote_from> -> <env.target_branch>  (ship what was tested)
+         [push-local]  push current HEAD (<current_branch>) -> <env.target_branch>  (override staging)
+         [abort]
+         ```
+       - `[promote]`    → `push_source = origin/<promote_from>`, `source_label = <promote_from>`
+       - `[push-local]` → `push_source = HEAD`, `source_label = <current_branch>`
+     - Else (no `<promote_from>` on remote or not ahead) → `push_source = HEAD`
+   - Else → `push_source = HEAD`
+3. Guard: if `push_source = HEAD` AND `current_branch = env.target_branch` (direct push to the env branch):
+   - Warn: "You are on [<target_branch>]. Push directly? This skips PR workflow. [y/N]"
+4. Check uncommitted changes (applies only when `push_source = HEAD`): `git status --porcelain`.
    - If changes exist, show count and ask:
      - `[commit]` — run `/gabe-commit` first, then continue
      - `[push-only]` — push only what's already committed
      - `[abort]` — stop
    - If user picks `commit` and gabe-commit blocks (CRITICAL findings), stop the push.
-4. Check unpushed commits: `git rev-list @{u}..HEAD --count 2>/dev/null`.
+5. Check unpushed commits (applies only when `push_source = HEAD`): `git rev-list @{u}..HEAD --count 2>/dev/null`.
    - If 0 and not a new local branch: "Nothing to push. All commits already on remote." — stop.
+   - `push_source = origin/<promote_from>` skips this check (it's already on the remote by definition).
 
 ### Step 4: Push
 
-1. Push: `git push -u [remote] [branch]`.
-2. If push fails (rejected, auth error): show error and stop.
-3. Show: "Pushed [branch] to [remote]."
+1. Push logic depends on `push_source`:
+   - `push_source = HEAD` AND `current_branch = env.target_branch` → `git push -u [remote] <env.target_branch>`
+   - `push_source = HEAD` AND `current_branch ≠ env.target_branch` → `git push -u [remote] <current_branch>:<env.target_branch>`
+   - `push_source = origin/<promote_from>` → promotion push: `git push [remote] origin/<promote_from>:<env.target_branch>` (fast-forward-only; remote-to-remote). If non-FF: stop with clear message and offer `[force-with-lease] [abort]`.
+2. If push fails (rejected, auth error, non-FF): show error and stop.
+3. Show: "Pushed <source_label> -> <env.target_branch> on [remote]."
 
 ### Step 5: Create or update PR
 
-1. Check for existing PR: `gh pr view [branch] --json number,state,url 2>/dev/null`.
+Skipped when `push_source = HEAD` AND `current_branch = env.target_branch` (direct push to env branch — no PR needed). Skipped when `push_source = origin/<promote_from>` if `env.target_branch` is the promotion target and direct remote-to-remote push was taken (PR was already the staging→testing cycle; promotion is the merge). In both skip cases, jump to Step 6.
+
+1. Check for existing PR: `gh pr view <source_label> --json number,state,url 2>/dev/null`.
    - If PR exists and `OPEN`: show "PR already exists: [url]". Skip to Step 6.
 2. Generate PR title: most recent commit subject, or branch name as title if multiple commits.
 3. Generate PR body:
-   - Commit summary: `git log origin/[target]..HEAD --pretty=format:'- %s' --reverse` (cap at 50).
+   - Commit summary: `git log origin/<env.target_branch>..HEAD --pretty=format:'- %s' --reverse` (cap at 50).
    - If PR template exists, read it and prepend the commit summary.
    - If no template:
      ```
@@ -73,21 +148,21 @@ The stupidest way to ship. Push, PR, watch CI, promote. First run auto-detects y
      
      ## Context
      
-     Branch: [branch] -> [target]
+     Branch: <source_label> -> <env.target_branch>  (env: <env_name>)
      Commits: [N]
      ```
-4. Create PR: `gh pr create --base [target] --head [branch] --title "[title]" --body "[body]"`.
+4. Create PR: `gh pr create --base <env.target_branch> --head <source_label> --title "[title]" --body "[body]"`.
 5. Show: "PR created: [url]"
 
 ### Step 6: CI Watch (non-blocking, 75s max)
 
-1. If CI provider in PUSH.md is `none`: "No CI configured. Done." — skip to Step 7.
+1. If CI provider in PUSH.md is `none`: "No CI configured. Done." — skip to Step 7.5.
 2. Poll `gh pr checks [branch]` up to 5 times, 15-second intervals.
 3. Each poll, show status:
    ```
    CI: ⏳ build (running)  ✅ lint (pass)  ⏳ test (running)
    ```
-4. All checks pass: "CI: All checks passed." — continue to Step 7.
+4. All checks pass: "CI: All checks passed." — continue to Step 7.5.
 5. Any check fails:
    ```
    CI: ✅ lint (pass)  ❌ test (fail)  ✅ build (pass)
@@ -101,23 +176,18 @@ The stupidest way to ship. Push, PR, watch CI, promote. First run auto-detects y
    - `[ignore]` — continue without fixing
 6. Timeout (75s): "CI still running. Check later: `gh pr checks`."
 
-### Step 7: Branch promotion (optional)
+### Step 7: Final summary
 
-1. Read promotion chain from PUSH.md (e.g., `feature -> develop -> main`).
-2. If current PR target is the final link (e.g., `main`): done.
-   ```
-   GABE PUSH COMPLETE
-   Branch: [branch] -> [target]
-   PR: [url]
-   CI: [status]
-   ```
-3. If there is a next target:
-   - Ask: "Promote [current target] -> [next target]? [Y/n]"
-   - If yes: wait for PR merge (`gh pr view --json state`), then:
-     - `git checkout [current-target] && git pull`
-     - Create new PR: `gh pr create --base [next-target] --head [current-target]`
-     - Repeat Step 6 for the new PR
-   - If no: "Promotion skipped. When ready, merge the PR and run `/gabe-push` from [current-target]."
+```
+GABE PUSH COMPLETE
+ENV:    <env_name>
+SOURCE: <source_label>
+TARGET: <env.target_branch>
+PR:     [url or "—" if direct push]
+CI:     [status or "—"]
+```
+
+Promotion to a further env happens only when the user runs `/gabe-push <next_env>` (or bare `/gabe-push` if a promotion is available per env config). This command never recurses across envs in one invocation.
 
 ### Step 7.5: Capture deployment event → `DEPLOYMENTS.md` (Phase 4/6 of doc-lifecycle work)
 
@@ -171,7 +241,7 @@ If the Edit fails due to a concurrent writer (shouldn't happen — push is the s
 
 **Example rendering:**
 
-```
+```markdown
 | P7 | 2026-04-17 14:22 | feature/add-auth → main | #42 | ✅ 3/3 (47s) | promoted main → prod | — |
 | P8 | 2026-04-17 15:08 | fix/ci-typo → main | #43 | ❌ 1/3 (12s) — failed: lint | auto-fix applied: lint; CI re-run after fix | — |
 ```
@@ -218,27 +288,28 @@ Read `.kdbp/PENDING.md`. For every row where `Source` column = `classifier` AND 
   ```
 - If `is_operational_decision == false`: drop silently.
 
-**Interactive triage** (output block):
+**Interactive triage** (rendered as markdown, not code):
 
-```
 ### Operational Decision Candidate
 
-  Detected: [trigger reason]
-  Proposed DECISIONS.md entry (tagged `operational`):
+**Detected:** [trigger reason]
 
-    Date:           2026-04-17
-    Decision:       [title]
-    Rationale:      [rationale]
-    Alternatives:   [alt 1]
-                    [alt 2]
-    Status:         active,operational
-    Review Trigger: [review_trigger]
+**Proposed DECISIONS.md entry** (tagged `operational`):
 
-  [accept]  Append to .kdbp/DECISIONS.md as D[next_id] with `operational` tag
-  [note]    Write one-liner to today's DEPLOYMENTS.md Decisions column instead (lighter weight)
-  [defer]   Write to .kdbp/PENDING.md with source=classifier — re-surface next run
-  [drop]    Don't record (session-scoped dedup on title)
-```
+| Field | Value |
+|-------|-------|
+| Date | 2026-04-17 |
+| Decision | [title] |
+| Rationale | [rationale] |
+| Alternatives | [alt 1] · [alt 2] |
+| Status | active,operational |
+| Review Trigger | [review_trigger] |
+
+Actions:
+- `[accept]` — append to `.kdbp/DECISIONS.md` as `D[next_id]` with `operational` tag
+- `[note]` — write one-liner to today's `DEPLOYMENTS.md` Decisions column instead (lighter weight)
+- `[defer]` — write to `.kdbp/PENDING.md` with `source=classifier` — re-surface next run
+- `[drop]` — don't record (session-scoped dedup on title)
 
 **Action handlers:**
 
@@ -266,13 +337,76 @@ Humans can disable the classifier entirely by adding `push_operational_classifie
 ### Step 8: Record to ledger
 
 Append to `.kdbp/LEDGER.md`:
-```
+
+```markdown
 ## [date] [time] — PUSH [branch] -> [target]
 PR: [url]
 CI: [all passed | N failed | skipped | no CI]
 PROMOTION: [promoted to X | skipped | N/A]
 DEPLOYMENTS: P[N]  (added row to .kdbp/DEPLOYMENTS.md)
 ```
+
+### Step 8.5: Auto-commit post-push bookkeeping (**zero user ceremony**)
+
+Steps 2, 7.5, 7.5b, and 8 leave dirty files in the working tree — `.kdbp/PUSH.md` (if just created), `.kdbp/DEPLOYMENTS.md`, `.kdbp/LEDGER.md`, and possibly `.kdbp/DECISIONS.md` (on `accept` in 7.5b) or `.kdbp/PENDING.md` (on `defer`). Leaving them dirty forces the user to run another `/gabe-commit` cycle for audit writes the push itself produced. That is the wrong boundary — bookkeeping is owned by the command that wrote it.
+
+This step commits those writes automatically and returns the working tree to a clean state. Does NOT push the bookkeeping commit — it stays local and is carried by the next real `/gabe-push` invocation (or the user's next push if they run one manually).
+
+**Preconditions:** Step 4 (push) completed successfully. If push failed or was aborted, skip this step — the bookkeeping writes stay dirty and surface on the next run alongside a retry.
+
+**Procedure:**
+
+1. **Compute the bookkeeping file set.** Start empty, add only these paths if modified this run:
+   - `.kdbp/PUSH.md` (when Step 2 created it)
+   - `.kdbp/DEPLOYMENTS.md` (always, since Step 7.5 appended)
+   - `.kdbp/LEDGER.md` (always, since Step 8 appended)
+   - `.kdbp/DECISIONS.md` (only when Step 7.5b action was `accept`)
+   - `.kdbp/PENDING.md` (only when Step 7.5b action was `defer` OR when re-surfaced PENDING rows were resolved)
+
+2. **Stage explicitly — path-scoped, never `git add -A`:**
+
+   ```bash
+   git add <each path in the set>
+   ```
+
+4. **Detect no-op.** Run `git diff --cached --quiet`. Exit code 0 → nothing to commit, skip to step 7. Otherwise continue.
+
+5. **Commit through the normal git hook chain** with a canonical message. No hook bypass — the user's policy disallows it, and the bookkeeping file set is path-scoped audit writes that every CHECK in the pre-commit suite will pass through cleanly:
+
+   - CHECK 1-3 (lint / types / tests): target source files; `.md` bookkeeping paths are skipped.
+   - CHECK 4-5 (coverage / shape): code-file-scoped per the earlier patch.
+   - CHECK 6 (deferred): reads `PENDING.md` — bookkeeping writes to PENDING don't self-flag because the column match is on `File`, not the PENDING file itself.
+   - CHECK 7 (doc drift): Layer 1 triggers only on `.env.example`, `pyproject.toml`, `docker-compose.yml`, or new route decorators — none match bookkeeping paths.
+   - CHECK 8-9 (structure): only fires on new source files; bookkeeping files are known paths.
+
+   So a normal `git commit` goes through cleanly without ceremony:
+
+   ```bash
+   git commit -m "chore(kdbp): record push bookkeeping for P[N]"
+   ```
+
+   Where `P[N]` is the deployment ID appended by Step 7.5. Commit body summarizes which files were written:
+
+   ```
+   chore(kdbp): record push bookkeeping for P7
+
+   - DEPLOYMENTS.md: appended P7 row (main → main, direct)
+   - lanes/<active>/LEDGER.md: PUSH entry for [date] [time]
+   - PUSH.md: first-run config (trunk-based, github-actions)     # only if created
+   - DECISIONS.md: D2 operational (trunk-based flow)              # only if 7.5b accept
+   ```
+
+   If any pre-commit hook blocks (rare; would indicate a real finding the user should know about), surface the hook output, leave the files staged, and report `Bookkeeping: ⚠ hook blocked — resolve and rerun /gabe-push` in the final dashboard. Do NOT retry with a hook bypass.
+
+6. **Do NOT push the bookkeeping commit.** The user ran `/gabe-push` once; running a second push for audit rows is wasteful. The bookkeeping commit is local, arrives on origin during the next real push, and never blocks downstream work.
+
+7. **Report.** Include a row in the final GABE PUSH COMPLETE output:
+
+   - `Bookkeeping: ✅ committed locally (3 files, not pushed)` — when commit happened
+   - `Bookkeeping: — no changes` — when Step 4 detect-no-op fired
+   - `Bookkeeping: ⚠ skipped (cwd on lane branch; shared files deferred to main)` — when main-only rule dropped DECISIONS.md
+
+**What this replaces:** the previous behavior left these files dirty and the user had to remember to run `/gabe-commit` again for audit bookkeeping. This step removes that requirement entirely. `/gabe-push` finishes with a clean working tree.
 
 ### Step 9: Suggest /gabe-teach (if applicable)
 
@@ -299,44 +433,78 @@ Follow the shared procedure documented in `/gabe-plan` under "Shared: auto-tick 
 - On success, display: `✅ PLAN: Phase [N] push ticked` (one line)
 
 If ticking Push completes all three columns (Review + Commit + Push = ✅) for the current phase, additionally display:
-```
-🎯 Phase [N] complete (all three gates passed).
-   Run /gabe-plan update to advance to the next phase.
-```
+
+🎯 **Phase [N] complete** (all three gates passed). Run `/gabe-plan update` to advance to the next phase.
+
+### Step 10.5: Branch cleanup prompt
+
+Final human step. Offers to delete the source branch after a successful push.
+
+Skip silently when:
+- `push_source = origin/<promote_from>` (promotion push — nothing local to clean)
+- `current_branch = env.target_branch` (direct push on the env branch; deleting it would brick the working tree)
+
+Otherwise:
+
+1. Read `env.branch_cleanup` from PUSH.md for the resolved env:
+   - `never` → skip silently
+   - `always` → delete without prompting (after confirming PR is merged or has no PR)
+   - `ask` → prompt:
+     ```
+     Source branch <current_branch> is no longer needed on this env.
+     [delete]      remove local + remote branch
+     [keep]        leave it (continue working)
+     [always]      remember "always delete" for env <env_name>
+     [never]       remember "always keep" for env <env_name>
+     ```
+2. On `[always]` / `[never]`: update `env.branch_cleanup` in PUSH.md, then act per the new setting.
+3. Deletion logic:
+   - If there is an associated PR, check state: `gh pr view <current_branch> --json state,mergedAt -q '.state'`.
+     - `OPEN` → warn: "PR still open. Delete anyway? [y/N]"
+     - `MERGED` or `CLOSED` or no PR → proceed without warning
+   - Switch off the branch first: `git checkout <env.target_branch>` (fallback to `default_branch` if the env's target branch isn't checked out locally)
+   - `git branch -d <current_branch>` (safe delete) → on failure (`not fully merged`), offer `[force]` (`git branch -D`) or `[abort]`
+   - `git push origin --delete <current_branch>` (remote)
+   - Log a one-liner to `.kdbp/LEDGER.md` via the same mechanism as Step 8 (appended; will sweep into the next bookkeeping commit on the next push).
 
 ### Output examples
 
+All three render as plain markdown at runtime — the bare fences here are spec-meta delimiters only (see `gabe-docs/SKILL.md` § "Runtime output rendering convention").
+
 **All succeeds (most common):**
-```
-GABE PUSH: feature/add-auth -> main
 
-PRE-FLIGHT: ✅ clean  ✅ ahead by 3 commits
-PUSH: ✅ origin/feature/add-auth
-PR: ✅ https://github.com/user/repo/pull/42
-CI: ✅ lint  ✅ test  ✅ build (47s)
+**GABE PUSH:** `feature/add-auth` → `main`
 
-GABE PUSH COMPLETE
-```
+| Step | Result |
+|------|--------|
+| Pre-flight | ✅ clean · ✅ ahead by 3 commits |
+| Push | ✅ `origin/feature/add-auth` |
+| PR | ✅ https://github.com/user/repo/pull/42 |
+| CI | ✅ lint · ✅ test · ✅ build (47s) |
+| Bookkeeping | ✅ committed locally (3 files, not pushed) |
+
+**GABE PUSH COMPLETE**
 
 **Uncommitted changes:**
-```
-GABE PUSH: feature/add-auth -> main
 
-PRE-FLIGHT: ⚠ 2 uncommitted files
-  → [commit] run /gabe-commit first  [push-only] push what's committed  [abort] stop
-```
+**GABE PUSH:** `feature/add-auth` → `main`
+
+- Pre-flight: ⚠ 2 uncommitted files
+- Actions: `[commit]` run `/gabe-commit` first · `[push-only]` push what's committed · `[abort]` stop
 
 **CI failure:**
-```
-GABE PUSH: feature/add-auth -> main
 
-PRE-FLIGHT: ✅ clean  ✅ ahead by 1 commit
-PUSH: ✅ origin/feature/add-auth
-PR: ✅ https://github.com/user/repo/pull/43
-CI: ✅ lint  ❌ test  ✅ build
-  Failed: test
-  → [details] [logs] [auto-fix] [assess] [ignore]
-```
+**GABE PUSH:** `feature/add-auth` → `main`
+
+| Step | Result |
+|------|--------|
+| Pre-flight | ✅ clean · ✅ ahead by 1 commit |
+| Push | ✅ `origin/feature/add-auth` |
+| PR | ✅ https://github.com/user/repo/pull/43 |
+| CI | ✅ lint · ❌ test · ✅ build |
+
+- Failed: test
+- Actions: `[details]` · `[logs]` · `[auto-fix]` · `[assess]` · `[ignore]`
 
 ### Scope traceability (if SCOPE.md + ROADMAP.md exist)
 
@@ -349,11 +517,9 @@ When writing a DEPLOYMENTS.md row for this push, enrich with scope linkage:
 
 Prompt at end:
 
-```
-Phase {N} Covers REQs appear satisfied by this deployment.
-Mark phase complete?
-  [y] Run /gabe-scope-change "mark phase {N} complete"
-  [n] Leave roadmap alone (will surface again next push)
-```
+Phase `{N}` Covers REQs appear satisfied by this deployment. Mark phase complete?
+
+- `[y]` Run `/gabe-scope-change "mark phase {N} complete"`
+- `[n]` Leave roadmap alone (will surface again next push)
 
 $ARGUMENTS

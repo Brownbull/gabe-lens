@@ -14,14 +14,68 @@ KDBP-aware planner. Same planning logic as `/plan`, but persists to `.kdbp/PLAN.
 | Flag | Meaning |
 |------|---------|
 | `--full-catalog` | Skip Layer 2 LLM dimension filter. Render ALL dimensions of matched sections. Default: filtered. |
+| `--preset=mockup-project` | Emit the canonical 13-phase mockup template (tokens → atoms → molecules → flows+INDEX → screens by section → handoff). Writes `<!-- project_type: mockup -->` to PLAN.md frontmatter. Invoked by `/gabe-mockup` when no active plan exists. |
+| `--platforms=<list>` | Comma-separated platforms (`web,mobile-web,native-mobile`). Used by `--preset=mockup-project`. Default: `web,mobile-web`. |
+| `--themes=<N>` | Number of theme candidates for M1 stress matrix. Used by `--preset=mockup-project`. Default: 3. |
 
 ## Procedure
+
+### Step 0: Subcommand dispatch
+
+Parse `$ARGUMENTS` first token:
+
+| Token | Route |
+|-------|-------|
+| `check` | Step CHK — structural compliance check + retrofit offer against current spec |
+| `update` | Step UPD — modify an active plan in-place (existing behavior, Step 6 path) |
+| `complete` / `defer` / `cancel` / `replace` | Step 1 case branches (existing behavior) |
+| anything else (treated as goal) | Step 0 → continue to normal flow |
+
+Only `check` is a new subcommand. All others fall through to existing behavior.
 
 ### Step 0: Validate KDBP
 
 1. Check `.kdbp/` exists. If not: "No KDBP found. Run `/gabe-init` first or use `/plan` for a stateless plan." — stop.
 2. If `.kdbp/archive/` doesn't exist, create it.
 3. If `.kdbp/PLAN.md` doesn't exist, create it from template.
+
+### Step 0.5: Preset dispatch (before free-form planning)
+
+Parse flags. If `--preset=mockup-project` present:
+
+1. Skip Step 3 free-form planning flow.
+2. Emit the canonical 13-phase mockup template (see Step 3.PRESET below). Parameters:
+   - `--platforms=<list>` (default: `web,mobile-web`) drives platform column/note in screen-phase scope.
+   - `--themes=<N>` (default: 3) drives M1 candidate count.
+   - `--full-catalog` still applies to tier-matrix rendering.
+3. Proceed to Step 3.5 (tier decision per phase) as normal — each preset phase still picks a tier.
+4. Write PLAN.md frontmatter with `<!-- project_type: mockup -->` after `<!-- status: active -->`.
+
+If no preset flag → continue Step 1 as before. When non-preset plan is written, add `<!-- project_type: code -->` to frontmatter (explicit default).
+
+### Step 3.PRESET: Mockup-project 13-phase template
+
+Emitted by `--preset=mockup-project`. Phases + canonical types + scope hints:
+
+| # | Phase | Types | Complexity | Scope hint |
+|---|-------|-------|------------|------------|
+| 1 | Design language + tokens | `design-system` | high | Theme matrix + stress-test render across `--platforms` + token lock → `tokens.css` |
+| 2 | Atomic components | `design-system, ui-kit` | low | Button / input / pill / badge / avatar / chip / skeleton / progress / spinner |
+| 3 | Molecular components | `design-system, ui-kit` | med | Cards / modals / toast / banner / nav / FAB / filters / sheets / drawers / forms / state-tabs |
+| 4 | Flow map + INDEX + CRUD×entity | `mockup-flows, mockup-index` | med | Enumerate flows, seed `docs/mockups/INDEX.md` (4 tables), populate CRUD from `.kdbp/ENTITIES.md` |
+| 5 | Auth + onboarding + consent | `user-facing, auth` | med | Login / register / forgot / verify / welcome / jurisdiction consent / PWA install / push |
+| 6 | Core capture/primary loop | `user-facing` | high | Dashboard + primary interaction + 5-state variants (idle / processing / reviewing / saving / error) |
+| 7 | Batch / bulk flows | `user-facing` | high | Batch capture + review + reconciliation |
+| 8 | History + items + insights | `user-facing, data-view` | med | List views + aggregations + analytics drill-downs |
+| 9 | Trends + reports | `user-facing, analytics, charts` | high | Chart types + drill-down + PDF export |
+| 10 | Shared / multi-tenant surfaces | `user-facing, multi-tenant` | high | Group / workspace / team switcher + admin + invite flows |
+| 11 | Settings + profile | `user-facing, settings` | med | Subviews (theme / lang / currency / data / account / subscription) |
+| 12 | Alerts + errors + offline | `user-facing, edge-cases` | med | Alerts list + toasts + scan errors + offline banner + 404 + push examples |
+| 13 | Handoff + index + audit | `mockup-docs, mockup-validation` | low | `HANDOFF.json` + `SCREEN-SPECS.md` + INDEX.md §6 Coverage gaps + a11y AA pass |
+
+Source-of-truth: `templates/gabe/mockup-project-preset.md` (maintained alongside gastify's `.kdbp/PLAN.md` as reference implementation).
+
+Preset writes `## Current Phase` pointing to Phase 1. User reviews + can `/gabe-plan update` to add/drop phases before executing.
 
 ### Step 1: Check for active plan
 
@@ -88,14 +142,57 @@ For each phase:
    - LLM (Haiku, cheap per U6) reads phase Description + types + typical code signals → picks relevant dimensions per non-Core section.
    - **Core always renders all 4 dimensions unfiltered.** Layer 3 rule.
    - Suppressed dimensions logged to DECISIONS.md (see 3.5.4) with one-line reason each.
-4. **Grade override (Layer hybrid):**
+4. **Per-dim tier override (Layer hybrid):**
    - LLM may re-score any Δ cell per phase context. Default Δ stays unless LLM has specific reason (phase is bigger-than-typical, unusual risk, etc.).
-   - Each override logged to DECISIONS.md with reason.
+   - **Cross-tier override** (promoting a specific dim one or more tiers above the phase's base tier — e.g., whole phase at `ent` but Observability needs `scale` because of compliance / REQ-level mandate / load-bearing dependency) produces a **per-dim tier override** record, not a generic Δ edit. Structure:
+     ```yaml
+     dim_overrides:
+       - section: Core
+         dim: Observability
+         tier: scale             # target tier for this dim
+         reason: "REQ-21 + U8 mandate OTel exporter at P1 exit"
+     ```
+   - Structured overrides flow into (a) the rendered prompt's "Tier overrides (this phase)" footer, (b) `DECISIONS.md` `### Per-dim tier overrides` subsection, (c) `PLAN.md` phase row compact notation + Phase Details YAML block. All three are populated from the same structured list to keep them synchronized.
+   - **Semantics.** `phase_tier` remains the **single base tier** for the phase and drives effort estimate + typical tier-cap filter. `dim_overrides` explicitly permits named dimensions to operate at a **higher** tier than the base without promoting the whole phase. Consumers that enforce tier caps (`/gabe-execute` Step 2 prune, `/gabe-review` TIER_DRIFT) MUST consult overrides and allow tasks / patterns at the per-dim tier, not just the base.
+   - **Downgrades not allowed via override.** Never use `dim_overrides` to permit a dim at a *lower* tier than the phase's base — that's a tier-mismatch signal that either the phase is over-tiered or the dim genuinely belongs in a separate phase. Reject such proposals at Step 3.5.2 render time with: `⛔ Dim override cannot be below phase tier. If <dim> is lower-tier than phase, reduce phase_tier or split the phase.`
+   - Each override logged to `DECISIONS.md` with reason (see 3.5.4).
 5. **Prototype-tag detection:** Ask user `Is this phase a throwaway prototype? [y/N]`. Default: no. If `y`, apply Δ shift per `tier-delta-scale.md` (XL→L, L→M, M→S, S→S floor).
 
 #### 3.5.2 — Render the decision prompt
 
 Render combined matrix. Each section gets its own 6-col table (Dimension | MVP | Δ(M→E) | Enterprise | Δ(E→S) | Scale). Row width enforced at 110 chars (20/20/6/20/6/19 content budget). Section files already obey this; renderer must not widen.
+
+**Rendering invariants (runtime behaviour, U4 mechanical enforcement):**
+
+1. **Core section ALWAYS renders as the full 4-dimension 6-column markdown table — never as prose, never collapsed, never abbreviated.** The invariant holds even when Core is the ONLY section rendered (phases tagged `core-only`, `[core-only]`, or with no additional type tags). A `core-only` phase is not a reason to compress the matrix — it is the signal that Core IS the whole decision surface for that phase and must be shown explicitly so the tier trade-off is visible.
+2. **Every non-Core section that passes Step 3.5.1 loading renders as its own 6-col table.** Even when the Layer 2 filter keeps only one dimension, render the single-row table. Do not substitute bullet lists or prose.
+3. **Prose commentary is additive, never substitutive.** Tier-pressure callouts, red-line flags, "Proposed tier" recommendations, and rationale paragraphs appear **after** the table, not in place of it. The operator must be able to read each phase's rendered matrix identically in shape — same columns, same row count for Core, same section order.
+4. **One phase, one section group, same rendering.** A `[core-only]` phase and a `[ai-agent, integration]` phase differ only in how many section tables appear — not in whether the tables appear. No phase should display "(all 4 — this phase IS observability)" without the underlying table.
+
+This is a U4-level enforcement point: do not rely on prompt instructions to hold the line at runtime. When emitting Step 3.5.2 output, the renderer emits the section table header first, then the full row body, then prose commentary after. Any deviation is a bug.
+
+**Per-dim tier override rendering (runs when `dim_overrides` is non-empty):**
+
+After all section tables for the phase, emit a **Tier overrides (this phase)** subsection listing each override with the target tier + reason. This is the operator's chance to see exactly which dims escalate above the base tier before picking. Format:
+
+```markdown
+**Tier overrides (this phase):**
+
+| Section.Dim | Base tier | Override tier | Reason |
+|-------------|-----------|---------------|--------|
+| Core.Observability | ent | scale | REQ-21 + U8 mandate OTel exporter at P1 exit |
+| Data.Backup | mvp | ent | Financial data — backup before first user write |
+```
+
+The override table is always rendered as a markdown table, never prose. Skipped entirely when `dim_overrides` is empty (most phases).
+
+Inside the section's main table (Core / Data / …), the dim row whose cell is overridden gets its chosen-tier cell marked with a trailing ★:
+
+```markdown
+| Observability        | print/log            | M      | structured log       | L      | + metrics + traces ★ |
+```
+
+The ★ marks the **target tier** the operator is committing to for that dim — visual cursor for the Tier overrides footer. Non-overridden dims remain unmarked.
 
 Render format:
 
@@ -174,7 +271,24 @@ Append one entry per phase:
 - [section.dim] — reason: [LLM reason]
 - [section.dim] — reason: [LLM reason]
 
-### Grade overrides (if any)
+### Per-dim tier overrides (if any)
+
+Structured list. Each entry records section, dim, target tier, and reason. Consumers (`/gabe-execute` tier-cap, `/gabe-review` TIER_DRIFT) parse this block to permit per-dim escalation above `phase_tier`.
+
+```yaml
+dim_overrides:
+  - section: Core
+    dim: Observability
+    tier: scale
+    reason: REQ-21 + U8 mandate OTel exporter at P1 exit
+  - section: Data
+    dim: Backup
+    tier: ent
+    reason: Financial data requires backup before first user write
+```
+
+### Δ cell overrides (if any — intra-tier LLM re-scoring, distinct from per-dim tier overrides above)
+
 - [section.dim].Δ(M→E): default [X] → override [Y]. Reason: [LLM reason]
 
 ### Δ deferred by tier choice
@@ -191,17 +305,55 @@ Append one entry per phase:
 
 `D[next_id]`: read DECISIONS.md, compute max existing ID + 1. If file missing, start at `D1`.
 
-#### 3.5.5 — Store tier in PLAN.md phase row
+#### 3.5.5 — Store tier + per-dim overrides in PLAN.md
 
-PLAN.md Phases table now includes `Tier` column (see Step 4 template). Write the chosen tier into the row.
+**PLAN.md Phases table `Tier` column format:**
 
-Also write a `## Phase Details` block per phase with:
-- Types list
-- Tier chosen
-- Prototype flag
-- Sections considered
-- Suppressed dimensions count
-- Link to DECISIONS.md entry (`See D[id] for accepted trade-offs`)
+- No overrides → base tier only: `ent`
+- With overrides → compact notation: `ent (Obs→scale)` or `ent (Obs→scale, Backup→ent)` for multiple — preserves at-a-glance readability in the Phases table while full structure lives in Phase Details
+- Dim short-names use the first word of the dim (e.g., `Observability` → `Obs`, `Error handling` → `Err`) to keep the cell compact. Full dim name stays in Phase Details.
+
+**PLAN.md `## Phase Details` block per phase contains a YAML fenced block with structured data that `/gabe-execute` and `/gabe-review` parse directly** (per U4 — downstream consumers read structure, not prose):
+
+```yaml
+phase: N
+types: [tag1, tag2]
+phase_tier: ent
+prototype: false
+dim_overrides:
+  - section: Core
+    dim: Observability
+    tier: scale
+    reason: REQ-21 + U8 mandate OTel exporter at P1 exit
+  - section: Data
+    dim: Backup
+    tier: ent
+    reason: Financial data requires backup before first user write
+sections_considered: [Core, Data, Integration]
+suppressed_dims_count: 3
+decisions_entry: D5
+```
+
+When `dim_overrides` is empty, the list is written as `dim_overrides: []` (not omitted) so downstream parsers have a stable schema.
+
+Prose summary below the YAML block stays for human reading:
+
+```markdown
+### Phase N Details
+
+```yaml
+phase: N
+phase_tier: ent
+dim_overrides: [...]
+...
+```
+
+- **Tier chosen:** `ent` with Observability override → `scale`
+- **Prototype:** no
+- **Sections considered:** Core, Data, Integration
+- **Suppressed dims:** 3 (see D5 for full list)
+- **See `DECISIONS.md` D5 for accepted trade-offs.**
+```
 
 ### Step 4: Write plan to `.kdbp/PLAN.md`
 
@@ -353,6 +505,108 @@ Next steps:
   3. Escalate mid-phase via /gabe-execute if tier underscoped (logged to DECISIONS.md).
   4. Run /gabe-plan when done to archive as completed.
 ```
+
+### Step CHK — Structural compliance check + retrofit (`/gabe-plan check`)
+
+Analyses the active `.kdbp/PLAN.md` + `.kdbp/DECISIONS.md` against the **current spec shape** and offers per-gap retrofit. Use when an existing plan predates a gabe-plan spec change (new columns, new fields, new Phase Details YAML block) and you want to upgrade without archive-and-replan.
+
+**Zero-LLM analysis. LLM only fires when retrofit is accepted AND the retrofit requires content generation** (e.g., parsing prose override rationale into structured `dim_overrides` YAML).
+
+#### CHK.1 — Preconditions
+
+1. `.kdbp/` exists — else exit `⛔ No KDBP. Run /gabe-init first.`
+2. `.kdbp/PLAN.md` contains `<!-- status: active -->` — else exit `ℹ No active plan to check. Run /gabe-plan [goal] to create one.`
+3. Current spec version is identified from this file. Each compliance rule below is tagged with the spec version that introduced it so legacy plans get accurate reporting.
+
+#### CHK.2 — Run compliance checks
+
+For each phase row in the Phases table, evaluate:
+
+| # | Rule | Spec ver | Failure signal |
+|---|------|----------|----------------|
+| C1 | Phases table has `Exec`, `Review`, `Commit`, `Push` columns | v2.9 | Header missing any of the four |
+| C2 | Phases table has `Tier` column | v2.10 | Header missing `Tier` |
+| C3 | Phases table has `Types` column | v2.10 | Header missing `Types` |
+| C4 | Each phase has a `## Phase Details → Phase N` block | v2.10 | No matching heading for phase N |
+| C5 | Phase Details block contains a YAML fenced code block with `phase_tier` field | v7.1 | Missing YAML or YAML lacks `phase_tier` key |
+| C6 | Phase Details YAML contains `dim_overrides:` key (even if empty list `[]`) | v7.1 | Key absent |
+| C7 | Phase Tier cell format matches either bare tier or compact override notation `<tier> (<dim>→<tier>[, ...])` | v7.1 | Cell uses legacy format `tier-deferred` or prose |
+| C8 | If phase prose mentions a dim override (e.g., "Observability at scale") but YAML `dim_overrides:` is `[]` → flagged as **prose-only override** (common on plans that predate v7.1) | v7.1 | Heuristic: prose-match |
+| C9 | DECISIONS.md has a `D[N]` entry for each phase with `Phase: [N]` frontmatter OR a `## D[N] — Phase [N] tier:` heading | v2.10 | Phase row has no matching DECISION |
+
+Collect results per phase. Aggregate into a single compliance matrix.
+
+#### CHK.3 — Render compliance report
+
+Render as a markdown table (plain markdown, per `gabe-docs/SKILL.md` rendering convention — no bare triple-backtick wrap):
+
+**PLAN compliance report — `<N>` phases checked**
+
+| Phase | # | Name | C1 | C2 | C3 | C4 | C5 | C6 | C7 | C8 | C9 | Verdict |
+|-------|---|------|----|----|----|----|----|----|----|----|----|---------|
+| 1 | Scaffold + DB | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ⚠ prose-only | — | ✅ | **RETROFIT** |
+| 2 | Money + FX + i18n | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | — | — | ✅ | **RETROFIT** |
+| 5 | Observability | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ⚠ prose-only | YAML absent | ✅ | **RETROFIT** |
+
+Legend:
+
+- ✅ compliant · ❌ missing · ⚠ partial / prose-only · — not applicable
+- Verdict: **COMPLIANT** (all ✅) · **RETROFIT** (≥1 gap, fixable) · **BLOCK** (structural damage requiring manual edit)
+
+Aggregate summary below table:
+
+- Compliant phases: **N / M**
+- Prose-only overrides detected: **K** phases (needs LLM to structure)
+- YAML blocks to generate: **N** phases
+- Column additions needed: **[Types, Tier, Exec, …]** — project-wide, not per-phase
+
+#### CHK.4 — Retrofit prompt
+
+When ≥1 phase has a non-compliant verdict, offer a retrofit menu. Bulk options first, per-phase fallback second:
+
+**Retrofit actions**
+
+- `[all]` — apply every retrofit below in one pass (LLM fires once for YAML + prose-override parsing)
+- `[cols]` — add missing project-wide columns (`Types`, `Tier`) to the Phases table only; leaves per-phase YAML alone
+- `[yaml]` — generate `## Phase Details` YAML block for all phases missing one, seeded from existing prose
+- `[overrides]` — for each phase with prose-only override signals (C8), run LLM to extract `dim_overrides` list into YAML with reason; confirm per-phase before writing
+- `[decisions]` — backfill missing `DECISIONS.md D[N]` entries (skip silently if already present)
+- `[N]` — pick a single phase number to retrofit (runs all applicable gaps for that phase)
+- `[report-only]` — keep report, write nothing, exit
+- `[abort]` — exit without writing
+
+Defaults: if user picks `[all]`, confirm twice with a diff preview (LLM output for override parsing + generated YAML blocks + column additions). If `[overrides]` alone, preview per phase before accepting.
+
+#### CHK.5 — Apply retrofit (only on accept)
+
+For each accepted gap:
+
+1. **Columns (C1–C3).** Edit Phases table header + every row; insert empty/default cell for new columns. Defaults:
+   - `Types`: `[]` placeholder prompting user to fill on next update
+   - `Tier`: inherit from phase's DECISION.md entry if present, else `mvp` (honest default)
+   - `Exec`/`Review`/`Commit`/`Push`: `⬜` (never backfill to ✅ — those state values must come from actual command runs)
+2. **Phase Details YAML (C4–C6).** Generate the block per current spec (`phase: N`, `types:`, `phase_tier:`, `prototype:`, `dim_overrides: []`, `sections_considered:`, `suppressed_dims_count: 0`, `decisions_entry: D[N]` if found). Preserve any existing prose after the YAML block.
+3. **Tier cell format (C7).** Normalize to bare tier or compact override notation based on YAML `dim_overrides`.
+4. **Prose-only overrides (C8).** Invoke Haiku LLM per phase with the prose Phase Details + section tier-cap files → extract structured `dim_overrides` list with reasons → ADD to YAML block. Never infer overrides from silence — only from explicit prose mentions. Present each extraction for per-phase approval before writing.
+5. **DECISIONS backfill (C9).** Append a minimal `D[N]` row per missing phase with a note: `Backfilled via /gabe-plan check on <date>. Tier chosen: <from PLAN tier cell>. Reason: auto-backfill (no original decision recorded; review at next update).` Status stays `accepted` but flagged for review.
+
+Each write is path-scoped. No `git add -A`. On completion, stage the touched files and print a single `[commit]` prompt: `Retrofit complete. Stage and /gabe-commit "chore(kdbp): retrofit PLAN to spec v<ver>"? [y/N]`.
+
+#### CHK.6 — Report
+
+After write (or report-only), show:
+
+- Files changed: `[list]`
+- Phases retrofitted: `[list with per-phase gap count resolved]`
+- LLM calls made: `[count]` (zero on report-only or cols-only paths)
+- Residual gaps: any **BLOCK**-verdict phases remain untouched and listed with the reason
+
+#### CHK.7 — Non-goals
+
+- Does NOT re-run Step 3.5 tier decisions. User's existing tier choices are authoritative; backfill only generates the structure around them.
+- Does NOT add phases, remove phases, or change REQ coverage. Structural fix only.
+- Does NOT touch SCOPE.md or ROADMAP.md. Those have their own change commands.
+- Does NOT call LLM unless `[overrides]` or `[all]` is picked AND the phase has prose-only override signals.
 
 ### Updating an active plan mid-work
 

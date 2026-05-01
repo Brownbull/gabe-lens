@@ -1,0 +1,21 @@
+/**
+ * App entry — emitted by /gabe-mockup spike scaffolding.
+ *
+ * The Provider/Container wrap is included verbatim when the spike was invoked
+ * with `--system`. For leaf-only spikes, the lines marked `// SYSTEM:` are
+ * omitted (the recipe's substitution step strips them).
+ */
+// SYSTEM: import { {{PROVIDER_NAME}} } from "./components/{{COMPONENT_NAME}}/{{PROVIDER_NAME}}";
+// SYSTEM: import { {{CONTAINER_NAME}} } from "./components/{{COMPONENT_NAME}}/{{CONTAINER_NAME}}";
+import {{COMPONENT_NAME}}Demo from "./demo/{{COMPONENT_NAME}}Demo";
+
+export default function App() {
+  return (
+    // SYSTEM: <{{PROVIDER_NAME}}>
+    <>
+      <{{COMPONENT_NAME}}Demo />
+      {/* SYSTEM: <{{CONTAINER_NAME}} /> */}
+    </>
+    // SYSTEM: </{{PROVIDER_NAME}}>
+  );
+}

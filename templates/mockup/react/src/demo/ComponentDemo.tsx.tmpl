@@ -1,0 +1,118 @@
+/**
+ * {{COMPONENT_NAME}}Demo — emitted by /gabe-mockup spike for visual + interactive
+ * comparison with the canonical mockup.
+ *
+ * Two rows:
+ *   1. Static showcase — all variants visible at once (no auto-dismiss). Use
+ *      this row to verify token-chain parity against {{MOCKUP_HTML_REL_PATH}}.
+ *   2. Trigger row — buttons that dispatch via {{HOOK_NAME}}. Validates the
+ *      Provider + queue + auto-dismiss + hover-pause path.
+ *
+ * Theme/mode toggle flips <body data-theme/data-mode> the same way tweaks.js
+ * does in the static mockup, so the cascade is identical.
+ */
+import { useEffect, useState } from "react";
+// SYSTEM: import { {{HOOK_NAME}} } from "../components/{{COMPONENT_NAME}}/{{HOOK_NAME_FILE}}";
+import { {{COMPONENT_NAME}} } from "../components/{{COMPONENT_NAME}}/{{COMPONENT_NAME}}";
+
+const VARIANTS = {{VARIANT_TUPLE}} as const;
+type Variant = (typeof VARIANTS)[number];
+
+export default function {{COMPONENT_NAME}}Demo() {
+  // SYSTEM: const dispatch = {{HOOK_NAME}}();
+  const [theme, setTheme] = useState("{{DEFAULT_THEME}}");
+  const [mode, setMode] = useState<"light" | "dark">("{{DEFAULT_MODE}}");
+
+  useEffect(() => {
+    document.body.dataset.theme = theme;
+    document.body.dataset.mode = mode;
+  }, [theme, mode]);
+
+  return (
+    <main style={{ padding: "40px 48px", maxWidth: 1100, margin: "0 auto" }}>
+      <header style={{ marginBottom: 32 }}>
+        <h1 style={{ margin: 0 }}>{{COMPONENT_NAME}} — React port</h1>
+        <p style={{ color: "var(--ink-2)", marginTop: 8 }}>
+          Compare against <code>{{MOCKUP_HTML_REL_PATH}}</code> served at port 4173.
+        </p>
+        <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
+          <label>
+            Theme:&nbsp;
+            <select value={theme} onChange={(e) => setTheme(e.target.value)}>
+              {{THEME_OPTIONS}}
+            </select>
+          </label>
+          <label>
+            Mode:&nbsp;
+            <select value={mode} onChange={(e) => setMode(e.target.value as "light" | "dark")}>
+              <option value="light">light</option>
+              <option value="dark">dark</option>
+            </select>
+          </label>
+        </div>
+      </header>
+
+      <section style={{ marginBottom: 36 }}>
+        <h2 style={{ fontSize: 13, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--ink-3)" }}>
+          Static showcase (no auto-dismiss)
+        </h2>
+        <div
+          style={{
+            background: "var(--surface-2)",
+            border: "1px solid var(--line)",
+            borderRadius: 12,
+            padding: 24,
+          }}
+        >
+          <div className="{{COMPONENT_SLUG}}-stack" style={{ position: "relative", bottom: "auto", right: "auto" }}>
+            {VARIANTS.map((v: Variant) => (
+              <{{COMPONENT_NAME}}
+                key={v}
+                id={`static-${v}`}
+                type={v}
+                title={titleFor(v)}
+                message={messageFor(v)}
+                duration={0}
+                onDismiss={() => {}}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* SYSTEM-START */}
+      <section>
+        <h2 style={{ fontSize: 13, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--ink-3)" }}>
+          Dispatch via {{HOOK_NAME}} (queue + auto-dismiss + hover-pause)
+        </h2>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          {VARIANTS.map((v: Variant) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => /* SYSTEM: dispatch[v](messageFor(v), { title: titleFor(v) }) */ undefined}
+              style={{
+                padding: "10px 18px",
+                background: "var(--surface)",
+                color: "var(--ink)",
+                border: "1px solid var(--line)",
+                borderRadius: 8,
+                cursor: "pointer",
+              }}
+            >
+              Trigger {v}
+            </button>
+          ))}
+        </div>
+      </section>
+      {/* SYSTEM-END */}
+    </main>
+  );
+}
+
+function titleFor(v: Variant): string {
+  return v.charAt(0).toUpperCase() + v.slice(1);
+}
+function messageFor(v: Variant): string {
+  return `${v} sample message — replace with real copy when wiring to a screen.`;
+}

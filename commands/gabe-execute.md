@@ -33,6 +33,10 @@ Parse `$ARGUMENTS`:
 1. `.kdbp/` exists → else print `⚠ No KDBP. Run /gabe-init first.` and exit.
 2. `.kdbp/PLAN.md` contains `<!-- status: active -->` → else print `ℹ No active plan. Run /gabe-plan [goal] first.` and exit.
 3. Phases table includes `Exec` column → else print legacy warning and exit (do not auto-migrate; recommend `/gabe-plan update` or manual edit).
+4. **Project type preflight.** Parse `<!-- project_type: ... -->` comment. Apply dispatch matrix:
+   - `code` or missing → proceed with Step 1.
+   - `mockup` → print `⚠ Mockup plan active — use /gabe-mockup instead` and exit 0. Do not redirect silently; print full message so user understands why.
+   - `hybrid` → parse target phase `types` list. If `types ⊆ mockup-tag-set` (`{design-system, ui-kit, mockup-flows, mockup-index, mockup-docs, mockup-validation}`) → print `⚠ Hybrid plan — current phase is mockup-type. Use /gabe-mockup` and exit 0. Otherwise proceed with Step 1.
 
 ### Step 1: Load execution context
 
@@ -40,9 +44,11 @@ Parse `$ARGUMENTS`:
    - Current Phase pointer → integer N (or arg override)
    - Target phase row: Phase name, Description, **Tier**, Complexity, Exec state
    - **Tier column lookup:**
-     - If Tier cell = `mvp` / `ent` / `scale` → use it directly
+     - If Tier cell = `mvp` / `ent` / `scale` → use it directly as `phase_tier`
+     - If Tier cell uses compact override notation like `ent (Obs→scale)` or `ent (Obs→scale, Backup→ent)` → parse `phase_tier` = the leading token (`ent`), note that overrides are present (full details come from Phase Details YAML)
      - If Tier cell missing (legacy plan, pre-v2.10) → default `mvp` silently. Do NOT prompt user mid-execute.
      - Prototype flag: read from `## Phase Details → Phase N → Prototype:` entry. Default: `no`.
+   - **Per-dim tier overrides** — read the `## Phase Details` YAML block for this phase, specifically the `dim_overrides:` list. Each entry has `{section, dim, tier, reason}`. Empty list `[]` means no overrides. Legacy plans (no YAML block) treat as empty. This list is the single source of truth — the compact notation in the Tier cell is display-only.
    - Scope section (if present) → list of Modified/New files
    - References section → docs/code pointers for this phase
    - Checkpoint section → verification commands
@@ -70,14 +76,26 @@ A phase row in PLAN.md is one-line per step. Real execution needs finer granular
 - Model: Haiku (cheap classification, per U6 value)
 - Output: numbered list of tasks
 
-**Tier-cap filter:** Before presenting tasks, prune any task that introduces a pattern above the phase's declared tier unless the task description explicitly justifies the escalation. Tier cap heuristics come from each matched section's `## Tier-cap enforcement` block (loaded Step 1.5).
+**Tier-cap filter:** Before presenting tasks, prune any task that introduces a pattern above the **effective tier** for that task's section + dim, unless the task description explicitly justifies the escalation. Tier cap heuristics come from each matched section's `## Tier-cap enforcement` block (loaded Step 1.5).
 
-Examples of tier-cap pruning:
-- Phase tier = `mvp` + task says "add DI container" → prune (DI = Scale per Core section). Either drop the task, or if load-bearing, surface as escalation candidate via Step 4.1 mid-phase escalation gate.
-- Phase tier = `ent` + task says "add circuit breaker" → prune (circuit break = Scale per Core).
-- Phase tier = `mvp` + task says "add structured-output fallback chain" → prune (fallback chain = Scale per AI/Agent).
+**Effective tier resolution (respects per-dim overrides from Step 1 dim_overrides list):**
 
-The prune is informational, not silent — show pruned tasks under a separate `Tier-cap pruned (N):` list in the prompt below, so user can escalate if needed.
+For each candidate task:
+
+1. Classify the task by the section + dim it exercises (e.g., task "add OTel tracing to scan worker" maps to `Core.Observability`; task "add DI container" maps to `Core.Abstractions`).
+2. Look up `dim_overrides` for that `section.dim` pair:
+   - Match found → **effective tier = override tier** (e.g., `Core.Observability` override = `scale` → task permitted up to `scale` patterns)
+   - No match → **effective tier = phase_tier** (base)
+3. If task introduces a pattern above the effective tier → prune (or surface as escalation candidate). If at or below → allow.
+
+Examples:
+
+- Phase `ent` + dim_overrides: `[{Core.Observability: scale}]` + task "add OTel exporter" (Core.Observability dim, Scale pattern) → **allowed** (effective tier = scale for this dim)
+- Same phase + task "add circuit breaker" (Core.Error handling dim, Scale pattern) → **pruned** (effective tier = ent for this dim, no override)
+- Phase `mvp` + no overrides + task "add DI container" → prune (DI = Scale per Core)
+- Phase `mvp` + task "add structured-output fallback chain" → prune (fallback chain = Scale per AI/Agent)
+
+The prune is informational, not silent — show pruned tasks under a separate `Tier-cap pruned (N):` list in the prompt below, so user can escalate if needed. When the effective tier for a task was elevated by a `dim_override`, surface the override in the allow message: `T3 ✅ effective tier=scale via Core.Observability override (REQ-21 + U8 mandate)`.
 
 **Present the task list** to the user with the Universal Action Menu on first phase only:
 

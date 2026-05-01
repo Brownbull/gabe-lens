@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<!--
+  PRINCIPAL HUB TEMPLATE — emitted by /gabe-mockup M0 to docs/mockups/index.html.
+
+  Substitution markers (see SCOPE.md / SKILL.md M0 recipe):
+    {{PROJECT_NAME}}        — display name (h1 wordmark)
+    {{PROJECT_LEDE}}        — one-line project pitch
+    {{CANONICAL_CSS}}       — relative path to canonical tokens CSS (e.g.
+                               assets/css/tokens.css OR assets/css/<project>-shell.css)
+    {{TWEAKS_JS_PATH}}      — relative path to tweaks.js (e.g. assets/js/tweaks.js)
+
+  Section card data attributes:
+    data-section            — slug used by recipes to find + flip status when
+                              their phase emits (e.g. data-section="atoms")
+    data-status             — "live" (clickable, points to sub-hub) or
+                              "placeholder" (dimmed, shows "not yet built")
+
+  Recipe contract: M2/M3/M4 emit phases each flip their section card from
+  data-status="placeholder" → data-status="live" + update the body with real
+  count + replace href="#" with "./<section>/index.html".
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mockups — {{PROJECT_NAME}}</title>
+  <link rel="stylesheet" href="{{CANONICAL_CSS}}">
+  <style>
+    /* Hub layout — uses canonical tokens from {{CANONICAL_CSS}}. No inline :root. */
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      min-height: 100vh;
+      padding: 40px 320px 48px 48px;
+    }
+    .hub-header { margin-bottom: 32px; max-width: 760px; }
+    .hub-header .wordmark {
+      font-family: var(--font-display, system-ui, sans-serif);
+      font-weight: 700;
+      font-size: 36px;
+      color: var(--primary);
+      letter-spacing: -0.02em;
+      margin: 0;
+    }
+    .hub-header .lede {
+      color: var(--ink-2);
+      font-size: 14px;
+      line-height: 1.6;
+      margin: 8px 0 0;
+    }
+    .hub-header .meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+      font-size: 12px;
+      color: var(--ink-3);
+    }
+    .hub-header .meta-pill {
+      background: var(--surface-2);
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-weight: 600;
+    }
+    .hub-header .meta-pill strong { color: var(--primary); }
+
+    .section-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 18px;
+    }
+
+    .section-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      text-decoration: none;
+      color: inherit;
+      transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+    }
+    .section-card[data-status="live"]:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px var(--shadow-lg);
+      border-color: var(--primary);
+    }
+    .section-card:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+    .section-card[data-status="placeholder"] {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+
+    .section-preview {
+      min-height: 120px;
+      padding: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      background: var(--bg);
+      border-bottom: 1px solid var(--line);
+      font-family: var(--font-display, system-ui, sans-serif);
+      color: var(--ink-3);
+    }
+
+    .section-meta {
+      padding: 14px 18px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .section-meta h2 {
+      font-family: var(--font-display, system-ui, sans-serif);
+      font-size: 17px;
+      margin: 0;
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-desc {
+      font-size: 12px;
+      color: var(--ink-2);
+      line-height: 1.45;
+      margin: 0;
+    }
+    .section-stats {
+      font-size: 11px;
+      color: var(--ink-3);
+      margin-top: 2px;
+      font-family: ui-monospace, Consolas, monospace;
+    }
+    .status-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .status-badge--live {
+      background: var(--primary-soft);
+      color: var(--primary);
+    }
+    .status-badge--placeholder {
+      background: var(--surface-2);
+      color: var(--ink-3);
+    }
+
+    .hub-footer {
+      margin-top: 36px;
+      padding: 18px;
+      background: var(--surface-2);
+      border-radius: 12px;
+      font-size: 13px;
+      color: var(--ink-2);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .hub-footer a { color: var(--primary); font-weight: 600; }
+  </style>
+</head>
+<body>
+  <header class="hub-header">
+    <h1 class="wordmark">{{PROJECT_NAME}}</h1>
+    <p class="lede">{{PROJECT_LEDE}}</p>
+    <div class="meta">
+      <!-- {{PROJECT_META_PILLS}} - 1-5 short pills summarizing scope (counts, themes, platforms). Filled by recipe at scaffold time. -->
+      <span class="meta-pill">Themes: <strong>{{THEME_COUNT}}</strong></span>
+    </div>
+  </header>
+
+  <nav class="section-grid" aria-label="Mockup sections">
+    <a class="section-card" data-section="design-system" data-status="placeholder" href="#">
+      <div class="section-preview">Tokens · Type · Color · Spacing</div>
+      <div class="section-meta">
+        <h2>Design System <span class="status-badge status-badge--placeholder">placeholder</span></h2>
+        <p class="section-desc">Canonical tokens, typography scale, color ramps, spacing grid.</p>
+        <span class="section-stats">Phase 1 · not yet built</span>
+      </div>
+    </a>
+
+    <a class="section-card" data-section="atoms" data-status="placeholder" href="#">
+      <div class="section-preview">Buttons · Inputs · Badges · Chips · Avatars</div>
+      <div class="section-meta">
+        <h2>Atoms <span class="status-badge status-badge--placeholder">placeholder</span></h2>
+        <p class="section-desc">Atomic components — buttons, inputs, badges, etc.</p>
+        <span class="section-stats">Phase 2 · not yet built</span>
+      </div>
+    </a>
+
+    <a class="section-card" data-section="molecules" data-status="placeholder" href="#">
+      <div class="section-preview">Cards · Tabs · Filter strips · Nav</div>
+      <div class="section-meta">
+        <h2>Molecules <span class="status-badge status-badge--placeholder">placeholder</span></h2>
+        <p class="section-desc">Composed components built from atoms.</p>
+        <span class="section-stats">Phase 3 · not yet built</span>
+      </div>
+    </a>
+
+    <a class="section-card" data-section="flows" data-status="placeholder" href="#">
+      <div class="section-preview">User journey walkthroughs</div>
+      <div class="section-meta">
+        <h2>Flows <span class="status-badge status-badge--placeholder">placeholder</span></h2>
+        <p class="section-desc">Multi-screen user-journey walkthroughs.</p>
+        <span class="section-stats">Phase 4 · not yet built</span>
+      </div>
+    </a>
+
+    <a class="section-card" data-section="screens" data-status="placeholder" href="#">
+      <div class="section-preview">Application surfaces</div>
+      <div class="section-meta">
+        <h2>Screens <span class="status-badge status-badge--placeholder">placeholder</span></h2>
+        <p class="section-desc">Full application screens — auth, capture, history, etc.</p>
+        <span class="section-stats">Phases 5+ · not yet built</span>
+      </div>
+    </a>
+
+    <a class="section-card" data-section="handoff" data-status="placeholder" href="#">
+      <div class="section-preview">HANDOFF.json · WCAG AA · Specs</div>
+      <div class="section-meta">
+        <h2>Handoff <span class="status-badge status-badge--placeholder">placeholder</span></h2>
+        <p class="section-desc">Engineer-ready handoff — design contract, accessibility audit, specs.</p>
+        <span class="section-stats">Phase 13 · not yet built</span>
+      </div>
+    </a>
+  </nav>
+
+  <footer class="hub-footer">
+    <span><strong>Living docs:</strong> <a href="INDEX.md">INDEX.md</a> · <strong>Plan:</strong> <a href="../../.kdbp/PLAN.md">PLAN.md</a> · <strong>Scope:</strong> <a href="../../.kdbp/SCOPE.md">SCOPE.md</a></span>
+  </footer>
+
+  <script src="{{TWEAKS_JS_PATH}}" defer></script>
+</body>
+</html>

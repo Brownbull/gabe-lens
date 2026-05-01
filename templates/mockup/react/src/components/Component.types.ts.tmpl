@@ -1,0 +1,18 @@
+/**
+ * {{COMPONENT_NAME}} prop types — emitted by /gabe-mockup spike.
+ */
+export type {{COMPONENT_NAME}}Type = {{COMPONENT_TYPES}};
+
+export interface {{COMPONENT_NAME}}Props {
+  id: string;
+  type: {{COMPONENT_NAME}}Type;
+  title?: string;
+  message: string;
+  onDismiss: (id: string) => void;
+  /** Duration in ms before auto-dismiss. 0 = sticky (manual close only). */
+  duration?: number;
+}
+
+export interface {{COMPONENT_NAME}}Entry extends {{COMPONENT_NAME}}Props {
+  createdAt: number;
+}

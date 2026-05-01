@@ -1,0 +1,30 @@
+/**
+ * {{CONTAINER_NAME}} — renders the active queue from {{PROVIDER_NAME}} into the
+ * canonical `.{{COMPONENT_SLUG}}-stack` element. Mounted once at the App root
+ * (next to children) so it's always available.
+ */
+import { useContext } from "react";
+import { {{COMPONENT_NAME}} } from "./{{COMPONENT_NAME}}";
+import { {{COMPONENT_NAME}}Context } from "./{{PROVIDER_NAME}}";
+
+export function {{CONTAINER_NAME}}() {
+  const ctx = useContext({{COMPONENT_NAME}}Context);
+  if (!ctx) {
+    throw new Error("{{CONTAINER_NAME}} must be rendered inside <{{PROVIDER_NAME}}>.");
+  }
+  return (
+    <div className="{{COMPONENT_SLUG}}-stack" aria-live="polite">
+      {ctx.queue.map((entry) => (
+        <{{COMPONENT_NAME}}
+          key={entry.id}
+          id={entry.id}
+          type={entry.type}
+          title={entry.title}
+          message={entry.message}
+          duration={entry.duration}
+          onDismiss={ctx.dismiss}
+        />
+      ))}
+    </div>
+  );
+}

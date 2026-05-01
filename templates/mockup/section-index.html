@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<!--
+  SECTION SUB-HUB TEMPLATE — emitted by /gabe-mockup M2/M3/M4 to
+  docs/mockups/<section>/index.html.
+
+  Substitution markers:
+    {{SECTION_NAME}}        — capitalized name (e.g. "Atoms", "Flows")
+    {{SECTION_TIER}}        — tier label (e.g. "MVP tier", "Enterprise tier")
+    {{SECTION_DESCRIPTION}} — one-line description of the section's scope
+    {{ITEM_COUNT}}          — number of items in this section (e.g. "10 atoms")
+    {{CANONICAL_CSS}}       — relative path to canonical tokens CSS (one ../ deeper)
+    {{TWEAKS_JS_PATH}}      — relative path to tweaks.js (one ../ deeper)
+    {{SECTION_GRID_ITEMS}}  — repeated item card markup; see contract below
+
+  Per-card contract (recipe fills one block per item):
+    <a class="section-card" href="<item-file>.html">
+      <div class="section-preview">
+        <!-- {{INLINE_PREVIEW_HTML}} - real DOM example using project tokens -->
+      </div>
+      <div class="section-meta">
+        <h2>{{ITEM_NAME}}</h2>
+        <p class="item-desc">{{ITEM_DESCRIPTION}}</p>
+        <span class="item-variants">{{ITEM_VARIANTS}}</span>
+      </div>
+    </a>
+
+  Class names (`section-card`, `section-grid`) are intentionally generic so the
+  per-section spec can grep for them across all sub-hubs.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{SECTION_NAME}} — Mockups</title>
+  <link rel="stylesheet" href="{{CANONICAL_CSS}}">
+  <style>
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      min-height: 100vh;
+      padding: 40px 320px 48px 48px;
+    }
+    .hub-header { margin-bottom: 32px; max-width: 720px; }
+    .hub-header h1 {
+      font-family: var(--font-display, system-ui, sans-serif);
+      font-size: 32px;
+      margin: 0 0 8px;
+      letter-spacing: -0.01em;
+    }
+    .hub-header .lede { color: var(--ink-2); font-size: 14px; line-height: 1.6; margin: 0; }
+    .hub-header .meta {
+      display: inline-flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+      font-size: 12px;
+      color: var(--ink-3);
+    }
+    .hub-header .meta-pill {
+      background: var(--surface-2);
+      padding: 3px 10px;
+      border-radius: 9999px;
+      font-weight: 600;
+    }
+
+    .section-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 18px;
+    }
+
+    .section-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      text-decoration: none;
+      color: inherit;
+      transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+    }
+    .section-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px var(--shadow-lg);
+      border-color: var(--primary);
+    }
+    .section-card:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+
+    .section-preview {
+      min-height: 120px;
+      padding: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      background: var(--bg);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section-meta {
+      padding: 14px 18px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .section-meta h2 {
+      font-family: var(--font-display, system-ui, sans-serif);
+      font-size: 17px;
+      margin: 0;
+      letter-spacing: -0.01em;
+    }
+    .item-desc {
+      font-size: 12px;
+      color: var(--ink-2);
+      line-height: 1.45;
+      margin: 0;
+    }
+    .item-variants {
+      font-size: 11px;
+      color: var(--ink-3);
+      margin-top: 2px;
+      font-family: ui-monospace, Consolas, monospace;
+    }
+
+    .hub-footer {
+      margin-top: 36px;
+      padding: 18px;
+      background: var(--surface-2);
+      border-radius: 12px;
+      font-size: 13px;
+      color: var(--ink-2);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .hub-footer a { color: var(--primary); font-weight: 600; }
+  </style>
+</head>
+<body>
+  <header class="hub-header">
+    <h1>{{SECTION_NAME}}</h1>
+    <p class="lede">{{SECTION_DESCRIPTION}}</p>
+    <div class="meta">
+      <span class="meta-pill">{{SECTION_TIER}}</span>
+      <span class="meta-pill">{{ITEM_COUNT}}</span>
+    </div>
+  </header>
+
+  <nav class="section-grid" aria-label="{{SECTION_NAME}} components">
+    <!-- {{SECTION_GRID_ITEMS}} - repeated card blocks. See header comment for per-card contract. -->
+    <a class="section-card" href="example-item.html">
+      <div class="section-preview">
+        <!-- {{INLINE_PREVIEW_HTML}} - real DOM example using project tokens (button, card, etc.) -->
+      </div>
+      <div class="section-meta">
+        <h2>{{ITEM_NAME}}</h2>
+        <p class="item-desc">{{ITEM_DESCRIPTION}}</p>
+        <span class="item-variants">{{ITEM_VARIANTS}}</span>
+      </div>
+    </a>
+  </nav>
+
+  <footer class="hub-footer">
+    <span><strong>Catalog spec:</strong> <a href="../INDEX.md">INDEX.md</a> · <strong>Plan:</strong> <a href="../../../.kdbp/PLAN.md">PLAN.md</a></span>
+    <span><a href="../index.html">← Mockups home</a></span>
+  </footer>
+
+  <script src="{{TWEAKS_JS_PATH}}" defer></script>
+</body>
+</html>
