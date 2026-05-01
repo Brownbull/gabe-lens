@@ -81,7 +81,7 @@ If `docs/rebuild/ux/REACT-STORYBOOK-WORKFLOW.md` and `apps/web/package.json` bot
 8. When the user asks to compare layouts or decide between approaches, create story-only options first and keep current production defaults unchanged until the user chooses.
 9. When a screen area is uncertain, allow component-first spikes: isolated component stories, then a composed spike story, then wire the approved/recommended version into the real screen only when requested.
 10. For shared chrome/component extraction, expose the contract in component stories before broadly rewriting screens.
-11. Run the app verification gate from `apps/web`: `npm run typecheck`, `npm run build`, `npm run build-storybook`, and `npm run test-storybook`. If present, also run a Storybook navigation/browser smoke script such as `npm run test:storybook-navigation`, inspect `storybook-static/index.json` for taxonomy/source correspondence, and save screenshot evidence for visual changes, options, or spikes.
+11. Run the app verification gate from `apps/web`: `npm run typecheck`, `npm run build`, `npm run build-storybook`, and `npm run test-storybook`. If present, also run a Storybook navigation/browser smoke script such as `npm run test:storybook-navigation`. After `build-storybook`, run the bundled deterministic correspondence report, for example `node ~/.agents/skills/gabe-mockup/scripts/check-storybook-correspondence.mjs --web-dir apps/web`; report `PASS` or `REVIEW` findings with operator options instead of failing by default. Save screenshot evidence for visual changes, options, or spikes.
 
 ### Step 3: Dispatch to phase recipe
 

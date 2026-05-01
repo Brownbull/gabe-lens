@@ -61,7 +61,7 @@ Rules for React + Storybook projects:
 7. **Storybook taxonomy.** Story titles should mirror the physical taxonomy: `Design System/{Atoms,Molecules,Organisms}`, `Features/<Area>/Components`, `Features/<Area>/Screens`, and `Features/<Area>/Spikes` for active playgrounds. Use `Flows/` only after a real multi-screen journey story exists. Prefer direct aliases such as `@app/*`, `@design-system/*`, `@features/*`, `@lib/*`, and `@shared/*` when the project defines them.
 8. **Option exploration stays in stories first.** When the user asks to compare, decide, or see alternatives, create story-only variants or spike stories first. Keep production screen defaults unchanged until the user chooses or explicitly asks to apply the preferred option.
 9. **Component-first spikes are allowed inside a screen batch.** For uncertain areas, build isolated component stories, add a composed spike story that assembles them, browser-check it, then wire the approved/recommended version into the real screen only when requested.
-10. **Verification gate.** A batch is not complete until these commands pass from `apps/web`: `npm run typecheck`, `npm run build`, `npm run build-storybook`, and `npm run test-storybook`. If the project provides a Storybook navigation/browser smoke script, run it too. Check the generated Storybook index for expected taxonomy entries and confirm `git diff -- docs/mockups` does not contain new static HTML mockups.
+10. **Verification gate.** A batch is not complete until these commands pass from `apps/web`: `npm run typecheck`, `npm run build`, `npm run build-storybook`, and `npm run test-storybook`. If the project provides a Storybook navigation/browser smoke script, run it too. Run the deterministic Storybook correspondence report from this skill, report any findings, and offer operator options instead of treating findings as a hard failure by default. Confirm `git diff -- docs/mockups` does not contain new static HTML mockups.
 
 Backward-compatible dispatch:
 
@@ -120,6 +120,23 @@ Conventions:
 - Add `Flows/` only when a story actually walks across multiple screens. Do not create empty flow groups.
 - When extracting shared chrome, expose the shared contract with component stories first; do not rewrite every screen until the boundary is clear and the user has accepted it.
 - Story descriptions should reference the source screen/spec/reference path when useful and should name any option/spike status so reviewers know whether a story is exploratory or applied.
+
+### Deterministic Storybook correspondence report
+
+After `npm run build-storybook`, run the bundled report script when available:
+
+```bash
+node ~/.agents/skills/gabe-mockup/scripts/check-storybook-correspondence.mjs --web-dir apps/web
+```
+
+Claude Code installs can use the equivalent `~/.claude/skills/gabe-mockup/scripts/check-storybook-correspondence.mjs` path. The report compares `apps/web/src/**/*.stories.*` with `apps/web/storybook-static/index.json` and checks that story titles match the physical taxonomy (`Design System/*`, `Features/*/Components`, `Features/*/Screens`, `Features/*/Spikes`).
+
+The script exits 0 by default, even when it prints `status: REVIEW`. This is intentional: use the report to surface deterministic findings and offer the operator options:
+
+1. Fix source/story taxonomy titles or move stories to the matching folder.
+2. Re-run `npm run build-storybook`, then re-run the correspondence report.
+3. Accept the finding for this batch and document why in the handoff or PR.
+4. Re-run with `--strict` only when the project explicitly wants findings to fail automation.
 
 ### React port (shared convention for `spike` mode)
 
@@ -241,7 +258,7 @@ Frame rules above are honored either by **discipline** (author writes within the
 9. **R9 — Handle component-first spikes.** For uncertain screen areas, create isolated component stories first, then a composed spike story that shows how the proposed parts work together inside the target screen. Browser-check the spike before wiring it into the real screen. Wire the approved/recommended version only when requested.
 10. **R10 — Wire app preview only when useful.** It is acceptable to update `apps/web/src/App.tsx` to show the current pilot/demo screen, but stories remain the canonical mockup inspection surface.
 11. **R11 — Update docs/bookkeeping.** If the repo has KDBP or rebuild docs, update the active phase/runbook with the created stories, applied decisions, remaining options, and verification results. Keep workflow docs short and link to Storybook stories rather than duplicating implementation details.
-12. **R12 — Verify.** From `apps/web`, run `npm run typecheck`, `npm run build`, `npm run build-storybook`, and `npm run test-storybook`. If the project exposes an additional Storybook navigation/browser smoke script, run it too. Inspect `storybook-static/index.json` for expected taxonomy entries and absence of obsolete deleted/moved stories. For screen-level visual work, also open Storybook in a browser and check mobile, tablet, and desktop stories. Save screenshot evidence for visual changes, option comparisons, and composed spikes. Do not mark the batch complete until all required gates pass.
+12. **R12 — Verify.** From `apps/web`, run `npm run typecheck`, `npm run build`, `npm run build-storybook`, and `npm run test-storybook`. If the project exposes an additional Storybook navigation/browser smoke script, run it too. Run `check-storybook-correspondence.mjs` after the Storybook build and report its `PASS` or `REVIEW` output with operator options; do not make `REVIEW` findings a hard failure unless the project explicitly uses `--strict`. For screen-level visual work, also open Storybook in a browser and check mobile, tablet, and desktop stories. Save screenshot evidence for visual changes, option comparisons, and composed spikes. Do not mark the batch complete until all required gates pass.
 
 **Verification gate.**
 - `npm run typecheck` passes from `apps/web`.
@@ -250,7 +267,7 @@ Frame rules above are honored either by **discipline** (author writes within the
 - `npm run test-storybook` passes from `apps/web`.
 - Storybook browser check passes for screen-level visual work across mobile, tablet, and desktop stories.
 - Any project-provided Storybook navigation/browser smoke script passes.
-- `storybook-static/index.json` contains the expected taxonomy and does not expose obsolete deleted/moved spike stories in the main component tree.
+- The deterministic Storybook correspondence report is run against `storybook-static/index.json`; `PASS` means no action, and `REVIEW` findings are reported with operator options.
 - Screenshot evidence is saved or referenced for visual changes, option comparisons, and composed spikes.
 - `git diff -- docs/mockups` shows no new static HTML mockup files for the batch.
 
