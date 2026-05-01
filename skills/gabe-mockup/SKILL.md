@@ -53,15 +53,15 @@ Projects can opt into a React-first mockup surface when they are building the re
 Rules for React + Storybook projects:
 
 1. **No new static HTML mockups.** Existing `docs/mockups/**` files are visual references only. Do not create new `docs/mockups/**/*.html` in this mode.
-2. **Real frontend first.** Implement screens under `apps/web/src/screens/**` or app route modules, and reusable primitives under `apps/web/src/components/**`.
-3. **Stories are the inspection surface.** Every new screen/component batch gets colocated `*.stories.tsx` coverage for mobile, tablet, desktop, and relevant states (default, loading, error, empty, first-time, disabled when applicable). Component stories expose the parts; composed screen stories show the assembled product surface.
+2. **Real frontend first.** Implement production UI in the app's real React tree. When `docs/rebuild/ux/STORYBOOK-STRUCTURE.md` exists, read it and follow its physical taxonomy before creating files. The current preferred shape is `apps/web/src/design-system/{atoms,molecules,organisms}` for shared UI and `apps/web/src/features/<area>/{components,screens,model,spikes}` for feature UI.
+3. **Stories are the inspection and correspondence surface.** Every new screen/component batch gets colocated `*.stories.tsx` coverage for mobile, tablet, desktop, and relevant states (default, loading, error, empty, first-time, disabled when applicable). Component stories expose the parts; composed screen stories show the assembled product surface. A single responsive screen implementation with curated platform/state story snapshots is preferred over separate mobile/tablet/desktop screen components.
 4. **Tokens flow through Tailwind.** Styling uses Tailwind classes backed by `shared/design-tokens.ts`; do not introduce ad hoc hex colors in React components.
 5. **Visual grouping rule.** Do not add an outer bordered grouping container around controls unless it is a real product card. Layout-only wrappers are fine; visible borders/backgrounds/shadows must belong to meaningful product surfaces.
 6. **Reference, not DOM contract.** Existing HTML mockups are visual references and state inventories; React component naming, data flow, and accessibility can be idiomatic React/Tailwind.
-7. **Storybook taxonomy.** Use `Design System/` for shared UI and app chrome, `Features/<Area>/Components` for product-specific pieces, `Features/<Area>/Screens` for composed screens, and `Flows/` only after a real multi-screen journey story exists. Do not move code files just to match the Storybook sidebar.
+7. **Storybook taxonomy.** Story titles should mirror the physical taxonomy: `Design System/{Atoms,Molecules,Organisms}`, `Features/<Area>/Components`, `Features/<Area>/Screens`, and `Features/<Area>/Spikes` for active playgrounds. Use `Flows/` only after a real multi-screen journey story exists. Prefer direct aliases such as `@app/*`, `@design-system/*`, `@features/*`, `@lib/*`, and `@shared/*` when the project defines them.
 8. **Option exploration stays in stories first.** When the user asks to compare, decide, or see alternatives, create story-only variants or spike stories first. Keep production screen defaults unchanged until the user chooses or explicitly asks to apply the preferred option.
 9. **Component-first spikes are allowed inside a screen batch.** For uncertain areas, build isolated component stories, add a composed spike story that assembles them, browser-check it, then wire the approved/recommended version into the real screen only when requested.
-10. **Verification gate.** A batch is not complete until these commands pass from `apps/web`: `npm run typecheck`, `npm run build`, `npm run build-storybook`, and `npm run test-storybook`. Screen-level visual work also requires Storybook browser checks across mobile, tablet, and desktop, with screenshot evidence for visual or option-based changes.
+10. **Verification gate.** A batch is not complete until these commands pass from `apps/web`: `npm run typecheck`, `npm run build`, `npm run build-storybook`, and `npm run test-storybook`. If the project provides a Storybook navigation/browser smoke script, run it too. Check the generated Storybook index for expected taxonomy entries and confirm `git diff -- docs/mockups` does not contain new static HTML mockups.
 
 Backward-compatible dispatch:
 
@@ -71,9 +71,26 @@ Backward-compatible dispatch:
 
 ### React + Storybook structure and traceability
 
-The React Storybook surface is both a mockup viewer and an implementation map. Story titles should make the relationship between shared components, feature components, and screens obvious without forcing premature filesystem moves.
+The React Storybook surface is both a mockup viewer and an implementation map. If the project has `docs/rebuild/ux/STORYBOOK-STRUCTURE.md`, that file is the local taxonomy contract and should be read before adding, moving, or naming React UI files.
 
-Use this hierarchy:
+Use this physical structure when the project has adopted it:
+
+```text
+src/
+  app/
+  design-system/
+    atoms/
+    molecules/
+    organisms/
+  features/
+    <area>/
+      components/
+      screens/
+      model/
+      spikes/
+```
+
+Use this Storybook hierarchy:
 
 ```text
 Design System/
@@ -85,6 +102,7 @@ Features/
   <Area>/
     Components/
     Screens/
+    Spikes/
 
 Flows/
   <Area>/
@@ -92,11 +110,14 @@ Flows/
 
 Conventions:
 
-- Put shared primitives, app shell, navigation, header/profile controls, and reusable state widgets under `Design System/`.
-- Put product-specific cards, headers, filters, rows, summary panels, and sheets under `Features/<Area>/Components`.
-- Put composed screen stories under `Features/<Area>/Screens`.
+- Put shared primitives, app shell, navigation, header/profile controls, and reusable state widgets under `src/design-system/**` with matching `Design System/` stories.
+- Put product-specific cards, headers, filters, rows, summary panels, sheets, and feature-owned helpers under `src/features/<area>/components/**` with matching `Features/<Area>/Components` stories.
+- Put composed screen containers and view assemblies under `src/features/<area>/screens/**` with matching `Features/<Area>/Screens` stories.
+- Put feature-owned catalogs, mock state, and helper logic under `src/features/<area>/model/**`.
+- Put active option playgrounds and comparison stories under `src/features/<area>/spikes/**` with `Features/<Area>/Spikes` titles. Do not leave obsolete spike-only stories in the main component tree.
+- Use direct aliases when available (`@app/*`, `@design-system/*`, `@features/*`, `@lib/*`, `@shared/*`). Avoid broad barrel files unless the project already established them.
+- Keep one responsive screen implementation where practical; expose mobile, tablet, desktop, and state coverage as curated story exports and controls.
 - Add `Flows/` only when a story actually walks across multiple screens. Do not create empty flow groups.
-- Keep code paths in the project's established `components/**` and `screens/**` layout unless routing, data ownership, or repeated imports justify a real move.
 - When extracting shared chrome, expose the shared contract with component stories first; do not rewrite every screen until the boundary is clear and the user has accepted it.
 - Story descriptions should reference the source screen/spec/reference path when useful and should name any option/spike status so reviewers know whether a story is exploratory or applied.
 
@@ -178,7 +199,7 @@ Frame rules above are honored either by **discipline** (author writes within the
 
 ### Mode: `react-story`
 
-**Purpose.** Implement a screen or screen batch as production React + Tailwind code in `apps/web`, with Storybook 10 stories as the mockup viewer. This mode replaces new static HTML mockup authoring for projects that carry the React Storybook workflow marker.
+**Purpose.** Implement a screen or screen batch as production React + Tailwind code in `apps/web`, with Storybook 9/10 stories as the mockup viewer. The project's installed Storybook major version is authoritative. This mode replaces new static HTML mockup authoring for projects that carry the React Storybook workflow marker.
 
 **Invocation:**
 ```
@@ -193,12 +214,14 @@ Frame rules above are honored either by **discipline** (author writes within the
 - `apps/web/package.json` exists.
 - `shared/design-tokens.ts` exists and is importable by `apps/web/tailwind.config.ts`.
 - Storybook exists at `apps/web/.storybook/` OR this mode is allowed to scaffold it.
+- If `docs/rebuild/ux/STORYBOOK-STRUCTURE.md` exists, it has been read and treated as the taxonomy contract.
 - Existing visual references live in `docs/mockups/**` or the user supplies a spec path.
 
 **Outputs.**
-- Screen/component implementation under `apps/web/src/screens/**`, route modules, or `apps/web/src/components/**`.
+- Shared implementation under `apps/web/src/design-system/{atoms,molecules,organisms}/**` when a primitive/pattern is reusable across features.
+- Feature implementation under `apps/web/src/features/<area>/{components,screens,model,spikes}/**` when UI or mock state is product-specific.
 - Storybook stories beside the implementation: `*.stories.tsx`, with title paths following `Design System/`, `Features/<Area>/Components`, `Features/<Area>/Screens`, and `Flows/` only for real journeys.
-- Reusable primitives under `apps/web/src/components/**` when patterns repeat.
+- Active option playgrounds under `Features/<Area>/Spikes`, not in the main component story tree.
 - Story docs descriptions that cite the reference HTML/spec path when one exists.
 - Story-only option variants and composed spike stories when the user is comparing layouts or interaction approaches.
 - Browser-check screenshots for visual or option-based screen changes.
@@ -207,18 +230,18 @@ Frame rules above are honored either by **discipline** (author writes within the
 
 **Recipe steps.**
 
-1. **R1 — Detect workflow.** Confirm marker file `docs/rebuild/ux/REACT-STORYBOOK-WORKFLOW.md`, `apps/web/package.json`, and `shared/design-tokens.ts`. If missing, follow Error recovery below.
-2. **R2 — Ensure Storybook harness.** If `apps/web/.storybook/` is absent, install/configure Storybook 10 with `@storybook/react-vite` and the Storybook Vitest addon. Add scripts: `storybook`, `build-storybook`, `test-storybook`. Keep existing app scripts intact.
+1. **R1 — Detect workflow and taxonomy.** Confirm marker file `docs/rebuild/ux/REACT-STORYBOOK-WORKFLOW.md`, `apps/web/package.json`, and `shared/design-tokens.ts`. If `docs/rebuild/ux/STORYBOOK-STRUCTURE.md` exists, read it and follow it as the local taxonomy contract. If required workflow markers are missing, follow Error recovery below.
+2. **R2 — Ensure Storybook harness.** If `apps/web/.storybook/` is absent, install/configure Storybook with `@storybook/react-vite` and the Storybook Vitest addon, using the project's current package version constraints. Add scripts: `storybook`, `build-storybook`, `test-storybook`. Keep existing app scripts intact.
 3. **R3 — Read reference.** Open the reference HTML/spec for the screen/batch. Extract visual intent, state names, platform variants, data assumptions, and safety-critical copy. Treat the HTML as a visual/state reference, not a DOM contract.
 4. **R4 — Classify user intent.** Decide whether the request is an implementation batch, an option-exploration batch, a component-first spike, or shared chrome/component extraction. If the user asked to compare or decide, keep production defaults unchanged and put alternatives in Storybook first.
-5. **R5 — Plan component split.** Identify production primitives worth extracting (for example `AppShell`, `BottomNav`, `RecipeCard`, `EmptyState`, `StatusBanner`). Do not add an abstraction for one-off markup. Do not move physical files solely to match Storybook sidebar taxonomy.
+5. **R5 — Plan component split.** Identify production primitives worth extracting and place them according to the local taxonomy: shared UI in `design-system`, feature-specific UI in `features/<area>/components`, composed screens in `features/<area>/screens`, mock catalogs/helpers in `features/<area>/model`, and active playgrounds in `features/<area>/spikes`. Do not add an abstraction for one-off markup.
 6. **R6 — Implement React/Tailwind.** Write or update React components using Tailwind classes backed by `shared/design-tokens.ts`. Do not use ad hoc hex colors. Do not add decorative outer bordered wrappers around grouped controls unless the reference/product semantics make that surface a real card.
-7. **R7 — Add traceable stories.** Add colocated stories covering mobile, tablet, desktop, and relevant states: default, loading, error, empty, first-time, disabled when applicable, and locale-sensitive variants where relevant. Use the Storybook taxonomy from "React + Storybook structure and traceability". Reusable pieces get their own component stories; composed screens assemble those pieces.
+7. **R7 — Add traceable stories.** Add colocated stories covering mobile, tablet, desktop, and relevant states: default, loading, error, empty, first-time, disabled when applicable, and locale-sensitive variants where relevant. Use the Storybook taxonomy from "React + Storybook structure and traceability". Reusable pieces get their own component stories; composed screens assemble those pieces. Prefer one responsive screen implementation with curated platform/state snapshots over separate per-platform screen components.
 8. **R8 — Handle option exploration.** For layout, chrome, navigation, card, filter, or interaction alternatives, add explicit option stories (for example `Layout Options`) and keep the current screen behavior as the default unless the user asks to apply a chosen option. Label exploratory stories as options/spikes in story parameters or descriptions.
 9. **R9 — Handle component-first spikes.** For uncertain screen areas, create isolated component stories first, then a composed spike story that shows how the proposed parts work together inside the target screen. Browser-check the spike before wiring it into the real screen. Wire the approved/recommended version only when requested.
 10. **R10 — Wire app preview only when useful.** It is acceptable to update `apps/web/src/App.tsx` to show the current pilot/demo screen, but stories remain the canonical mockup inspection surface.
 11. **R11 — Update docs/bookkeeping.** If the repo has KDBP or rebuild docs, update the active phase/runbook with the created stories, applied decisions, remaining options, and verification results. Keep workflow docs short and link to Storybook stories rather than duplicating implementation details.
-12. **R12 — Verify.** From `apps/web`, run `npm run typecheck`, `npm run build`, `npm run build-storybook`, and `npm run test-storybook`. For screen-level visual work, also open Storybook in a browser and check mobile, tablet, and desktop stories. Save screenshot evidence for visual changes, option comparisons, and composed spikes. Do not mark the batch complete until all required gates pass.
+12. **R12 — Verify.** From `apps/web`, run `npm run typecheck`, `npm run build`, `npm run build-storybook`, and `npm run test-storybook`. If the project exposes an additional Storybook navigation/browser smoke script, run it too. Inspect `storybook-static/index.json` for expected taxonomy entries and absence of obsolete deleted/moved stories. For screen-level visual work, also open Storybook in a browser and check mobile, tablet, and desktop stories. Save screenshot evidence for visual changes, option comparisons, and composed spikes. Do not mark the batch complete until all required gates pass.
 
 **Verification gate.**
 - `npm run typecheck` passes from `apps/web`.
@@ -226,6 +249,8 @@ Frame rules above are honored either by **discipline** (author writes within the
 - `npm run build-storybook` passes from `apps/web` (normal Storybook chunk-size warnings are acceptable if the build exits 0).
 - `npm run test-storybook` passes from `apps/web`.
 - Storybook browser check passes for screen-level visual work across mobile, tablet, and desktop stories.
+- Any project-provided Storybook navigation/browser smoke script passes.
+- `storybook-static/index.json` contains the expected taxonomy and does not expose obsolete deleted/moved spike stories in the main component tree.
 - Screenshot evidence is saved or referenced for visual changes, option comparisons, and composed spikes.
 - `git diff -- docs/mockups` shows no new static HTML mockup files for the batch.
 

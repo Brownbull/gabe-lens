@@ -72,14 +72,16 @@ Mockup-tag set: `{design-system, ui-kit, mockup-flows, mockup-index, mockup-docs
 If `docs/rebuild/ux/REACT-STORYBOOK-WORKFLOW.md` and `apps/web/package.json` both exist, default new screen and batch work to the skill playbook's `react-story` mode unless the user explicitly requests legacy HTML. In this mode:
 
 1. Do not create new `docs/mockups/**/*.html` files. Existing HTML is read-only visual reference/archive.
-2. Implement production React/Tailwind components in `apps/web/src/components`, screen compositions in `apps/web/src/screens` or route modules, and stories beside the implementation.
-3. Use `shared/design-tokens.ts` as the token source and extend `apps/web/tailwind.config.ts` from it.
-4. Use Storybook as the mockup viewer and traceability map. Shared primitives and app chrome live under `Design System/`; product-specific pieces live under `Features/<Area>/Components`; composed screens live under `Features/<Area>/Screens`; `Flows/` is only for real multi-screen journey stories.
-5. Do not move physical code files only to match the Storybook sidebar. Keep the current project layout unless routing, data ownership, or repeated imports justify a move.
-6. When the user asks to compare layouts or decide between approaches, create story-only options first and keep current production defaults unchanged until the user chooses.
-7. When a screen area is uncertain, allow component-first spikes: isolated component stories, then a composed spike story, then wire the approved/recommended version into the real screen only when requested.
-8. For shared chrome/component extraction, expose the contract in component stories before broadly rewriting screens.
-9. Run the app verification gate from `apps/web`: `npm run typecheck`, `npm run build`, `npm run build-storybook`, and `npm run test-storybook`. For screen-level visual work, also browser-check Storybook mobile/tablet/desktop stories and save screenshot evidence for visual changes, options, or spikes.
+2. Read `docs/rebuild/ux/STORYBOOK-STRUCTURE.md` when present and treat it as the local taxonomy contract.
+3. Implement production React/Tailwind UI in the physical taxonomy when adopted: shared pieces under `apps/web/src/design-system/{atoms,molecules,organisms}`, feature pieces under `apps/web/src/features/<area>/{components,screens,model,spikes}`, and stories beside the implementation.
+4. Use `shared/design-tokens.ts` as the token source and extend `apps/web/tailwind.config.ts` from it.
+5. Use Storybook as the mockup viewer and source-code correspondence map. Shared primitives and app chrome live under `Design System/`; product-specific pieces live under `Features/<Area>/Components`; composed screens live under `Features/<Area>/Screens`; active playgrounds live under `Features/<Area>/Spikes`; `Flows/` is only for real multi-screen journey stories.
+6. Prefer one responsive screen implementation with curated mobile/tablet/desktop story snapshots and controls instead of separate per-platform screen implementations.
+7. Use direct aliases such as `@app/*`, `@design-system/*`, `@features/*`, `@lib/*`, and `@shared/*` when the project defines them.
+8. When the user asks to compare layouts or decide between approaches, create story-only options first and keep current production defaults unchanged until the user chooses.
+9. When a screen area is uncertain, allow component-first spikes: isolated component stories, then a composed spike story, then wire the approved/recommended version into the real screen only when requested.
+10. For shared chrome/component extraction, expose the contract in component stories before broadly rewriting screens.
+11. Run the app verification gate from `apps/web`: `npm run typecheck`, `npm run build`, `npm run build-storybook`, and `npm run test-storybook`. If present, also run a Storybook navigation/browser smoke script such as `npm run test:storybook-navigation`, inspect `storybook-static/index.json` for taxonomy/source correspondence, and save screenshot evidence for visual changes, options, or spikes.
 
 ### Step 3: Dispatch to phase recipe
 
@@ -87,7 +89,7 @@ The skill playbook defines recipes keyed by phase `types`. Dispatch table:
 
 | Phase types contain | Recipe | Output location |
 |---------------------|--------|-----------------|
-| React-first workflow marker + `apps/web/package.json` | React + Storybook recipe (`react-story`) | `apps/web/src/{components,screens}/`, `*.stories.tsx`, Storybook config/scripts, browser-check evidence |
+| React-first workflow marker + `apps/web/package.json` | React + Storybook recipe (`react-story`) | `apps/web/src/design-system/**`, `apps/web/src/features/**`, `*.stories.tsx`, Storybook config/scripts, browser-check evidence |
 | `design-system` (M1) | Tokens + stress-test matrix recipe | `docs/mockups/{tokens.css, explorations/, stress-*.html}` |
 | `design-system` + `ui-kit` (M2/M3) | Atoms / molecules recipe | `docs/mockups/{atoms,molecules}/` |
 | `mockup-flows` + `mockup-index` (M4) | Flows + INDEX seed recipe | `docs/mockups/{flows/, INDEX.md}` + populate ENTITIES.md CRUD |
